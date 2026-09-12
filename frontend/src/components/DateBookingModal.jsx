@@ -13,10 +13,10 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
   const [venue, setVenue] = useState("");
   const [city, setCity] = useState(target?.city || "");
   const [when, setWhen] = useState("");
-  const [coins, setCoins] = useState(meta?.date_min_coins || 300);
+  const [coins, setCoins] = useState(target?.date_price || meta?.date_min_coins || 300);
   const [busy, setBusy] = useState(false);
 
-  React.useEffect(() => { setCity(target?.city || ""); }, [target]);
+  React.useEffect(() => { setCity(target?.city || ""); setCoins(target?.date_price || meta?.date_min_coins || 300); }, [target, meta]);
 
   const submit = async () => {
     if (!venue || !when) { toast.error(t("fill_all", lang)); return; }

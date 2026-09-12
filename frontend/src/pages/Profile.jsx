@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
 
-const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size"];
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price"];
 
 export default function Profile() {
-  const { user, refreshUser, lang } = useApp();
+  const { user, refreshUser, lang, meta } = useApp();
   const [f, setF] = useState(() => ({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country,
     ...Object.fromEntries(DETAIL_KEYS.map(k => [k, user?.[k] ?? null])) }));
   const [busy, setBusy] = useState(false);
@@ -25,6 +25,7 @@ export default function Profile() {
       for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = k === "hobbies" || k === "languages_spoken" ? [] : "";
       if (!payload.height) delete payload.height;
       if (!payload.weight) delete payload.weight;
+      if (!payload.date_price) delete payload.date_price;
       await api.patch("/auth/me", payload); await refreshUser(); toast.success(t("saved", lang));
     } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
   };
@@ -52,6 +53,11 @@ export default function Profile() {
           </div>
           <div><Label className="text-xs text-slate-400">{t("bio", lang)}</Label>
             <Textarea data-testid="profile-bio-input" rows={4} value={f.bio || ""} onChange={e => setF({ ...f, bio: e.target.value })} className="bg-white/5 border-white/10 mt-1"/></div>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <Label className="text-xs text-amber-300">{t("date_price", lang)}</Label>
+            <Input data-testid="profile-date-price-input" type="number" min={meta?.date_min_coins || 300} step="50" value={f.date_price || ""} placeholder={String(meta?.date_min_coins || 300)} onChange={e => setF({ ...f, date_price: e.target.value ? parseInt(e.target.value) : null })} className="bg-white/5 border-white/10 mt-1 font-mono-num"/>
+            <p className="text-xs text-slate-400 mt-1">{t("date_price_hint", lang).replace("{n}", meta?.date_min_coins || 300)}</p>
+          </div>
         </div>
         <ProfileDetailsForm f={f} setF={setF} lang={lang} gender={user?.gender} />
         <div className="sticky bottom-4">

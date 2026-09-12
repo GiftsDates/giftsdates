@@ -176,6 +176,7 @@ class ProfileUpdate(BaseModel):
     religion: Optional[str] = None
     bust_size: Optional[str] = None
     penis_size: Optional[str] = None
+    date_price: Optional[int] = None
 
 class LikeReq(BaseModel):
     target_id: str
@@ -295,6 +296,9 @@ async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
     upd = {k: v for k, v in patch.model_dump().items() if v is not None}
     if "height" in upd and not (100 <= upd["height"] <= 250): raise HTTPException(400, "Height must be 100-250 cm")
     if "weight" in upd and not (30 <= upd["weight"] <= 300): raise HTTPException(400, "Weight must be 30-300 kg")
+    if "date_price" in upd:
+        mn = (await get_settings())["date_min_coins"]
+        if upd["date_price"] < mn: raise HTTPException(400, f"Date price must be at least {mn} coins")
     if "photos" in upd and len(upd["photos"]) > MAX_PHOTOS:
         raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
     if upd:

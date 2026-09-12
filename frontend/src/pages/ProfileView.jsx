@@ -74,7 +74,7 @@ export default function ProfileView() {
               {p.conversation_id && <Button data-testid="profile-view-chat-button" onClick={() => nav("/chats")} variant="outline" className="h-11 bg-white/5 border-white/15"><MessageCircle size={16} className="me-1" /> {t("open_chat", lang)}</Button>}
               <Button data-testid="profile-view-gift-button" onClick={() => setModal("gift")} variant="outline" className="h-11 bg-amber-500/10 border-amber-500/40 text-amber-300"><Gift size={16} className="me-1" /> {t("gift", lang)}</Button>
               <Button data-testid="profile-view-video-button" onClick={() => setModal("video")} variant="outline" className="h-11 bg-violet-500/10 border-violet-500/40 text-violet-300"><Video size={16} className="me-1" /> {t("video_call", lang)}</Button>
-              <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> {t("book_date", lang)}</Button>
+              <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> {t("book_date", lang)}{p.date_price ? <span className="ms-2 font-mono-num text-amber-300" data-testid="profile-view-date-price">🪙 {p.date_price}</span> : null}</Button>
             </div>
 
             {p.bio && <div className="glass rounded-2xl p-5"><h3 className="font-serif-luxe text-xl mb-2">{t("about_me", lang)}</h3><p className="text-sm text-slate-300 whitespace-pre-line" data-testid="profile-view-bio">{p.bio}</p></div>}

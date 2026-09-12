@@ -240,6 +240,8 @@ const T = {
   bonus: { ru: "Бонус", en: "Bonus", es: "Bono", fr: "Bonus", de: "Bonus", pt: "Bônus", zh: "奖励", ar: "مكافأة", hi: "बोनस", bn: "বোনাস", ur: "بونس" },
   price_usd: { ru: "Цена ($)", en: "Price ($)", es: "Precio ($)", fr: "Prix ($)", de: "Preis ($)", pt: "Preço ($)", zh: "价格（$）", ar: "السعر ($)", hi: "मूल्य ($)", bn: "মূল্য ($)", ur: "قیمت ($)" },
   add: { ru: "Добавить", en: "Add", es: "Añadir", fr: "Ajouter", de: "Hinzufügen", pt: "Adicionar", zh: "添加", ar: "إضافة", hi: "जोड़ें", bn: "যোগ করুন", ur: "شامل کریں" },
+  date_price: { ru: "Цена свидания (🪙)", en: "Date price (🪙)", es: "Precio de la cita (🪙)", fr: "Prix du rendez-vous (🪙)", de: "Date-Preis (🪙)", pt: "Preço do encontro (🪙)", zh: "约会价格（🪙）", ar: "سعر الموعد (🪙)", hi: "डेट की कीमत (🪙)", bn: "ডেটের মূল্য (🪙)", ur: "ملاقات کی قیمت (🪙)" },
+  date_price_hint: { ru: "Сколько монет вы хотите получить за свидание (минимум {n})", en: "How many coins you want for a date (minimum {n})", es: "Cuántas monedas quieres por una cita (mínimo {n})", fr: "Combien de pièces pour un rendez-vous (minimum {n})", de: "Wie viele Münzen für ein Date (mindestens {n})", pt: "Quantas moedas você quer por um encontro (mínimo {n})", zh: "一次约会您希望获得多少金币（最少 {n}）", ar: "كم عملة تريد مقابل موعد (الحد الأدنى {n})", hi: "एक डेट के लिए कितने कॉइन चाहते हैं (न्यूनतम {n})", bn: "একটি ডেটের জন্য কত কয়েন চান (সর্বনিম্ন {n})", ur: "ایک ملاقات کے لیے کتنے کوائنز چاہتے ہیں (کم سے کم {n})" },
 };
 
 export function t(key, lang) {
