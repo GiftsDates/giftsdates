@@ -199,6 +199,7 @@ class ProfileUpdate(BaseModel):
     bust_size: Optional[str] = None
     penis_size: Optional[str] = None
     date_price: Optional[int] = None
+    video_rate: Optional[int] = None  # coins per minute, >= global video_rate
     availability: Optional[List[str]] = None  # ISO dates YYYY-MM-DD when user is open for dates
 
 class LikeReq(BaseModel):
@@ -331,6 +332,9 @@ async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
         if upd["date_price"] < mn: raise HTTPException(400, f"Date price must be at least {mn} coins")
     if "photos" in upd and len(upd["photos"]) > MAX_PHOTOS:
         raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
+    if "video_rate" in upd:
+        mn = (await get_settings())["video_rate"]
+        if upd["video_rate"] < mn: raise HTTPException(400, f"Video rate must be at least {mn} coins/min")
     if "availability" in upd:
         upd["availability"] = sorted({d[:10] for d in upd["availability"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d[:10])})
     if upd:
@@ -605,17 +609,18 @@ async def gifts_sent(user=Depends(get_current_user)):
 # ---------- Video calls ----------
 @api.post("/videocalls/start")
 async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
-    cost = req.minutes * (await get_settings())["video_rate"]
-    if user["coins"] < cost: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
+    rate = max(target.get("video_rate") or 0, (await get_settings())["video_rate"])
+    cost = req.minutes * rate
+    if user["coins"] < cost: raise HTTPException(400, "Insufficient coins")
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -cost}})
     net = cost
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
     call_id = str(uuid.uuid4())
-    await db.transactions.insert_one({"id": call_id, "type": "videocall", "from_id": user["id"], "to_id": req.target_id, "minutes": req.minutes, "cost": cost, "net": net, "created_at": now})
-    return {"call_id": call_id, "cost": cost, "minutes": req.minutes}
+    await db.transactions.insert_one({"id": call_id, "type": "videocall", "from_id": user["id"], "to_id": req.target_id, "minutes": req.minutes, "cost": cost, "rate": rate, "net": net, "created_at": now})
+    return {"call_id": call_id, "cost": cost, "minutes": req.minutes, "rate": rate}
 
 # ---------- Date bookings with escrow ----------
 @api.post("/dates/book")

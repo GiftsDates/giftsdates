@@ -11,7 +11,7 @@ import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
 import AvailabilityCalendar from "../components/AvailabilityCalendar";
 
-const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "availability"];
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability"];
 
 export default function Profile() {
   const { user, refreshUser, lang, meta } = useApp();
@@ -27,6 +27,7 @@ export default function Profile() {
       if (!payload.height) delete payload.height;
       if (!payload.weight) delete payload.weight;
       if (!payload.date_price) delete payload.date_price;
+      if (!payload.video_rate) delete payload.video_rate;
       await api.patch("/auth/me", payload); await refreshUser(); toast.success(t("saved", lang));
     } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
   };
@@ -58,6 +59,11 @@ export default function Profile() {
             <Label className="text-xs text-amber-300">{t("date_price", lang)}</Label>
             <Input data-testid="profile-date-price-input" type="number" min={meta?.date_min_coins || 300} step="50" value={f.date_price || ""} placeholder={String(meta?.date_min_coins || 300)} onChange={e => setF({ ...f, date_price: e.target.value ? parseInt(e.target.value) : null })} className="bg-white/5 border-white/10 mt-1 font-mono-num"/>
             <p className="text-xs text-slate-400 mt-1">{t("date_price_hint", lang).replace("{n}", meta?.date_min_coins || 300)}</p>
+          </div>
+          <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
+            <Label className="text-xs text-violet-300">{t("video_price", lang)}</Label>
+            <Input data-testid="profile-video-rate-input" type="number" min={meta?.video_rate || 10} step="5" value={f.video_rate || ""} placeholder={String(meta?.video_rate || 10)} onChange={e => setF({ ...f, video_rate: e.target.value ? parseInt(e.target.value) : null })} className="bg-white/5 border-white/10 mt-1 font-mono-num"/>
+            <p className="text-xs text-slate-400 mt-1">{t("video_price_hint", lang).replace("{n}", meta?.video_rate || 10)}</p>
           </div>
         </div>
         <ProfileDetailsForm f={f} setF={setF} lang={lang} gender={user?.gender} />

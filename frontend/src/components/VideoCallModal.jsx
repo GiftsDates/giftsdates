@@ -11,6 +11,7 @@ import { t } from "../lib/i18n";
 
 export default function VideoCallModal({ open, onOpenChange, target }) {
   const { user, meta, lang, refreshUser } = useApp();
+  const rate = Math.max(target?.video_rate || 0, meta?.video_rate || 10);
   const [minutes, setMinutes] = useState(5);
   const [phase, setPhase] = useState("setup"); // setup | connecting | in_call | ended
   const [elapsed, setElapsed] = useState(0);
@@ -23,7 +24,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
   }, [open]);
 
   const start = async () => {
-    const cost = minutes * (meta?.video_rate || 10);
+    const cost = minutes * rate;
     if (user.coins < cost) { toast.error(t("not_enough_coins", lang)); return; }
     setPhase("connecting");
     try {
@@ -42,7 +43,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
-  const cost = minutes * (meta?.video_rate || 10);
+  const cost = minutes * rate;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,7 +54,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
             <Label className="text-xs text-slate-400">{t("duration_min", lang)}</Label>
             <Input data-testid="videocall-minutes-input" type="number" min={1} max={60} value={minutes} onChange={e => setMinutes(parseInt(e.target.value || 1))} className="bg-white/5 border-white/10" />
             <div className="glass rounded-xl p-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">{t("rate", lang)}</span><span className="font-mono-num text-amber-300">🪙 {meta?.video_rate}/{t("minutes", lang)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">{t("rate", lang)}</span><span className="font-mono-num text-amber-300">🪙 {rate}/{t("minutes", lang)}</span></div>
               <div className="flex justify-between mt-1"><span className="text-slate-400">{t("cost", lang)}</span><span className="font-mono-num text-amber-300">🪙 {cost}</span></div>
               <div className="flex justify-between mt-1"><span className="text-slate-400">{t("balance", lang)}</span><span className="font-mono-num">🪙 {user?.coins}</span></div>
             </div>
@@ -69,7 +70,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
                   <div className="w-32 h-32 rounded-full mx-auto bg-gradient-to-br from-rose-500 to-violet-500 flex items-center justify-center text-5xl font-serif-luxe">{target?.name?.[0]}</div>
                   <div className="mt-4 font-serif-luxe text-3xl">{target?.name}</div>
                   <div className="mt-1 text-amber-300 font-mono-num text-lg">{mm}:{ss}</div>
-                  <div className="text-xs text-slate-400">🪙 {Math.min(minutes*60, elapsed) * (meta?.video_rate||10)/60 | 0} of {cost}</div>
+                  <div className="text-xs text-slate-400">🪙 {Math.min(minutes*60, elapsed) * rate/60 | 0} of {cost}</div>
                 </>
               )}
             </div>
