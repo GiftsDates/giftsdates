@@ -3,8 +3,9 @@ import { api, fileUrl } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { CalendarHeart, Camera, Clock, Check, X } from "lucide-react";
+import { CalendarHeart, Camera, Clock, Check, X, MapPin } from "lucide-react";
 
 const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
 const STATUS_COLOR = { escrow: "bg-amber-500/15 text-amber-300 border-amber-500/30", accepted: "bg-sky-500/15 text-sky-300 border-sky-500/30", confirmed: "bg-violet-500/15 text-violet-300 border-violet-500/30", released: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", cancelled: "bg-red-500/15 text-red-300 border-red-500/30", declined: "bg-red-500/15 text-red-300 border-red-500/30" };
@@ -13,6 +14,7 @@ export default function Dates() {
   const { lang, refreshUser } = useApp();
   const [data, setData] = useState({ outgoing: [], incoming: [] });
   const [busyId, setBusyId] = useState(null);
+  const [editLoc, setEditLoc] = useState(null); // { id, venue, city }
   const inputRef = useRef();
   const uploadingFor = useRef(null);
 
@@ -29,6 +31,14 @@ export default function Dates() {
   const respond = async (id, accept) => {
     setBusyId(id);
     try { await api.post(`/dates/respond/${id}?accept=${accept}`); await refreshUser(); await load(); toast.success(t(accept ? "date_accepted_toast" : "date_declined_toast", lang)); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const saveLocation = async () => {
+    if (!editLoc?.venue.trim() || !editLoc?.city.trim()) { toast.error(t("fill_all", lang)); return; }
+    setBusyId(editLoc.id);
+    try { await api.post(`/dates/location/${editLoc.id}`, { venue: editLoc.venue, city: editLoc.city }); await load(); toast.success(t("location_changed", lang)); setEditLoc(null); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
@@ -54,6 +64,15 @@ export default function Dates() {
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1"><CalendarHeart size={14} className="text-rose-400"/><span className="font-serif-luxe text-lg">{b.venue}</span></div>
         <div className="text-xs text-slate-400 flex items-center gap-2"><Clock size={11}/> {new Date(b.scheduled_at).toLocaleString()} · {b.city}</div>
+        {b.location_changed_at && !isIncoming && <div className="text-xs text-amber-300 mt-0.5 flex items-center gap-1" data-testid={`date-location-changed-${b.id}`}><MapPin size={11}/> {t("location_changed_by_partner", lang).replace("{v}", `${b.original_venue}, ${b.original_city}`)}</div>}
+        {editLoc?.id === b.id && (
+          <div className="mt-2 flex flex-wrap gap-2 items-center" data-testid={`date-location-form-${b.id}`}>
+            <Input data-testid={`date-location-venue-${b.id}`} value={editLoc.venue} onChange={e => setEditLoc({ ...editLoc, venue: e.target.value })} placeholder={t("venue", lang)} className="bg-white/5 border-white/10 h-9 w-48" />
+            <Input data-testid={`date-location-city-${b.id}`} value={editLoc.city} onChange={e => setEditLoc({ ...editLoc, city: e.target.value })} placeholder={t("city", lang)} className="bg-white/5 border-white/10 h-9 w-36" />
+            <Button data-testid={`date-location-save-${b.id}`} size="sm" disabled={busyId===b.id} onClick={saveLocation} className="rose-btn text-white border-0 h-9">{t("save", lang)}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditLoc(null)} className="text-slate-400 h-9">{t("cancel", lang)}</Button>
+          </div>
+        )}
         <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLOR[b.status]}`}>{t(STATUS_MAP[b.status], lang)}</span>
           <span className="text-xs text-amber-300 font-mono-num">🪙 {b.coins}</span>
@@ -61,6 +80,9 @@ export default function Dates() {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
+        {isIncoming && (b.status === "escrow" || b.status === "accepted") && editLoc?.id !== b.id && (
+          <Button data-testid={`date-change-location-btn-${b.id}`} disabled={busyId===b.id} onClick={() => setEditLoc({ id: b.id, venue: b.venue, city: b.city })} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10"><MapPin size={14} className="me-1"/> {t("change_location", lang)}</Button>
+        )}
         {isIncoming && b.status === "escrow" && (
           <>
             <Button data-testid={`date-accept-btn-${b.id}`} disabled={busyId===b.id} onClick={() => respond(b.id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0"><Check size={14} className="me-1"/> {t("accept", lang)}</Button>

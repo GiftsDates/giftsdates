@@ -657,6 +657,23 @@ async def respond_date(bid: str, accept: bool, user=Depends(get_current_user)):
     await notify(b["from_id"], "date_declined", "Date declined", f"{user['name']} declined your date at {b['venue']}. 🪙 {b['coins']} refunded.", {"booking_id": bid}, email=True)
     return {"status": "declined", "refunded": b["coins"]}
 
+class LocationReq(BaseModel):
+    venue: str
+    city: str
+
+@api.post("/dates/location/{bid}")
+async def change_location(bid: str, req: LocationReq, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can change location")
+    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot change location")
+    if not req.venue.strip() or not req.city.strip(): raise HTTPException(400, "Venue and city required")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": req.venue.strip(), "city": req.city.strip(), "location_changed_at": now,
+                                                              "original_venue": b.get("original_venue") or b["venue"], "original_city": b.get("original_city") or b["city"]}})
+    await notify(b["from_id"], "date_location", "Date location changed 📍", f"{user['name']} changed the meeting place to {req.venue.strip()}, {req.city.strip()}. You can cancel if it doesn't suit you.", {"booking_id": bid}, email=True)
+    return {"status": b["status"], "venue": req.venue.strip(), "city": req.city.strip()}
+
 @api.get("/profiles/{pid}/availability")
 async def profile_availability(pid: str, user=Depends(get_current_user)):
     p = await db.users.find_one({"id": pid}, {"_id": 0, "availability": 1})
