@@ -67,6 +67,7 @@ COIN_PACKAGES = {
 CUSTOM_COINS_PER_USD = 10
 CUSTOM_BONUS_PCT = 2
 CUSTOM_MIN_USD = 1.0
+COINS_PER_USD = 10  # payout rate: 10 coins = $1
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
@@ -102,6 +103,7 @@ DEFAULT_SETTINGS = {
     "custom_coins_per_usd": CUSTOM_COINS_PER_USD,
     "custom_bonus_pct": CUSTOM_BONUS_PCT,
     "custom_min_usd": CUSTOM_MIN_USD,
+    "coins_per_usd": COINS_PER_USD,
 }
 
 async def get_settings() -> dict:
@@ -277,6 +279,7 @@ async def meta():
         "referral_bonus": s["referral_bonus"],
         "free_daily_likes": s["free_daily_likes"],
         "custom_coins": {"per_usd": s["custom_coins_per_usd"], "bonus_pct": s["custom_bonus_pct"], "min_usd": s["custom_min_usd"]},
+        "coins_per_usd": s["coins_per_usd"],
         "max_photos": MAX_PHOTOS,
     }
 
@@ -729,8 +732,9 @@ async def wallet(user=Depends(get_current_user)):
     txs = await db.transactions.find({"$or": [{"from_id": user["id"]}, {"to_id": user["id"]}]}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     withdrawals = await db.withdrawals.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     acct = await db.payout_accounts.find_one({"user_id": user["id"]}, {"_id": 0})
+    s = await get_settings()
     return {"coins": user["coins"], "escrow": user.get("escrow", 0), "withdrawable": user.get("withdrawable", 0),
-            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": (await get_settings())["commission"], "is_admin": is_admin(user)}
+            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": s["commission"], "coins_per_usd": s["coins_per_usd"], "is_admin": is_admin(user)}
 
 @api.get("/wallet/payout-account")
 async def get_payout_account(user=Depends(get_current_user)):
@@ -749,16 +753,17 @@ async def submit_payout_account(req: PayoutAccountReq, user=Depends(get_current_
 
 @api.post("/wallet/withdraw")
 async def withdraw(req: WithdrawReq, user=Depends(get_current_user)):
-    # withdrawable is in coins; 100 coins = $1; 30% platform commission withheld here
+    # withdrawable is in coins; coins_per_usd (default 10 coins = $1); commission withheld here
     if req.amount <= 0: raise HTTPException(400, "Invalid amount")
     if user.get("withdrawable", 0) < req.amount: raise HTTPException(400, "Insufficient withdrawable balance")
     acct = await db.payout_accounts.find_one({"user_id": user["id"]})
     if not acct or acct["status"] != "verified": raise HTTPException(400, "Bank account not verified")
-    fee = round(req.amount * (await get_settings())["commission"], 2)
+    s = await get_settings()
+    fee = round(req.amount * s["commission"], 2)
     net = round(req.amount - fee, 2)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"withdrawable": -req.amount}})
-    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "fee": fee, "net": net, "usd": round(net / 100, 2),
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "fee": fee, "net": net, "usd": round(net / s["coins_per_usd"], 2), "rate": s["coins_per_usd"],
            "method": "bank", "destination": f"{acct['bank_name']} ····{acct['iban'][-4:]}", "status": "pending", "created_at": now}
     await db.withdrawals.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
@@ -789,6 +794,7 @@ class SettingsReq(BaseModel):
     custom_coins_per_usd: int = CUSTOM_COINS_PER_USD
     custom_bonus_pct: float = CUSTOM_BONUS_PCT
     custom_min_usd: float = CUSTOM_MIN_USD
+    coins_per_usd: int = COINS_PER_USD
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):

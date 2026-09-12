@@ -16,7 +16,7 @@ export default function Wallet() {
   const { user, lang, meta, refreshUser } = useApp();
   const [sp] = useSearchParams();
   const nav = useNavigate();
-  const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3 });
+  const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3, coins_per_usd: 10 });
   const [topOpen, setTopOpen] = useState(false);
   const [wdOpen, setWdOpen] = useState(false);
   const [premOpen, setPremOpen] = useState(sp.get("premium") === "1");
@@ -59,7 +59,7 @@ export default function Wallet() {
         <div className="grid sm:grid-cols-3 gap-4">
           <Card icon={Coins} title={t("balance", lang)} value={`🪙 ${user?.coins ?? 0}`} tone="amber" testid="wallet-balance-coins"/>
           <Card icon={Lock} title={t("escrow", lang)} value={`🪙 ${user?.escrow ?? 0}`} tone="violet" testid="wallet-escrow-coins"/>
-          <Card icon={WalletIcon} title={t("withdrawable", lang)} value={`🪙 ${user?.withdrawable ?? 0}`} sub={`≈ $${((user?.withdrawable||0)*(1-wallet.withdraw_commission)/100).toFixed(2)} ${t("you_receive", lang).toLowerCase()} (−${Math.round(wallet.withdraw_commission*100)}%)`} tone="emerald" testid="wallet-withdrawable-coins"/>
+          <Card icon={WalletIcon} title={t("withdrawable", lang)} value={`🪙 ${user?.withdrawable ?? 0}`} sub={`≈ $${((user?.withdrawable||0)*(1-wallet.withdraw_commission)/wallet.coins_per_usd).toFixed(2)} ${t("you_receive", lang).toLowerCase()} (−${Math.round(wallet.withdraw_commission*100)}%) · ${wallet.coins_per_usd} 🪙 = $1`} tone="emerald" testid="wallet-withdrawable-coins"/>
         </div>
 
         <PayoutAccountCard key={wallet.payout_account?.submitted_at || "new"} account={wallet.payout_account} onSaved={load} />
@@ -159,7 +159,7 @@ export default function Wallet() {
             {verified && <div className="text-xs text-slate-400">{t("bank", lang)}: {wallet.payout_account.bank_name} ····{wallet.payout_account.iban.slice(-4)}</div>}
             <div className="glass rounded-lg p-3 text-sm space-y-1 font-mono-num" data-testid="withdraw-breakdown">
               <div className="flex justify-between text-slate-400"><span>{t("commission", lang)} {Math.round(wallet.withdraw_commission*100)}%</span><span className="text-rose-300">− 🪙 {fee}</span></div>
-              <div className="flex justify-between"><span>{t("you_receive", lang)}</span><span className="text-emerald-300">🪙 {net} ≈ ${(net/100).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>{t("you_receive", lang)}</span><span className="text-emerald-300">🪙 {net} ≈ ${(net/wallet.coins_per_usd).toFixed(2)}</span></div>
             </div>
             <Button data-testid="wallet-withdraw-submit-button" disabled={!verified} onClick={withdraw} className="rose-btn text-white border-0 w-full h-11">{t("withdraw", lang)}</Button>
           </div>

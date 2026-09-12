@@ -279,6 +279,7 @@ const T = {
   change_location: { ru: "Изменить место", en: "Change location", es: "Cambiar lugar", fr: "Changer le lieu", de: "Ort ändern", pt: "Alterar local", zh: "更改地点", ar: "تغيير المكان", hi: "स्थान बदलें", bn: "স্থান পরিবর্তন", ur: "جگہ بدلیں" },
   location_changed: { ru: "Место встречи изменено", en: "Meeting place updated", es: "Lugar de encuentro actualizado", fr: "Lieu de rendez-vous modifié", de: "Treffpunkt geändert", pt: "Local do encontro alterado", zh: "见面地点已更新", ar: "تم تغيير مكان اللقاء", hi: "मिलने की जगह बदली", bn: "সাক্ষাতের স্থান পরিবর্তিত", ur: "ملاقات کی جگہ بدل گئی" },
   location_changed_by_partner: { ru: "Место изменено партнёром (было: {v})", en: "Location changed by your date (was: {v})", es: "Lugar cambiado por tu cita (antes: {v})", fr: "Lieu modifié par votre partenaire (avant : {v})", de: "Ort vom Date geändert (vorher: {v})", pt: "Local alterado pelo par (antes: {v})", zh: "对方更改了地点（原：{v}）", ar: "غيّر الطرف الآخر المكان (كان: {v})", hi: "साथी ने स्थान बदला (पहले: {v})", bn: "সঙ্গী স্থান বদলেছে (আগে: {v})", ur: "ساتھی نے جگہ بدلی (پہلے: {v})" },
+  payout_rate_label: { ru: "Курс вывода (🪙 за $1)", en: "Payout rate (🪙 per $1)", es: "Tasa de retiro (🪙 por $1)", fr: "Taux de retrait (🪙 par 1 $)", de: "Auszahlungskurs (🪙 pro 1 $)", pt: "Taxa de saque (🪙 por $1)", zh: "提现汇率（每 $1 🪙）", ar: "سعر السحب (🪙 لكل 1$)", hi: "भुगतान दर (🪙 प्रति $1)", bn: "পেআউট হার (🪙 প্রতি $1)", ur: "ادائیگی ریٹ (🪙 فی 1$)" },
 };
 
 export function t(key, lang) {
