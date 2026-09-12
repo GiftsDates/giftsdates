@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Heart } from "lucide-react";
+import SpinWheel from "../components/SpinWheel";
 
 export default function Auth() {
   const { login, register, lang } = useApp();
@@ -18,12 +19,23 @@ export default function Auth() {
   const [mode, setMode] = useState(sp.get("register") ? "register" : "login");
   const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", orientation: "straight", city: "", country: "", bio: "", referral_code: sp.get("ref") || "" });
   const [busy, setBusy] = useState(false);
+  const [pendingSpin] = useState(() => {
+    try { const p = JSON.parse(localStorage.getItem("gd_spin_prize") || "null"); return p && localStorage.getItem("gd_spin_token") ? p : null; } catch { return null; }
+  });
 
   const submit = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
       if (mode === "login") { await login(f.email, f.password); toast.success(t("welcome_back", lang)); }
-      else { await register(f); toast.success(t("welcome_new", lang)); }
+      else {
+        const st = localStorage.getItem("gd_spin_token");
+        await register({ ...f, spin_token: st || undefined });
+        if (pendingSpin) {
+          localStorage.removeItem("gd_spin_token"); localStorage.removeItem("gd_spin_prize");
+          const p = pendingSpin.type === "premium" ? t("spin_premium_prize", lang) : t("spin_coins_prize", lang).replace("{n}", pendingSpin.coins);
+          toast.success(t("spin_bonus_applied", lang).replace("{p}", p));
+        } else { toast.success(t("welcome_new", lang)); }
+      }
       nav(mode === "login" ? "/browse" : "/verify");
     } catch (err) {
       const d = err.response?.data?.detail || "";
@@ -42,6 +54,17 @@ export default function Auth() {
           </div>
           <h2 className="font-serif-luxe text-3xl">{mode === "login" ? t("login", lang) : t("register", lang)}</h2>
         </div>
+
+        {mode === "register" && pendingSpin && (
+          <div data-testid="spin-pending-banner" className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-center text-sm">
+            <span className="font-semibold text-amber-200">🎁 {t("spin_banner", lang).replace("{p}", pendingSpin.type === "premium" ? t("spin_premium_prize", lang) : t("spin_coins_prize", lang).replace("{n}", pendingSpin.coins))}</span>
+          </div>
+        )}
+        {!pendingSpin && (
+          <div className="mb-4 flex justify-center">
+            <SpinWheel onClaim={() => setMode("register")} />
+          </div>
+        )}
 
         <form onSubmit={submit} className="space-y-3">
           <div>

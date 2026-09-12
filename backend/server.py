@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-import os, uuid, logging, bcrypt, jwt, stripe, requests, re
+import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -198,6 +198,7 @@ class RegisterReq(BaseModel):
     country: str
     bio: Optional[str] = ""
     referral_code: Optional[str] = None
+    spin_token: Optional[str] = None
 
 class LoginReq(BaseModel):
     email: EmailStr
@@ -321,6 +322,8 @@ async def _startup():
     await db.users.create_index("id", unique=True)
     await db.likes.create_index([("from_id", 1), ("to_id", 1)], unique=True)
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
+    await db.spins.create_index("token", unique=True)
+    await db.spins.create_index([("ip", 1), ("used", 1)])
     logging.info("GiftsDates backend ready")
 
 # ---------- Meta ----------
@@ -344,6 +347,66 @@ async def meta():
         "max_photos": MAX_PHOTOS,
     }
 
+# ---------- Spin-to-win (pre-registration promo) ----------
+SPIN_PRIZES = [
+    {"index": 0, "type": "coins", "coins": 10, "weight": 80, "label": "10"},
+    {"index": 1, "type": "coins", "coins": 20, "weight": 75, "label": "20"},
+    {"index": 2, "type": "coins", "coins": 30, "weight": 70, "label": "30"},
+    {"index": 3, "type": "coins", "coins": 40, "weight": 60, "label": "40"},
+    {"index": 4, "type": "coins", "coins": 50, "weight": 50, "label": "50"},
+    {"index": 5, "type": "coins", "coins": 60, "weight": 40, "label": "60"},
+    {"index": 6, "type": "coins", "coins": 100, "weight": 15, "label": "100"},
+    {"index": 7, "type": "premium", "premium_days": 30, "weight": 10, "label": "PREMIUM"},
+]
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff: return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+def _pick_spin_prize() -> dict:
+    total = sum(p["weight"] for p in SPIN_PRIZES)
+    r = secrets.randbelow(total)
+    acc = 0
+    for p in SPIN_PRIZES:
+        acc += p["weight"]
+        if r < acc: return p
+    return SPIN_PRIZES[0]
+
+def _spin_public(p: dict) -> dict:
+    return {"index": p["index"], "type": p["type"], "coins": p.get("coins"), "premium_days": p.get("premium_days"), "label": p["label"]}
+
+async def _apply_spin_bonus(token: Optional[str], uid: str) -> Optional[dict]:
+    if not token: return None
+    sp = await db.spins.find_one({"token": token, "used": False})
+    if not sp: return None
+    if sp["type"] == "coins":
+        await db.users.update_one({"id": uid}, {"$inc": {"coins": int(sp["coins"])}})
+        bonus = {"type": "coins", "coins": int(sp["coins"])}
+    else:
+        until = (datetime.now(timezone.utc) + timedelta(days=int(sp.get("premium_days", 30)))).isoformat()
+        await db.users.update_one({"id": uid}, {"$set": {"premium_until": until}})
+        bonus = {"type": "premium", "premium_days": int(sp.get("premium_days", 30))}
+    await db.spins.update_one({"token": token}, {"$set": {"used": True, "used_by": uid, "used_at": datetime.now(timezone.utc).isoformat()}})
+    return bonus
+
+@api.get("/spin/config")
+async def spin_config():
+    return {"prizes": [_spin_public(p) for p in SPIN_PRIZES]}
+
+@api.post("/spin")
+async def spin(request: Request):
+    ip = _client_ip(request)
+    existing = await db.spins.find_one({"ip": ip, "used": False})
+    if existing:
+        return {**_spin_public(SPIN_PRIZES[existing["index"]]), "token": existing["token"], "locked": True}
+    p = _pick_spin_prize()
+    token = str(uuid.uuid4())
+    await db.spins.insert_one({"id": str(uuid.uuid4()), "token": token, "index": p["index"], "type": p["type"],
+                               "coins": p.get("coins"), "premium_days": p.get("premium_days"), "ip": ip,
+                               "used": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    return {**_spin_public(p), "token": token, "locked": False}
+
 # ---------- Auth ----------
 @api.post("/auth/register")
 async def register(req: RegisterReq):
@@ -366,7 +429,9 @@ async def register(req: RegisterReq):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)
-    return {"token": make_token(uid), "user": {k: v for k, v in doc.items() if k not in ("password", "_id")}}
+    spin_bonus = await _apply_spin_bonus(req.spin_token, uid)
+    fresh = await db.users.find_one({"id": uid})
+    return {"token": make_token(uid), "user": {k: v for k, v in fresh.items() if k not in ("password", "_id")}, "spin_bonus": spin_bonus}
 
 @api.post("/auth/login")
 async def login(req: LoginReq):
@@ -864,66 +929,6 @@ async def respond_date(bid: str, accept: bool, user=Depends(get_current_user)):
     await notify(b["from_id"], "date_declined", "Date declined", f"{user['name']} declined your date at {b['venue']}. 🪙 {b['coins']} refunded.", {"booking_id": bid}, email=True)
     return {"status": "declined", "refunded": b["coins"]}
 
-class LocationReq(BaseModel):
-    venue: str
-    city: str
-    address: Optional[str] = ""
-    postal_code: Optional[str] = ""
-    country: Optional[str] = ""
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-
-async def _split_cancel(b: dict, reason: str):
-    pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
-    refund = int(round(b["coins"] * pct)); kept = b["coins"] - refund
-    now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one({"id": b["from_id"]}, {"$inc": {"coins": refund}})
-    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept}})
-    await db.date_bookings.update_one({"id": b["id"]}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now, "cancel_reason": reason, "pending_location": None}})
-    if kept:
-        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_fee", "from_id": b["from_id"], "to_id": b["to_id"], "cost": kept, "net": kept, "created_at": now})
-    for uid in (b["from_id"], b["to_id"]):
-        await notify(uid, "date_cancelled", "Date cancelled", f"Date at {b['venue']} was cancelled: {reason}. Refund 🪙 {refund} / compensation 🪙 {kept}.", {"booking_id": b["id"]}, email=True)
-
-async def _expire_location_proposals(user_id: str):
-    now_dt = datetime.now(timezone.utc)
-    rows = await db.date_bookings.find({"status": {"$in": ["escrow", "accepted"]}, "pending_location": {"$ne": None}, "$or": [{"from_id": user_id}, {"to_id": user_id}]}).to_list(200)
-    for b in rows:
-        try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
-        except Exception: continue
-        if now_dt >= sched.replace(hour=0, minute=0, second=0, microsecond=0):
-            await _split_cancel(b, "address change was not approved before the meeting day")
-
-@api.post("/dates/location/{bid}")
-async def change_location(bid: str, req: LocationReq, user=Depends(get_current_user)):
-    b = await db.date_bookings.find_one({"id": bid})
-    if not b: raise HTTPException(404, "Not found")
-    if user["id"] not in (b["from_id"], b["to_id"]): raise HTTPException(403, "No access")
-    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot change location")
-    if not req.venue.strip() or not req.city.strip(): raise HTTPException(400, "Venue and city required")
-    now = datetime.now(timezone.utc).isoformat()
-    other = b["to_id"] if user["id"] == b["from_id"] else b["from_id"]
-    prop = {"venue": req.venue.strip(), "city": req.city.strip(), "address": (req.address or "").strip(), "postal_code": (req.postal_code or "").strip(), "country": (req.country or "").strip(), "lat": req.lat, "lng": req.lng, "proposed_by": user["id"], "proposed_at": now}
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"pending_location": prop}})
-    await notify(other, "date_location", "New meeting address proposed 📍", f"{user['name']} proposes {prop['venue']}, {prop['address'] or prop['city']}. Approve it before the meeting day, otherwise the date is cancelled with a 50% refund.", {"booking_id": bid}, email=True)
-    return {"status": b["status"], "pending_location": prop}
-
-@api.post("/dates/location/{bid}/respond")
-async def respond_location(bid: str, accept: bool, user=Depends(get_current_user)):
-    b = await db.date_bookings.find_one({"id": bid})
-    if not b or not b.get("pending_location"): raise HTTPException(404, "No pending proposal")
-    prop = b["pending_location"]
-    if user["id"] not in (b["from_id"], b["to_id"]) or user["id"] == prop["proposed_by"]: raise HTTPException(403, "Only the other party can respond")
-    now = datetime.now(timezone.utc).isoformat()
-    if accept:
-        await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": prop["venue"], "city": prop["city"], "address": prop.get("address", ""), "postal_code": prop.get("postal_code", ""), "country": prop.get("country", ""), "lat": prop.get("lat"), "lng": prop.get("lng"),
-            "location_changed_at": now, "original_venue": b.get("original_venue") or b["venue"], "original_city": b.get("original_city") or b["city"], "pending_location": None}})
-        await notify(prop["proposed_by"], "date_location", "Address approved ✅", f"{user['name']} approved the new meeting place: {prop['venue']}.", {"booking_id": bid}, email=True)
-        return {"status": "approved"}
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"pending_location": None}})
-    await notify(prop["proposed_by"], "date_location", "Address declined", f"{user['name']} declined the new meeting place. The original address stays.", {"booking_id": bid}, email=True)
-    return {"status": "declined"}
-
 @api.get("/profiles/{pid}/availability")
 async def profile_availability(pid: str, user=Depends(get_current_user)):
     p = await db.users.find_one({"id": pid}, {"_id": 0, "availability": 1, "availability_time": 1, "availability_slots": 1})
@@ -934,7 +939,6 @@ async def profile_availability(pid: str, user=Depends(get_current_user)):
 
 @api.get("/dates")
 async def list_dates(user=Depends(get_current_user)):
-    await _expire_location_proposals(user["id"])
     # trigger release for any past release_at
     now_dt = datetime.now(timezone.utc)
     to_release = await db.date_bookings.find({"to_id": user["id"], "status": "confirmed"}).to_list(200)
@@ -955,7 +959,6 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
     if not b: raise HTTPException(404, "Not found")
     if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can confirm")
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot confirm")
-    if b.get("pending_location"): raise HTTPException(400, "LOCATION_PENDING")
     now_dt = datetime.now(timezone.utc)
     try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
     except Exception: sched = now_dt

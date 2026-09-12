@@ -390,6 +390,18 @@ const T = {
   taxi_requested_toast: { ru: "Запрос на такси отправлен", en: "Taxi request sent" },
   taxi_sent_toast: { ru: "Такси отправлено 🚕", en: "Taxi sent 🚕" },
   taxi_pending_err: { ru: "Запрос на такси уже отправлен", en: "A taxi request is already pending" },
+  spin_win_btn: { ru: "🎁 Крутить рулетку", en: "🎁 Spin to win" },
+  spin_title: { ru: "Крутите и выигрывайте!", en: "Spin & Win!" },
+  spin_sub: { ru: "Испытайте удачу — бонус зачислится после регистрации", en: "Try your luck — the bonus is credited after you register" },
+  spin_go: { ru: "Крутить", en: "Spin" },
+  spin_spinning: { ru: "Крутится…", en: "Spinning…" },
+  spin_you_won: { ru: "Вы выиграли", en: "You won" },
+  spin_premium_prize: { ru: "Премиум на 30 дней", en: "30 days Premium" },
+  spin_coins_prize: { ru: "{n} монет", en: "{n} coins" },
+  spin_claim: { ru: "Зарегистрироваться и забрать", en: "Register to claim" },
+  spin_locked_note: { ru: "1 попытка на человека · бонус только после регистрации", en: "1 spin per person · bonus only after registration" },
+  spin_banner: { ru: "Вы выиграли {p} — завершите регистрацию, чтобы получить бонус", en: "You won {p} — finish signup to claim your bonus" },
+  spin_bonus_applied: { ru: "Бонус зачислен: {p}", en: "Bonus credited: {p}" },
 };
 
 export function t(key, lang) {

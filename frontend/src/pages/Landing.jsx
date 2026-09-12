@@ -4,6 +4,7 @@ import { Sparkles, ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
+import SpinWheel from "../components/SpinWheel";
 
 const HERO = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85";
 
@@ -28,6 +29,7 @@ export default function Landing() {
             <Button data-testid="landing-cta-secondary" onClick={() => nav("/auth")} variant="outline" className="h-12 px-6 text-base bg-white/5 border-white/10 hover:bg-white/10 text-white">
               {t("login", lang)}
             </Button>
+            <SpinWheel onClaim={() => nav("/auth?register=1")} />
           </div>
 
           <div className="mt-10 grid sm:grid-cols-3 gap-4">
