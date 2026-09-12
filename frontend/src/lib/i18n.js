@@ -310,6 +310,8 @@ const T = {
   referral_hint_pkg: { ru: "Получай {n} 🪙 за каждого друга, который купит свой первый пакет «{p}»", en: "Earn {n} 🪙 for every friend who buys their first {p}", es: "Gana {n} 🪙 por cada amigo que compre su primer {p}", fr: "Gagnez {n} 🪙 pour chaque ami qui achète son premier {p}", de: "Erhalte {n} 🪙 für jeden Freund, der sein erstes {p} kauft", pt: "Ganhe {n} 🪙 por cada amigo que comprar o primeiro {p}", zh: "每位好友首次购买 {p}，你获得 {n} 🪙", ar: "اربح {n} 🪙 عن كل صديق يشتري أول {p}", hi: "हर दोस्त के पहले {p} पर {n} 🪙 पाएँ", bn: "প্রতিটি বন্ধুর প্রথম {p} কেনায় {n} 🪙 পান", ur: "ہر دوست کے پہلے {p} پر {n} 🪙 حاصل کریں" },
   referral_package_label: { ru: "Пакет для реф. бонуса", en: "Referral bonus package", es: "Paquete del bono de referido", fr: "Pack du bonus de parrainage", de: "Paket für Empfehlungsbonus", pt: "Pacote do bônus de indicação", zh: "推荐奖励套餐", ar: "حزمة مكافأة الإحالة", hi: "रेफ़रल बोनस पैक", bn: "রেফারেল বোনাস প্যাক", ur: "ریفرل بونس پیک" },
   any_package: { ru: "Любой пакет", en: "Any package", es: "Cualquier paquete", fr: "Tout pack", de: "Jedes Paket", pt: "Qualquer pacote", zh: "任意套餐", ar: "أي حزمة", hi: "कोई भी पैक", bn: "কোনো প্যাক", ur: "کوئی بھی پیک" },
+  income_custom: { ru: "Своя сумма", en: "Custom amount", es: "Cantidad personalizada", fr: "Montant personnalisé", de: "Eigener Betrag", pt: "Valor personalizado", zh: "自定义", ar: "مبلغ مخصص", hi: "कस्टम राशि", bn: "নিজের পরিমাণ", ur: "اپنی رقم" },
+  income_custom_value: { ru: "Укажите доход", en: "Enter your income", es: "Indica tus ingresos", fr: "Indiquez vos revenus", de: "Einkommen angeben", pt: "Informe sua renda", zh: "输入收入", ar: "أدخل دخلك", hi: "अपनी आय लिखें", bn: "আপনার আয় লিখুন", ur: "اپنی آمدنی لکھیں" },
 };
 
 export function t(key, lang) {

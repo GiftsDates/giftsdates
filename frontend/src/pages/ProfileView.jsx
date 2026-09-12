@@ -89,7 +89,7 @@ export default function ProfileView() {
               <Row label={t("job_title", lang)} value={p.job_title} testid="pv-job" />
               <Row label={t("height", lang)} value={p.height && `${p.height} cm`} testid="pv-height" />
               <Row label={t("weight", lang)} value={p.weight && `${p.weight} kg`} testid="pv-weight" />
-              <Row label={t("income", lang)} value={optLabel("income", p.income, lang)} testid="pv-income" />
+              <Row label={t("income", lang)} value={p.income === "custom" ? p.income_custom : optLabel("income", p.income, lang)} testid="pv-income" />
               <Row label={t("religion", lang)} value={optLabel("religion", p.religion, lang)} testid="pv-religion" />
               <Row label={t("languages_spoken", lang)} value={langNames} testid="pv-langs" />
               {p.hobbies?.length > 0 && <div className="pt-3"><div className="text-xs text-slate-400 mb-2">{t("hobbies", lang)}</div><div className="flex flex-wrap gap-1.5" data-testid="pv-hobbies">{p.hobbies.map(h => <span key={h} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs">{h}</span>)}</div></div>}

@@ -195,6 +195,7 @@ class ProfileUpdate(BaseModel):
     languages_spoken: Optional[List[str]] = None
     job_title: Optional[str] = None
     income: Optional[str] = None
+    income_custom: Optional[str] = None
     kids: Optional[str] = None
     smoking: Optional[str] = None
     drinking: Optional[str] = None

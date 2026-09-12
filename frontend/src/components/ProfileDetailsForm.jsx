@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { LANGUAGES, t } from "../lib/i18n";
 
 export const INTENTS = ["serious", "marriage", "casual", "friendship", "travel", "sponsor"];
-export const INCOMES = ["low", "mid", "high", "vip", "prefer_not"];
+export const INCOMES = ["low", "mid", "high", "vip", "custom", "prefer_not"];
 export const KIDS = ["none", "have", "want", "no_want"];
 export const HABITS = ["never", "sometimes", "often"];
 export const RELIGIONS = ["christian", "muslim", "jewish", "buddhist", "hindu", "spiritual", "atheist", "other", "prefer_not"];
@@ -15,6 +15,7 @@ export const SIZES = ["s", "m", "l", "xl"];
 export const optLabel = (field, v, lang) => {
   if (!v) return "";
   if (v === "prefer_not") return t("prefer_not", lang);
+  if (field === "income" && v === "custom") return t("income_custom", lang);
   const prefix = { relationship_intent: "intent_", income: "income_", kids: "kids_", smoking: "habit_", drinking: "habit_", religion: "rel_", penis_size: "size_" }[field];
   return prefix ? t(prefix + v, lang) : v;
 };
@@ -51,6 +52,7 @@ export default function ProfileDetailsForm({ f, setF, lang, gender }) {
           <Field label={t("height", lang)}><Input data-testid="profile-height-input" type="number" min="100" max="250" value={f.height || ""} onChange={e => set("height")(e.target.value ? parseInt(e.target.value) : null)} className="bg-white/5 border-white/10 mt-1" /></Field>
           <Field label={t("weight", lang)}><Input data-testid="profile-weight-input" type="number" min="30" max="300" value={f.weight || ""} onChange={e => set("weight")(e.target.value ? parseInt(e.target.value) : null)} className="bg-white/5 border-white/10 mt-1" /></Field>
           <Field label={t("income", lang)}><Sel testid="profile-income-select" field="income" value={f.income} options={INCOMES} onChange={set("income")} lang={lang} /></Field>
+          {f.income === "custom" && <Field label={t("income_custom_value", lang)}><Input data-testid="profile-income-custom-input" value={f.income_custom || ""} onChange={e => set("income_custom")(e.target.value)} placeholder="$7,500 / mo" className="bg-white/5 border-white/10 mt-1" /></Field>}
           <Field label={t("religion", lang)}><Sel testid="profile-religion-select" field="religion" value={f.religion} options={RELIGIONS} onChange={set("religion")} lang={lang} /></Field>
         </div>
         <Field label={`${t("hobbies", lang)} (${t("comma_separated", lang)})`}>

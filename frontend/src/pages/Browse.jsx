@@ -155,7 +155,7 @@ export default function Browse() {
               <FilterSelect testid="filter-smoking-select" field="smoking" label={t("smoking", lang)} value={filters.smoking} options={HABITS} onChange={v => setFilters({ ...filters, smoking: v })} lang={lang} />
               <FilterSelect testid="filter-drinking-select" field="drinking" label={t("drinking", lang)} value={filters.drinking} options={HABITS} onChange={v => setFilters({ ...filters, drinking: v })} lang={lang} />
               <FilterSelect testid="filter-religion-select" field="religion" label={t("religion", lang)} value={filters.religion} options={RELIGIONS.filter(r => r !== "prefer_not")} onChange={v => setFilters({ ...filters, religion: v })} lang={lang} />
-              <FilterSelect testid="filter-income-select" field="income" label={t("income", lang)} value={filters.income} options={INCOMES.filter(r => r !== "prefer_not")} onChange={v => setFilters({ ...filters, income: v })} lang={lang} />
+              <FilterSelect testid="filter-income-select" field="income" label={t("income", lang)} value={filters.income} options={INCOMES.filter(r => r !== "prefer_not" && r !== "custom")} onChange={v => setFilters({ ...filters, income: v })} lang={lang} />
               <FilterSelect testid="filter-language-select" field="language" label={t("language_filter", lang)} value={filters.language} options={LANGUAGES.map(l => l.code)} labelFn={c => { const l = LANGUAGES.find(x => x.code === c); return `${l.flag} ${l.name}`; }} onChange={v => setFilters({ ...filters, language: v })} lang={lang} />
             </div>
             <div className="flex flex-wrap gap-3 items-end">

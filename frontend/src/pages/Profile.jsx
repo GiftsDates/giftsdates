@@ -11,7 +11,7 @@ import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
 import AvailabilityCalendar from "../components/AvailabilityCalendar";
 
-const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability", "availability_time", "availability_slots"];
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "income_custom", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability", "availability_time", "availability_slots"];
 
 export default function Profile() {
   const { user, refreshUser, lang, meta } = useApp();
