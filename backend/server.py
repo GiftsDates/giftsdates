@@ -764,19 +764,60 @@ async def respond_date(bid: str, accept: bool, user=Depends(get_current_user)):
 class LocationReq(BaseModel):
     venue: str
     city: str
+    address: Optional[str] = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+async def _split_cancel(b: dict, reason: str):
+    pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
+    refund = int(round(b["coins"] * pct)); kept = b["coins"] - refund
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": b["from_id"]}, {"$inc": {"coins": refund}})
+    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept}})
+    await db.date_bookings.update_one({"id": b["id"]}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now, "cancel_reason": reason, "pending_location": None}})
+    if kept:
+        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_fee", "from_id": b["from_id"], "to_id": b["to_id"], "cost": kept, "net": kept, "created_at": now})
+    for uid in (b["from_id"], b["to_id"]):
+        await notify(uid, "date_cancelled", "Date cancelled", f"Date at {b['venue']} was cancelled: {reason}. Refund 🪙 {refund} / compensation 🪙 {kept}.", {"booking_id": b["id"]}, email=True)
+
+async def _expire_location_proposals(user_id: str):
+    now_dt = datetime.now(timezone.utc)
+    rows = await db.date_bookings.find({"status": {"$in": ["escrow", "accepted"]}, "pending_location": {"$ne": None}, "$or": [{"from_id": user_id}, {"to_id": user_id}]}).to_list(200)
+    for b in rows:
+        try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
+        except Exception: continue
+        if now_dt >= sched.replace(hour=0, minute=0, second=0, microsecond=0):
+            await _split_cancel(b, "address change was not approved before the meeting day")
 
 @api.post("/dates/location/{bid}")
 async def change_location(bid: str, req: LocationReq, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": bid})
     if not b: raise HTTPException(404, "Not found")
-    if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can change location")
+    if user["id"] not in (b["from_id"], b["to_id"]): raise HTTPException(403, "No access")
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot change location")
     if not req.venue.strip() or not req.city.strip(): raise HTTPException(400, "Venue and city required")
     now = datetime.now(timezone.utc).isoformat()
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": req.venue.strip(), "city": req.city.strip(), "location_changed_at": now,
-                                                              "original_venue": b.get("original_venue") or b["venue"], "original_city": b.get("original_city") or b["city"]}})
-    await notify(b["from_id"], "date_location", "Date location changed 📍", f"{user['name']} changed the meeting place to {req.venue.strip()}, {req.city.strip()}. You can cancel if it doesn't suit you.", {"booking_id": bid}, email=True)
-    return {"status": b["status"], "venue": req.venue.strip(), "city": req.city.strip()}
+    other = b["to_id"] if user["id"] == b["from_id"] else b["from_id"]
+    prop = {"venue": req.venue.strip(), "city": req.city.strip(), "address": (req.address or "").strip(), "lat": req.lat, "lng": req.lng, "proposed_by": user["id"], "proposed_at": now}
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"pending_location": prop}})
+    await notify(other, "date_location", "New meeting address proposed 📍", f"{user['name']} proposes {prop['venue']}, {prop['address'] or prop['city']}. Approve it before the meeting day, otherwise the date is cancelled with a 50% refund.", {"booking_id": bid}, email=True)
+    return {"status": b["status"], "pending_location": prop}
+
+@api.post("/dates/location/{bid}/respond")
+async def respond_location(bid: str, accept: bool, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b or not b.get("pending_location"): raise HTTPException(404, "No pending proposal")
+    prop = b["pending_location"]
+    if user["id"] not in (b["from_id"], b["to_id"]) or user["id"] == prop["proposed_by"]: raise HTTPException(403, "Only the other party can respond")
+    now = datetime.now(timezone.utc).isoformat()
+    if accept:
+        await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": prop["venue"], "city": prop["city"], "address": prop.get("address", ""), "lat": prop.get("lat"), "lng": prop.get("lng"),
+            "location_changed_at": now, "original_venue": b.get("original_venue") or b["venue"], "original_city": b.get("original_city") or b["city"], "pending_location": None}})
+        await notify(prop["proposed_by"], "date_location", "Address approved ✅", f"{user['name']} approved the new meeting place: {prop['venue']}.", {"booking_id": bid}, email=True)
+        return {"status": "approved"}
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"pending_location": None}})
+    await notify(prop["proposed_by"], "date_location", "Address declined", f"{user['name']} declined the new meeting place. The original address stays.", {"booking_id": bid}, email=True)
+    return {"status": "declined"}
 
 @api.get("/profiles/{pid}/availability")
 async def profile_availability(pid: str, user=Depends(get_current_user)):
@@ -788,6 +829,7 @@ async def profile_availability(pid: str, user=Depends(get_current_user)):
 
 @api.get("/dates")
 async def list_dates(user=Depends(get_current_user)):
+    await _expire_location_proposals(user["id"])
     # trigger release for any past release_at
     now_dt = datetime.now(timezone.utc)
     to_release = await db.date_bookings.find({"to_id": user["id"], "status": "confirmed"}).to_list(200)
@@ -808,6 +850,7 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
     if not b: raise HTTPException(404, "Not found")
     if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can confirm")
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot confirm")
+    if b.get("pending_location"): raise HTTPException(400, "LOCATION_PENDING")
     now_dt = datetime.now(timezone.utc)
     try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
     except Exception: sched = now_dt
