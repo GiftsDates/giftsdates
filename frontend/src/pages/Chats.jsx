@@ -89,8 +89,13 @@ export default function Chats() {
         <div className="glass rounded-2xl flex flex-col">
           {partner && (
             <div className="p-4 border-b border-white/10 flex items-center gap-3">
-              <Avatar u={partner} testid="chat-header-avatar" onClick={() => nav(`/profile/${partner.id}`)} />
-              <div><button data-testid="chat-header-name" onClick={() => nav(`/profile/${partner.id}`)} className="font-serif-luxe text-lg leading-tight hover:text-rose-300">{partner.name}</button><div className="text-xs text-slate-400 flex items-center gap-1.5"><PresenceDot u={partner} lang={lang} testid="chat-header-presence" />{pres.label || partner.city}</div></div>
+              <button data-testid="chat-header-person" onClick={() => nav(`/profile/${partner.id}`)} className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-xl -m-1 p-1 hover:bg-white/5 transition-colors cursor-pointer">
+                <Avatar u={partner} testid="chat-header-avatar" />
+                <div className="min-w-0">
+                  <div data-testid="chat-header-name" className="font-serif-luxe text-lg leading-tight hover:text-rose-300 truncate">{partner.name}</div>
+                  <div className="text-xs text-slate-400 flex items-center gap-1.5"><PresenceDot u={partner} lang={lang} testid="chat-header-presence" />{pres.label || partner.city}</div>
+                </div>
+              </button>
               {partner.photos?.length > 1 && (
                 <div className="ml-auto flex gap-1" data-testid="chat-header-photos">
                   {partner.photos.slice(1, 5).map((p, i) => <img key={i} src={p} alt="" onClick={() => nav(`/profile/${partner.id}`)} className="w-8 h-8 rounded-lg object-cover border border-white/10 cursor-pointer hover:scale-110 transition-transform" />)}
