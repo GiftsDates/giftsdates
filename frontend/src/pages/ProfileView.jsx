@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Heart, Gift, Video, CalendarHeart, MapPin, Crown, MessageCircle, BadgeCheck } from "lucide-react";
+import { ArrowLeft, Heart, Gift, Video, CalendarHeart, MapPin, Crown, MessageCircle, BadgeCheck, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { api, fileUrl } from "../lib/api";
@@ -8,6 +8,7 @@ import { useApp } from "../context/AppContext";
 import { LANGUAGES, t } from "../lib/i18n";
 import { optLabel } from "../components/ProfileDetailsForm";
 import GiftModal from "../components/GiftModal";
+const FALLBACKS = ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
 
@@ -82,6 +83,27 @@ export default function ProfileView() {
             </div>
 
             {p.bio && <div className="glass rounded-2xl p-5"><h3 className="font-serif-luxe text-xl mb-2">{t("about_me", lang)}</h3><p className="text-sm text-slate-300 whitespace-pre-line" data-testid="profile-view-bio">{p.bio}</p></div>}
+
+            {p.gifts_count > 0 && (
+              <div className="glass rounded-2xl p-5" data-testid="profile-view-top-givers">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-serif-luxe text-xl flex items-center gap-2"><Trophy size={18} className="text-amber-300" /> {t("top_givers", lang)}</h3>
+                  <span className="text-xs text-slate-400">{t("gifts_received_total", lang)}: <span data-testid="profile-view-gifts-total" className="font-mono-num text-amber-300">🪙 {p.gifts_total}</span> · {p.gifts_count}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {p.top_givers.map((g, i) => (
+                    <button key={g.id} data-testid={`top-giver-${g.id}`} onClick={() => nav(`/profile/${g.id}`)} className="rounded-xl bg-white/5 border border-white/10 p-3 text-center hover:bg-white/10 transition-colors">
+                      <div className="relative inline-block">
+                        <img src={g.photo || FALLBACKS[i]} alt="" className={`w-14 h-14 rounded-full object-cover mx-auto border-2 ${["border-amber-400", "border-slate-300", "border-amber-700"][i]}`} />
+                        <span className="absolute -top-1 -right-1 text-base">{["🥇", "🥈", "🥉"][i]}</span>
+                      </div>
+                      <div className="text-sm mt-2 truncate">{g.name}</div>
+                      <div className="text-xs font-mono-num text-amber-300">🪙 {g.total}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {(p.job_title || p.height || p.weight || p.income || p.religion || langNames || p.hobbies?.length > 0 || p.orientation || p.gender) && (
             <div className="glass rounded-2xl p-5" data-testid="profile-view-details">

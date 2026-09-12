@@ -555,6 +555,14 @@ async def profile_detail(pid: str, user=Depends(get_current_user)):
     p["liked_by_me"] = bool(await db.likes.find_one({"from_id": user["id"], "to_id": pid}))
     m = await db.matches.find_one({"users": {"$all": [user["id"], pid]}})
     p["conversation_id"] = m["id"] if m else None
+    agg = await db.transactions.aggregate([{"$match": {"to_id": pid, "type": "gift"}}, {"$group": {"_id": "$from_id", "total": {"$sum": "$cost"}, "count": {"$sum": 1}}}, {"$sort": {"total": -1}}]).to_list(1000)
+    p["gifts_total"] = sum(a["total"] for a in agg)
+    p["gifts_count"] = sum(a["count"] for a in agg)
+    top = []
+    for a in agg[:3]:
+        g = await db.users.find_one({"id": a["_id"]}, {"_id": 0, "id": 1, "name": 1, "photos": 1})
+        if g: top.append({"id": g["id"], "name": g["name"], "photo": (g.get("photos") or [None])[0], "total": a["total"], "count": a["count"]})
+    p["top_givers"] = top
     return p
 
 # ---------- Likes / Matches ----------
@@ -582,6 +590,20 @@ async def like(req: LikeReq, user=Depends(get_current_user)):
             await notify(req.target_id, "match", "It's a match! 💘", f"You and {user['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
             await notify(user["id"], "match", "It's a match! 💘", f"You and {other['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": other["name"]}, email=True)
     return {"liked": True, "matched": matched}
+
+@api.get("/likes/received")
+async def likes_received(user=Depends(get_current_user)):
+    likes = await db.likes.find({"to_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    matched = {u for m in await db.matches.find({"users": user["id"]}, {"_id": 0, "users": 1}).to_list(500) for u in m["users"]}
+    premium = is_premium(user)
+    items = []
+    for lk in likes:
+        if lk["from_id"] in matched: continue
+        u = await db.users.find_one({"id": lk["from_id"]}, {"_id": 0, "id": 1, "name": 1, "age": 1, "city": 1, "country": 1, "photos": 1})
+        if not u: continue
+        if premium: items.append({**u, "liked_at": lk["created_at"]})
+        else: items.append({"id": u["id"], "photos": u.get("photos", [])[:1], "liked_at": lk["created_at"]})
+    return {"premium": premium, "count": len(items), "items": items}
 
 @api.get("/likes/quota")
 async def likes_quota(user=Depends(get_current_user)):

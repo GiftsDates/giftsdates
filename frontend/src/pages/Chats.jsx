@@ -9,6 +9,19 @@ import { Send, ShieldAlert, Gift } from "lucide-react";
 import { toast } from "sonner";
 import GiftModal from "../components/GiftModal";
 
+const FALLBACKS = [
+  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
+  "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85",
+  "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85",
+  "https://images.unsplash.com/photo-1539125530496-3ca408f9c2d9?crop=entropy&cs=srgb&fm=jpg&q=85",
+];
+const hash = (s) => { let h = 0; for (let i = 0; i < (s || "").length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return h; };
+export const photoOf = (u) => u?.photos?.[0] || FALLBACKS[Math.abs(hash(u?.id)) % FALLBACKS.length];
+const Avatar = ({ u, size = "w-10 h-10", testid, onClick }) => (
+  <img data-testid={testid} src={photoOf(u)} alt={u?.name || ""} onClick={onClick}
+    className={`${size} rounded-full object-cover border border-white/10 shrink-0 ${onClick ? "cursor-pointer hover:ring-2 hover:ring-rose-400/60 transition-shadow" : ""}`} />
+);
+
 export default function Chats() {
   const { user, lang, logout } = useApp();
   const nav = useNavigate();
@@ -51,7 +64,7 @@ export default function Chats() {
           {convs.map(c => (
             <button key={c.conversation_id} data-testid={`chat-item-${c.user.id}`} onClick={() => { setActive(c.conversation_id); setSp({ c: c.conversation_id }); }}
               className={`w-full text-left p-2 rounded-xl flex items-center gap-2 ${active===c.conversation_id ? "bg-rose-500/15 border border-rose-500/30" : "hover:bg-white/5"}`}>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-violet-500 flex items-center justify-center text-sm font-semibold">{c.user.name[0]}</div>
+              <Avatar u={c.user} testid={`chat-avatar-${c.user.id}`} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{c.user.name}</div>
                 <div className="text-xs text-slate-400 truncate">{c.user.city}</div>
@@ -62,13 +75,19 @@ export default function Chats() {
         <div className="glass rounded-2xl flex flex-col">
           {partner && (
             <div className="p-4 border-b border-white/10 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-500 to-violet-500 flex items-center justify-center text-sm font-semibold">{partner.name[0]}</div>
-              <div><div className="font-serif-luxe text-lg leading-tight">{partner.name}</div><div className="text-xs text-slate-400">{partner.city}</div></div>
+              <Avatar u={partner} testid="chat-header-avatar" onClick={() => nav(`/profile/${partner.id}`)} />
+              <div><button data-testid="chat-header-name" onClick={() => nav(`/profile/${partner.id}`)} className="font-serif-luxe text-lg leading-tight hover:text-rose-300">{partner.name}</button><div className="text-xs text-slate-400">{partner.city}</div></div>
+              {partner.photos?.length > 1 && (
+                <div className="ml-auto flex gap-1" data-testid="chat-header-photos">
+                  {partner.photos.slice(1, 5).map((p, i) => <img key={i} src={p} alt="" onClick={() => nav(`/profile/${partner.id}`)} className="w-8 h-8 rounded-lg object-cover border border-white/10 cursor-pointer hover:scale-110 transition-transform" />)}
+                </div>
+              )}
             </div>
           )}
           <div className="flex-1 p-4 overflow-auto space-y-2 scrollbar-thin">
             {msgs.map(m => (
-              <div key={m.id} className={`flex ${m.from_id === user.id ? "justify-end" : "justify-start"}`}>
+              <div key={m.id} className={`flex items-end gap-2 ${m.from_id === user.id ? "justify-end" : "justify-start"}`}>
+                {m.from_id !== user.id && <Avatar u={partner} size="w-7 h-7" testid={`chat-msg-avatar-${m.id}`} onClick={() => nav(`/profile/${partner.id}`)} />}
                 <div data-testid={`chat-message-${m.id}`} className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${m.type === "gift" ? "border border-amber-400/40 bg-amber-500/10 text-amber-100" : m.from_id===user.id ? "rose-btn text-white" : "bg-white/10 text-slate-100"}`}>
                   {m.type === "gift" ? (
                     <div data-testid={`chat-gift-${m.id}`} className="text-center">
