@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { fileUrl } from "../lib/api";
+import { optLabel } from "./ProfileDetailsForm";
 
 const FALLBACKS = [
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
@@ -48,6 +49,13 @@ export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMess
             </div>
           </div>
           {p.bio && <p className="mt-2 text-xs text-slate-400 line-clamp-2">{p.bio}</p>}
+          {(p.relationship_intent || p.height || p.job_title) && (
+            <div className="mt-2 flex flex-wrap gap-1" data-testid={`profile-card-details-${p.id}`}>
+              {p.relationship_intent && <span className="px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30 text-[10px] text-rose-200">{optLabel("relationship_intent", p.relationship_intent, lang)}</span>}
+              {p.height && <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-slate-200">{p.height} cm</span>}
+              {p.job_title && <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[10px] text-slate-200 truncate max-w-[120px]">{p.job_title}</span>}
+            </div>
+          )}
         </div>
       </div>
       <div className="p-3 flex items-center gap-1.5 bg-[#161320]/80 backdrop-blur">

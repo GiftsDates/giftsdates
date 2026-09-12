@@ -8,16 +8,25 @@ import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 import PhotoGrid from "../components/PhotoGrid";
+import ProfileDetailsForm from "../components/ProfileDetailsForm";
+
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size"];
 
 export default function Profile() {
   const { user, refreshUser, lang } = useApp();
-  const [f, setF] = useState({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country });
+  const [f, setF] = useState(() => ({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country,
+    ...Object.fromEntries(DETAIL_KEYS.map(k => [k, user?.[k] ?? null])) }));
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
     setBusy(true);
-    try { await api.patch("/auth/me", f); await refreshUser(); toast.success(t("saved", lang)); }
-    catch { toast.error(t("failed", lang)); } finally { setBusy(false); }
+    try {
+      const payload = { ...f };
+      for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = k === "hobbies" || k === "languages_spoken" ? [] : "";
+      if (!payload.height) delete payload.height;
+      if (!payload.weight) delete payload.weight;
+      await api.patch("/auth/me", payload); await refreshUser(); toast.success(t("saved", lang));
+    } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
   };
 
   return (
@@ -28,6 +37,7 @@ export default function Profile() {
           <PhotoGrid />
         </div>
         <div className="glass rounded-2xl p-6 space-y-4 mb-6">
+          <h2 className="font-serif-luxe text-2xl">{t("about_me", lang)}</h2>
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs text-slate-400">{t("name", lang)}</Label>
               <Input data-testid="profile-name-input" value={f.name || ""} onChange={e => setF({ ...f, name: e.target.value })} className="bg-white/5 border-white/10 mt-1"/></div>
@@ -42,7 +52,10 @@ export default function Profile() {
           </div>
           <div><Label className="text-xs text-slate-400">{t("bio", lang)}</Label>
             <Textarea data-testid="profile-bio-input" rows={4} value={f.bio || ""} onChange={e => setF({ ...f, bio: e.target.value })} className="bg-white/5 border-white/10 mt-1"/></div>
-          <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-11">{t("save", lang)}</Button>
+        </div>
+        <ProfileDetailsForm f={f} setF={setF} lang={lang} gender={user?.gender} />
+        <div className="sticky bottom-4">
+          <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-12 w-full shadow-xl">{t("save", lang)}</Button>
         </div>
       </div>
     </div>

@@ -25,6 +25,8 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Commission model changed: gifts/videocalls credit 100% to recipient; 30% withheld at withdrawal (fee/net/usd on withdrawal record).
 - Admin: /admin page + /api/admin/payout-accounts, /api/admin/withdrawals (paid / rejected → refund).
 - All remaining hardcoded UI strings (toasts, premium perks, empty states, dates headers) translated into all 8 languages.
+- Extended profile: relationship intent, hobbies, height, weight, languages spoken, job title, income, kids, smoking, drinking, religion, bust size (non-male), 🍆 size (non-female). PATCH /api/auth/me validates height 100–250 / weight 30–300. ProfileDetailsForm on /profile; intent/height/job chips on browse cards.
+- 9th UI language: Hindi (hi) — all 195 keys translated.
 
 ## Backlog
 - P1: Admin panel for prices (gift catalog, coin packs, premium price, referral bonus) — currently constants in server.py.

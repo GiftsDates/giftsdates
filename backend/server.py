@@ -149,6 +149,19 @@ class ProfileUpdate(BaseModel):
     interests: Optional[List[str]] = None
     photos: Optional[List[str]] = None
     language: Optional[str] = None
+    relationship_intent: Optional[str] = None
+    hobbies: Optional[List[str]] = None
+    height: Optional[int] = None
+    weight: Optional[int] = None
+    languages_spoken: Optional[List[str]] = None
+    job_title: Optional[str] = None
+    income: Optional[str] = None
+    kids: Optional[str] = None
+    smoking: Optional[str] = None
+    drinking: Optional[str] = None
+    religion: Optional[str] = None
+    bust_size: Optional[str] = None
+    penis_size: Optional[str] = None
 
 class LikeReq(BaseModel):
     target_id: str
@@ -265,6 +278,8 @@ async def me(user=Depends(get_current_user)):
 @api.patch("/auth/me")
 async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
     upd = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if "height" in upd and not (100 <= upd["height"] <= 250): raise HTTPException(400, "Height must be 100-250 cm")
+    if "weight" in upd and not (30 <= upd["weight"] <= 300): raise HTTPException(400, "Weight must be 30-300 kg")
     if "photos" in upd and len(upd["photos"]) > MAX_PHOTOS:
         raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
     if upd:
