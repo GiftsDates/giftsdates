@@ -60,7 +60,7 @@ api = APIRouter(prefix="/api")
 COIN_PACKAGES = {
     "small_talk": {"coins": 100,  "amount": 9.99,   "bonus": 0,   "name": "Small Talk"},
     "starter":    {"coins": 300,  "amount": 29.99,  "bonus": 20,  "name": "Starter"},
-    "popular":    {"coins": 1000, "amount": 99.99,  "bonus": 50,  "name": "Popular Pack"},
+    "popular":    {"coins": 1000, "amount": 99.99,  "bonus": 100, "name": "Popular Pack"},
     "extra":      {"coins": 2000, "amount": 189.0,  "bonus": 150, "name": "Extra Pack"},
     "vip":        {"coins": 3000, "amount": 295.0,  "bonus": 300, "name": "VIP Pack"},
 }
