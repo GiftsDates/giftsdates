@@ -965,6 +965,11 @@ async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
         session = stripe.checkout.Session.create(
             line_items=[{"price_data": {"currency": "usd", "product_data": {"name": pkg_name}, "unit_amount": amount}, "quantity": 1}],
             mode=mode,
+            # Omitting payment_method_types lets Stripe show every method enabled in the Dashboard for the buyer's country:
+            # all major cards worldwide, Apple Pay / Google Pay, Link, PayPal, Klarna, iDEAL, SEPA, Alipay, WeChat Pay, etc.
+            billing_address_collection="auto",
+            customer_email=user.get("email"),
+            locale="auto",
             success_url=f"{req.origin_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{req.origin_url}/payment/cancel",
             metadata=metadata,

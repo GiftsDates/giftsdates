@@ -135,6 +135,9 @@ export default function Wallet() {
                 <Button data-testid="topup-custom-buy-button" disabled={!(Number(customUsd) >= cc.min_usd)} onClick={() => buy("custom", Number(customUsd))} className="rose-btn text-white border-0">{t("buy", lang)}</Button>
               </div>
             </div>
+            <div data-testid="payment-methods-note" className="text-[11px] text-slate-400 flex items-start gap-2 pt-1">
+              <span className="flex gap-1 text-base leading-none">💳 🅿️ 📱</span><span>{t("payment_methods_note", lang)}</span>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
