@@ -1,0 +1,69 @@
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { useApp } from "../context/AppContext";
+import { t } from "../lib/i18n";
+
+const HERO = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85";
+
+export default function Landing() {
+  const { lang } = useApp();
+  const nav = useNavigate();
+  return (
+    <div className="aurora-bg min-h-[calc(100vh-4rem)] relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 pt-20 pb-24 grid lg:grid-cols-2 gap-14 items-center relative">
+        <div className="float-in">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono uppercase tracking-widest">
+            <Sparkles size={12} /> GiftsDates
+          </span>
+          <h1 className="mt-6 font-serif-luxe text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight">
+            {t("hero_a", lang)}
+          </h1>
+          <p className="mt-6 text-lg text-slate-300 max-w-lg leading-relaxed">{t("tagline", lang)}</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button data-testid="landing-cta-primary" onClick={() => nav("/auth?register=1")} className="rose-btn text-white border-0 h-12 px-6 text-base">
+              {t("hero_cta", lang)} <ArrowRight size={16} className="ms-2" />
+            </Button>
+            <Button data-testid="landing-cta-secondary" onClick={() => nav("/auth")} variant="outline" className="h-12 px-6 text-base bg-white/5 border-white/10 hover:bg-white/10 text-white">
+              {t("login", lang)}
+            </Button>
+          </div>
+
+          <div className="mt-10 grid sm:grid-cols-3 gap-4">
+            {[
+              { icon: Gift, text: t("feature_1", lang), color: "text-rose-400" },
+              { icon: ShieldCheck, text: t("feature_2", lang), color: "text-amber-400" },
+              { icon: Video, text: t("feature_3", lang), color: "text-violet-400" },
+            ].map((f, i) => (
+              <div key={i} className="glass rounded-xl p-4 card-lift">
+                <f.icon size={20} className={f.color} />
+                <p className="mt-2 text-sm text-slate-300 leading-snug">{f.text}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-xs text-slate-500 font-mono max-w-lg leading-relaxed">{t("commission_note", lang)}</p>
+        </div>
+
+        <div className="relative">
+          <div className="absolute -inset-6 bg-gradient-to-tr from-rose-500/30 via-violet-500/20 to-amber-500/20 blur-3xl rounded-[3rem]" />
+          <div className="relative rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/5]">
+            <img src={HERO} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/60 to-transparent p-6">
+              <div className="glass rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
+                </div>
+                <div>
+                  <div className="font-serif-luxe text-xl">Elena, 26</div>
+                  <div className="text-xs text-slate-400">Moscow · Dubai · Online</div>
+                </div>
+                <span className="ms-auto text-amber-300 font-mono-num text-sm">🪙 250</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

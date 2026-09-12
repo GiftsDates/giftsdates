@@ -1,0 +1,164 @@
+{
+  "project_title": "GiftsDates - International Dating, Gifts & Escrow Date Booking Platform",
+  "app_type": "hybrid_fullstack",
+  "theme": "Dark Luxury & Romantic Velvet (Deep Obsidian #0D0B12, Rose Velvet #E11D48, Warm Gold #F59E0B, Crimson Amethyst #8B5CF6)",
+  "emotional_archetype": "LUXURY & ROMANTIC DEPTH (Archetype 5) - Expensive, cinematic, warm, tactile with soft glass accents and gold coin highlights",
+  "typography": {
+    "heading_font": "Playfair Display / Cormorant Garamond / Cabinet Grotesk (Serif & High-End Display for titles & badges)",
+    "body_font": "Plus Jakarta Sans / Inter / Figtree (Clean Sans for crisp readability across 8 languages)",
+    "mono_font": "JetBrains Mono (For coin balances, transaction IDs, escrow countdown timers, withdrawal calculations)",
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight leading-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight",
+      "h3": "text-xl sm:text-2xl font-sans font-semibold",
+      "h4": "text-lg sm:text-xl font-sans font-medium",
+      "body": "text-base sm:text-sm leading-relaxed text-slate-300",
+      "small_caption": "text-xs font-mono uppercase tracking-[0.2em] text-rose-400/90"
+    }
+  },
+  "color_palette": {
+    "background_main": "#0D0B12",
+    "background_card": "#161320",
+    "background_card_hover": "#1F1A2E",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_active": "rgba(225, 29, 72, 0.4)",
+    "primary_rose": "#E11D48",
+    "primary_rose_hover": "#F43F5E",
+    "accent_gold": "#F59E0B",
+    "accent_gold_glow": "rgba(245, 158, 11, 0.2)",
+    "accent_violet": "#8B5CF6",
+    "success_emerald": "#10B981",
+    "warning_amber": "#F59E0B",
+    "danger_crimson": "#EF4444",
+    "text_primary": "#F8FAFC",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B"
+  },
+  "languages_supported": [
+    { "code": "ru", "name": "Русский", "flag": "🇷🇺", "dir": "ltr" },
+    { "code": "en", "name": "English", "flag": "🇺🇸", "dir": "ltr" },
+    { "code": "es", "name": "Español", "flag": "🇪🇸", "dir": "ltr" },
+    { "code": "fr", "name": "Français", "flag": "🇫🇷", "dir": "ltr" },
+    { "code": "de", "name": "Deutsch", "flag": "🇩🇪", "dir": "ltr" },
+    { "code": "pt", "name": "Português", "flag": "🇵🇹", "dir": "ltr" },
+    { "code": "zh", "name": "中文", "flag": "🇨🇳", "dir": "ltr" },
+    { "code": "ar", "name": "العربية", "flag": "🇸🇦", "dir": "rtl" }
+  ],
+  "key_features_design_rules": {
+    "location_search_and_profiles": {
+      "grid_mode": "Tetris / Bento Grid (Asymmetric profile cards with distance badges, city tags, online indicators)",
+      "filter_bar": "Sticky top bar with city/country selector, age range slider, verified photo toggle, premium-only filter",
+      "like_match_action": "Floating glass action dock with Heart (Like), Gift (Send Virtual Item), Video Call, Book Date buttons"
+    },
+    "virtual_gifts_and_commission": {
+      "commission_rate": "30% platform commission auto-deducted on gifts (Receiver gets 70% in withdrawable balance)",
+      "gift_catalog": "Tiered visual catalog (Roses 50 coins, Champagne 250 coins, Luxury Watch 1000 coins, Diamond Ring 5000 coins)",
+      "gift_modal": "Includes custom message box, coin balance check, instant Stripe coin top-up shortcut if low balance"
+    },
+    "date_booking_and_escrow": {
+      "escrow_rules": "Funds held in 24-hour escrow after scheduled date. Requires photo proof upload from date venue to release payment.",
+      "withdrawal_eligibility": "Withdrawable funds come from received gifts (70% net) and completed photo-confirmed dates.",
+      "ui_step_flow": "1. Select Venue/City -> 2. Propose Date & Time -> 3. Lock Coins in Escrow -> 4. Attend Date & Upload Verification Photo -> 5. 24h Countdown Timer -> 6. Payout Available for Withdrawal"
+    },
+    "coin_wallet_and_stripe": {
+      "topup_packages": "100 coins ($9.99), 500 coins ($44.99 + 50 bonus), 2000 coins ($149.99 + 300 bonus), Monthly VIP Pass ($29.99/mo)",
+      "stripe_integration": "Modal payment form with simulated or live Stripe elements, transaction history table with status badges (Held, Released, Withdrawn)",
+      "payout_withdrawal": "Withdrawal request form (Bank / Crypto / Card) with minimum threshold check and fee breakdown"
+    },
+    "video_calls": {
+      "rate_per_min": "10 coins / minute",
+      "call_interface": "Full-screen luxury dark glass video frame with camera toggle, mic mute, animated coin drop meter per minute, gift drop overlay"
+    }
+  },
+  "component_architecture": {
+    "header_nav": "Fixed crystal glass banner (`backdrop-blur-xl bg-[#0D0B12]/80 border-b border-white/10 z-50`). Contains Logo, Language Switcher Dropdown (8 flags), Wallet Coin Chip, Notification Bell, Profile Avatar, and CTA",
+    "profile_card": "Vertical visual hero card with gradient dark scrim overlay, subtle hover lift (`hover:-translate-y-1.5 transition-all duration-300`), age & location badge, verification mark, online pulsing dot",
+    "language_switcher": "Dropdown menu with 8 language flags, label, LTR/RTL dynamic layout support (Arabic handles `dir='rtl'` seamlessly)",
+    "wallet_dashboard": "Grid of 3 summary cards (Coin Balance, Escrow Pending, Withdrawable Balance) + Transaction Table + Withdrawal Request Drawer + Coin Top-Up Modal",
+    "chat_messaging": "Split view with active conversation list, message bubbles, inline gift attachment preview, 'Book Date' shortcut button",
+    "toast_notifications": "Sonner toast with customized dark rose styling (`bg-[#161320] border border-rose-500/30 text-white`)"
+  },
+  "image_urls": {
+    "profiles": [
+      {
+        "url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Elena, 26 - Moscow / Dubai - Verified Profile",
+        "name": "Elena"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Sophia, 24 - Paris / London - Verified Profile",
+        "name": "Sophia"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Isabella, 28 - Madrid / Barcelona - Verified Profile",
+        "name": "Isabella"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1539125530496-3ca408f9c2d9?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Alexander, 29 - Berlin / Zurich - Verified Profile",
+        "name": "Alexander"
+      }
+    ],
+    "dates_and_venues": [
+      {
+        "url": "https://images.unsplash.com/photo-1775471256651-e654fc5b5d84?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Fine Dining Restaurant Date Venue"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1762100715669-1e3ed377ade3?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Rooftop Evening Cocktail Date"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1760081794914-5566b63e62f7?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "European City Walk Date"
+      }
+    ],
+    "luxury_gifts": [
+      {
+        "url": "https://images.unsplash.com/photo-1642991946115-9afea1d7d3d3?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Luxury Black Box with Red Roses"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1571990306521-cf96e6858f2a?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Beige Royal Rose Bouquet"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1602927846637-c3270a127413?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Premium Velvet Gift Box with Champagne"
+      }
+    ]
+  },
+  "testing_and_attributes": {
+    "data_testid_rules": "All interactive elements MUST have explicit kebab-case data-testid attributes.",
+    "required_test_ids": [
+      "nav-language-switcher-select",
+      "nav-wallet-coins-badge",
+      "nav-premium-subscribe-button",
+      "profile-search-input",
+      "profile-location-filter-select",
+      "profile-card-like-button",
+      "profile-card-gift-button",
+      "profile-card-date-button",
+      "profile-card-videocall-button",
+      "gift-modal-send-button",
+      "date-booking-submit-button",
+      "photo-verification-upload-input",
+      "wallet-topup-stripe-button",
+      "wallet-withdraw-submit-button",
+      "chat-message-send-button",
+      "videocall-start-button",
+      "videocall-end-button"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Follow dark luxury dating & escrow theme with deep obsidian (#0D0B12) background, rose accent (#E11D48) and gold accents (#F59E0B).",
+    "Ensure all 8 languages (RU, EN, ES, FR, DE, PT, ZH, AR) are selectable from top nav with instant UI text updates and RTL support for Arabic.",
+    "Display wallet balances clearly: Coins, Escrow (1-day hold after date photo confirmation), and Withdrawable Earnings (Gifts after 30% fee + Escrow payouts).",
+    "Include demo photo verification step for dates to release escrow funds after 24h.",
+    "Include full interactive video call simulation with coin timer and gift sending during calls.",
+    "Add complete Stripe coin package purchase modal with instant coin credit.",
+    "Apply data-testid to every button, filter, input, modal action, and navigation link."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "summary": "Backend smoke test halted at auth/register. GET /api/meta works, but POST /api/auth/register returns 500 due to ObjectId leaking into response after insert_one, which blocks every downstream test (login/me/profiles/likes/gifts/dates/wallet/checkout/upload).",
+  "tested_scope": ["backend"],
+  "passed": [
+    "GET /api/meta returns gifts catalog, coin packages, premium, video_rate=10, gift_commission=0.30, date_min_coins=500"
+  ],
+  "failed": [
+    {
+      "area": "POST /api/auth/register",
+      "issue": "500 Internal Server Error. FastAPI response serialization fails: `ValueError: [TypeError(\"'ObjectId' object is not iterable\"), TypeError('vars() argument must have __dict__ attribute')]`. Root cause: after `await db.users.insert_one(doc)` in server.py:203, motor mutates `doc` in place adding `_id` (ObjectId). The next line returns `{k: v for k, v in doc.items() if k != 'password'}` which still contains `_id`, and FastAPI's jsonable_encoder cannot serialize ObjectId.",
+      "evidence": "HTTP 500 on POST /api/auth/register with valid payload. Backend traceback in /var/log/supervisor/backend.err.log shows failure at fastapi/encoders.py -> ValueError: [TypeError(\"'ObjectId' object is not iterable\")]. Body returned: 'Internal Server Error'.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "All auth-dependent endpoints",
+      "issue": "Could not be tested because registration is broken. This includes /auth/login, /auth/me (GET+PATCH), /profiles, /likes, /matches, /conversations/*, /gifts/send, /videocalls/start, /dates/*, /wallet, /wallet/withdraw, /payments/checkout, /payments/status, /upload, /files.",
+      "evidence": "Blocked by register 500.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix /api/auth/register response in backend/server.py:204: strip `_id` as well. Change `{k: v for k, v in doc.items() if k != 'password'}` to `{k: v for k, v in doc.items() if k not in ('password', '_id')}` (matches the pattern already used in /api/auth/login at line 211).",
+    "After fix, rerun full backend suite to validate register->login->me->profiles->likes/match->messages->gifts (70/30 split)->videocall->date booking min-coins->wallet->withdraw->stripe checkout->payments status->upload/download."
+  ],
+  "success_rate": {"backend": "1/17 (~6%)", "frontend": "n/a"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

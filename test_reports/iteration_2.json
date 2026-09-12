@@ -1,0 +1,43 @@
+{
+  "summary": "Backend re-tested end-to-end after the register _id fix. 27/28 checks pass. Only remaining bug: POST /api/conversations/messages returns 500 due to the same ObjectId-leak pattern (motor mutates the dict in place after insert_one and FastAPI cannot serialize the resulting _id). All other flows work: auth (register/login/me/patch language), profiles+filters, likes with reciprocal match creating conversation, messages GET with 403 for non-participants, gifts 70/30 split with proper balance deltas, videocall coin deduction, date booking 400 (insufficient) and 400 (below-min), wallet returns coins/escrow/withdrawable/transactions, withdraw success + 400 for insufficient, Stripe checkout returns checkout_url+session_id, payments/status returns pending, upload PNG + download via /api/files/{path}, GET /dates returns outgoing+incoming.",
+  "tested_scope": ["backend", "auth", "integration"],
+  "passed": [
+    "GET /api/meta",
+    "POST /api/auth/register (u1, u2, u3) — _id stripped correctly",
+    "POST /api/auth/login",
+    "GET /api/auth/me",
+    "PATCH /api/auth/me (language=fr)",
+    "GET /api/profiles with city+gender filters",
+    "POST /api/likes u1->u2 (matched=false)",
+    "POST /api/likes u2->u1 (matched=true, conversation created)",
+    "GET /api/matches returns conversation_id",
+    "GET /api/conversations/{cid}/messages (participant 200, non-participant 403)",
+    "POST /api/gifts/send rose: cost=50, commission=15, net=35; sender coins 100->50; recipient withdrawable 0->35 (70/30 correct)",
+    "POST /api/videocalls/start minutes=1 -> cost=10 deducted",
+    "POST /api/dates/book coins=500 with only 40 coins -> 400 Insufficient coins",
+    "POST /api/dates/book coins=100 (below min 500) -> 400",
+    "GET /api/wallet returns coins/escrow/withdrawable/transactions/withdrawals",
+    "POST /api/wallet/withdraw amount=10 -> pending record created (usd=0.10)",
+    "POST /api/wallet/withdraw amount=99999 -> 400 Insufficient withdrawable balance",
+    "POST /api/payments/checkout package_id=coins_100 -> checkout_url + session_id (Stripe cs_test_...)",
+    "GET /api/payments/status/{sid} -> status=initiated, payment_status=pending",
+    "POST /api/upload PNG -> storage path + url returned",
+    "GET /api/files/{path} -> 200 with binary content",
+    "GET /api/dates -> {outgoing, incoming} (no error, escrow release path executes cleanly)"
+  ],
+  "failed": [
+    {
+      "area": "POST /api/conversations/messages",
+      "issue": "Returns 500 Internal Server Error. Same root cause as the earlier register bug: server.py:313 does `await db.messages.insert_one(msg)` then returns `msg` on line 315. Motor mutates `msg` in place and adds `_id: ObjectId(...)`, which FastAPI's jsonable_encoder cannot serialize. Traceback confirmed in /var/log/supervisor/backend.err.log: `ValueError: [TypeError(\"'ObjectId' object is not iterable\")]`. GET messages still works because it uses projection {\"_id\":0}, so message persistence is fine — only the POST response fails. Impact: clients receive 500 even though the message is saved.",
+      "evidence": "curl POST /api/conversations/messages -> HTTP 500 'Internal Server Error'. Backend log: ValueError: [TypeError(\"'ObjectId' object is not iterable\")]",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix server.py POST /conversations/messages (line 307-315): strip _id before returning. Simplest patch — build the response dict without mutation, e.g. return `{k: v for k, v in msg.items() if k != '_id'}`, or insert a copy: `await db.messages.insert_one(dict(msg))`. Same defensive pattern should be applied wherever a dict is returned right after insert_one (audit /wallet/withdraw line 437 — currently uses `if k != '_id'` filter, which is fine).",
+    "After fix, retest only POST /api/conversations/messages; all other flows already verified green."
+  ],
+  "success_rate": {"backend": "27/28 (~96%)", "frontend": "n/a"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}
