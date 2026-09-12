@@ -13,7 +13,7 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
   const [venue, setVenue] = useState("");
   const [city, setCity] = useState(target?.city || "");
   const [when, setWhen] = useState("");
-  const [coins, setCoins] = useState(meta?.date_min_coins || 500);
+  const [coins, setCoins] = useState(meta?.date_min_coins || 300);
   const [busy, setBusy] = useState(false);
 
   React.useEffect(() => { setCity(target?.city || ""); }, [target]);
@@ -43,7 +43,7 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
           <div><Label className="text-xs text-slate-400">{t("when", lang)}</Label>
             <Input data-testid="date-when-input" type="datetime-local" value={when} onChange={e => setWhen(e.target.value)} className="bg-white/5 border-white/10 mt-1" /></div>
           <div><Label className="text-xs text-slate-400">{t("coins", lang)} (min {meta?.date_min_coins})</Label>
-            <Input data-testid="date-coins-input" type="number" min={meta?.date_min_coins || 500} value={coins} onChange={e => setCoins(parseInt(e.target.value || 0))} className="bg-white/5 border-white/10 mt-1" /></div>
+            <Input data-testid="date-coins-input" type="number" min={meta?.date_min_coins || 300} step="50" value={coins} onChange={e => setCoins(parseInt(e.target.value || 0))} className="bg-white/5 border-white/10 mt-1" /></div>
           <div className="text-xs text-slate-400 glass rounded-lg p-3">
             🔒 {t("commission_note", lang)}
           </div>
