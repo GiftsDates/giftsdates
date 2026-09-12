@@ -58,10 +58,15 @@ api = APIRouter(prefix="/api")
 
 # ---------- Constants ----------
 COIN_PACKAGES = {
-    "coins_100":  {"coins": 100,  "amount": 9.99,   "bonus": 0,   "name": "Starter Pack"},
-    "coins_500":  {"coins": 500,  "amount": 44.99,  "bonus": 50,  "name": "Popular Pack"},
-    "coins_2000": {"coins": 2000, "amount": 149.99, "bonus": 300, "name": "VIP Pack"},
+    "small_talk": {"coins": 100,  "amount": 9.99,   "bonus": 0,   "name": "Small Talk"},
+    "starter":    {"coins": 300,  "amount": 29.99,  "bonus": 20,  "name": "Starter"},
+    "popular":    {"coins": 1000, "amount": 99.99,  "bonus": 50,  "name": "Popular Pack"},
+    "extra":      {"coins": 2000, "amount": 189.0,  "bonus": 150, "name": "Extra Pack"},
+    "vip":        {"coins": 3000, "amount": 295.0,  "bonus": 300, "name": "VIP Pack"},
 }
+CUSTOM_COINS_PER_USD = 10
+CUSTOM_BONUS_PCT = 2
+CUSTOM_MIN_USD = 1.0
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
@@ -94,6 +99,9 @@ DEFAULT_SETTINGS = {
     "referral_bonus": REFERRAL_BONUS,
     "commission": GIFT_COMMISSION,
     "free_daily_likes": FREE_DAILY_LIKES,
+    "custom_coins_per_usd": CUSTOM_COINS_PER_USD,
+    "custom_bonus_pct": CUSTOM_BONUS_PCT,
+    "custom_min_usd": CUSTOM_MIN_USD,
 }
 
 async def get_settings() -> dict:
@@ -236,8 +244,9 @@ async def get_admin(user=Depends(get_current_user)):
     return user
 
 class CheckoutReq(BaseModel):
-    package_id: str  # coin package id or "premium_monthly"
+    package_id: str  # coin package id, "custom" or "premium_monthly"
     origin_url: str
+    usd_amount: Optional[float] = None  # for custom
 
 class MessageReq(BaseModel):
     conversation_id: str
@@ -266,6 +275,7 @@ async def meta():
         "date_min_coins": s["date_min_coins"],
         "referral_bonus": s["referral_bonus"],
         "free_daily_likes": s["free_daily_likes"],
+        "custom_coins": {"per_usd": s["custom_coins_per_usd"], "bonus_pct": s["custom_bonus_pct"], "min_usd": s["custom_min_usd"]},
         "max_photos": MAX_PHOTOS,
     }
 
@@ -721,6 +731,9 @@ class SettingsReq(BaseModel):
     referral_bonus: int
     commission: float
     free_daily_likes: int = FREE_DAILY_LIKES
+    custom_coins_per_usd: int = CUSTOM_COINS_PER_USD
+    custom_bonus_pct: float = CUSTOM_BONUS_PCT
+    custom_min_usd: float = CUSTOM_MIN_USD
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):
@@ -771,6 +784,13 @@ async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
     if req.package_id == "premium_monthly":
         pkg_name = PREMIUM_PACKAGE["name"]; amount = int(round(s["premium_amount"] * 100)); mode = "payment"
         metadata = {"user_id": user["id"], "package_id": "premium_monthly", "type": "premium"}
+    elif req.package_id == "custom":
+        usd = round(float(req.usd_amount or 0), 2)
+        if usd < s["custom_min_usd"]: raise HTTPException(400, f"Minimum ${s['custom_min_usd']}")
+        base = int(usd * s["custom_coins_per_usd"])
+        bonus = int(base * s["custom_bonus_pct"] / 100)
+        pkg_name = f"Custom {base} coins (+{bonus} bonus)"; amount = int(round(usd * 100)); mode = "payment"
+        metadata = {"user_id": user["id"], "package_id": "custom", "type": "coins", "coins": str(base + bonus)}
     else:
         pkg = next((p for p in s["coin_packages"] if p["id"] == req.package_id), None)
         if not pkg: raise HTTPException(400, "Unknown package")

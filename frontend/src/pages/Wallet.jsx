@@ -21,15 +21,19 @@ export default function Wallet() {
   const [wdOpen, setWdOpen] = useState(false);
   const [premOpen, setPremOpen] = useState(sp.get("premium") === "1");
   const [wdForm, setWdForm] = useState({ amount: 100 });
+  const [customUsd, setCustomUsd] = useState(20);
+  const cc = meta?.custom_coins || { per_usd: 10, bonus_pct: 2, min_usd: 1 };
+  const customBase = Math.floor((Number(customUsd) || 0) * cc.per_usd);
+  const customBonus = Math.floor(customBase * cc.bonus_pct / 100);
 
   const load = () => api.get("/wallet").then(r => setWallet(r.data));
   useEffect(() => { load(); }, []);
 
-  const buy = async (pkg) => {
+  const buy = async (pkg, usd) => {
     try {
-      const { data } = await api.post("/payments/checkout", { package_id: pkg, origin_url: window.location.origin });
+      const { data } = await api.post("/payments/checkout", { package_id: pkg, origin_url: window.location.origin, usd_amount: usd });
       window.location.href = data.checkout_url;
-    } catch (e) { toast.error(t("payment_init_failed", lang)); }
+    } catch (e) { toast.error(e.response?.data?.detail || t("payment_init_failed", lang)); }
   };
   const verified = wallet.payout_account?.status === "verified";
   const fee = Math.round(wdForm.amount * wallet.withdraw_commission * 100) / 100;
@@ -111,6 +115,20 @@ export default function Wallet() {
                 <div className="text-amber-300 font-mono-num">${p.amount}</div>
               </button>
             ))}
+            <div className="glass rounded-xl p-4 border border-violet-500/30" data-testid="topup-custom">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-serif-luxe text-lg">{t("custom_amount", lang)}</div>
+                <div className="text-xs text-slate-400">{t("custom_hint", lang).replace("{n}", cc.per_usd).replace("{p}", cc.bonus_pct)}</div>
+              </div>
+              <div className="flex gap-2 items-center">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                  <Input data-testid="topup-custom-usd-input" type="number" min={cc.min_usd} step="1" value={customUsd} onChange={e => setCustomUsd(e.target.value)} className="bg-white/5 border-white/10 ps-7 font-mono-num" />
+                </div>
+                <div className="text-sm font-mono-num text-amber-300 whitespace-nowrap" data-testid="topup-custom-coins">🪙 {customBase}{customBonus ? ` + ${customBonus}` : ""}</div>
+                <Button data-testid="topup-custom-buy-button" disabled={!(Number(customUsd) >= cc.min_usd)} onClick={() => buy("custom", Number(customUsd))} className="rose-btn text-white border-0">{t("buy", lang)}</Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
