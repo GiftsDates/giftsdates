@@ -44,7 +44,7 @@ export default function Dates() {
       await api.post("/dates/confirm", { booking_id: bid, photo_url: up.data.path });
       await load();
       toast.success(t("photo_uploaded_unlock", lang));
-    } catch (err) { toast.error(t("upload_failed", lang)); }
+    } catch (err) { const d = err.response?.data?.detail; toast.error(d === "DATE_NOT_YET" ? t("date_not_yet", lang) : t("upload_failed", lang)); }
     finally { setBusyId(null); e.target.value = ""; }
   };
 
@@ -57,7 +57,7 @@ export default function Dates() {
         <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLOR[b.status]}`}>{t(STATUS_MAP[b.status], lang)}</span>
           <span className="text-xs text-amber-300 font-mono-num">🪙 {b.coins}</span>
-          {b.release_at && b.status === "confirmed" && <span className="text-xs text-slate-500">→ {new Date(b.release_at).toLocaleString()}</span>}
+          {b.release_at && b.status === "confirmed" && <span className="text-xs text-slate-500">🔓 {t("unlocks_at", lang)}: {new Date(b.release_at).toLocaleString()}</span>}
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
@@ -68,7 +68,7 @@ export default function Dates() {
           </>
         )}
         {isIncoming && b.status === "accepted" && (
-          <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
+          <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || new Date(b.scheduled_at) > new Date()} title={new Date(b.scheduled_at) > new Date() ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
         )}
         {!isIncoming && (b.status === "escrow" || b.status === "accepted") && (
           <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b.id)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>

@@ -686,7 +686,12 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
     if not b: raise HTTPException(404, "Not found")
     if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can confirm")
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot confirm")
-    release_at = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
+    except Exception: sched = now_dt
+    if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
+    if now_dt < sched: raise HTTPException(400, "DATE_NOT_YET")
+    release_at = max(sched + timedelta(days=1), now_dt).isoformat()
     await db.date_bookings.update_one({"id": req.booking_id}, {"$set": {"status": "confirmed", "photo_url": req.photo_url, "confirmed_at": datetime.now(timezone.utc).isoformat(), "release_at": release_at}})
     return {"status": "confirmed", "release_at": release_at}
 
