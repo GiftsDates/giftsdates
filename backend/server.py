@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-import os, uuid, logging, bcrypt, jwt, stripe, requests
+import os, uuid, logging, bcrypt, jwt, stripe, requests, re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -76,6 +76,13 @@ VIDEO_RATE_PER_MIN = 10
 DATE_MIN_COINS = 300
 REFERRAL_BONUS = 100
 MAX_PHOTOS = 6
+PHONE_RE = re.compile(r"(?:\+?\d[\s\-\.\(\)_]*){7,}")
+PHONE_WORDS_RE = re.compile(r"\b(whatsapp|telegram|viber|wechat|signal|тел[её]фон|ватсап|телеграм)\b", re.I)
+MAX_VIOLATIONS = 3
+BLOCK_DAYS = 7
+
+def contains_phone(text: str) -> bool:
+    return bool(PHONE_RE.search(text)) or bool(PHONE_WORDS_RE.search(text) and re.search(r"\d{4,}", text))
 
 DEFAULT_SETTINGS = {
     "gifts": GIFT_CATALOG,
@@ -132,6 +139,9 @@ async def get_current_user(authorization: Optional[str] = Header(None), auth: Op
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(401, "User not found")
+    bu = user.get("blocked_until")
+    if bu and datetime.fromisoformat(bu.replace("Z", "+00:00")) > datetime.now(timezone.utc):
+        raise HTTPException(403, f"BLOCKED:{bu}")
     if not user.get("referral_code"):
         user["referral_code"] = user["id"][:8].upper()
         await db.users.update_one({"id": user["id"]}, {"$set": {"referral_code": user["referral_code"]}})
@@ -285,6 +295,9 @@ async def login(req: LoginReq):
     u = await db.users.find_one({"email": req.email.lower()})
     if not u or not verify_pwd(req.password, u["password"]):
         raise HTTPException(401, "Invalid credentials")
+    bu = u.get("blocked_until")
+    if bu and datetime.fromisoformat(bu.replace("Z", "+00:00")) > datetime.now(timezone.utc):
+        raise HTTPException(403, f"BLOCKED:{bu}")
     return {"token": make_token(u["id"]), "user": {k: v for k, v in u.items() if k not in ("password", "_id")}}
 
 @api.get("/auth/me")
@@ -486,6 +499,26 @@ async def send_message(req: MessageReq, user=Depends(get_current_user)):
     conv = await db.conversations.find_one({"id": req.conversation_id})
     if not conv or user["id"] not in conv["users"]: raise HTTPException(403, "No access")
     now = datetime.now(timezone.utc).isoformat()
+    if contains_phone(req.text):
+        other_id = [u for u in conv["users"] if u != user["id"]][0]
+        met = await db.date_bookings.find_one({"status": {"$in": ["confirmed", "released"]}, "$or": [
+            {"from_id": user["id"], "to_id": other_id}, {"from_id": other_id, "to_id": user["id"]}]})
+        if not met:
+            violations = (user.get("violations") or 0) + 1
+            upd = {"$set": {"violations": violations}}
+            blocked = violations >= MAX_VIOLATIONS
+            if blocked:
+                until = (datetime.now(timezone.utc) + timedelta(days=BLOCK_DAYS)).isoformat()
+                upd["$set"]["blocked_until"] = until
+                upd["$set"]["violations"] = 0
+            await db.users.update_one({"id": user["id"]}, upd)
+            await db.moderation_log.insert_one({"id": str(uuid.uuid4()), "user_id": user["id"], "conversation_id": req.conversation_id,
+                                                "text": req.text, "violation_no": violations, "blocked": blocked, "created_at": now})
+            if blocked:
+                await notify(user["id"], "blocked", "Account blocked 🚫", f"Repeated attempts to share a phone number before a date. Blocked for {BLOCK_DAYS} days.", {"until": until}, email=True)
+                raise HTTPException(403, f"BLOCKED:{until}")
+            await notify(user["id"], "warning", "Warning ⚠️", f"Sharing phone numbers before a confirmed date is not allowed. Warning {violations}/{MAX_VIOLATIONS} — next violations lead to a block.", {"violations": violations})
+            raise HTTPException(400, f"PHONE_BLOCKED:{violations}:{MAX_VIOLATIONS}")
     msg = {"id": str(uuid.uuid4()), "conversation_id": req.conversation_id, "from_id": user["id"], "text": req.text, "created_at": now, "type": "text"}
     await db.messages.insert_one(dict(msg))
     await db.conversations.update_one({"id": req.conversation_id}, {"$set": {"last_message": req.text, "last_at": now}})

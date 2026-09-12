@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Send } from "lucide-react";
+import { Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Chats() {
-  const { user, lang } = useApp();
+  const { user, lang, logout } = useApp();
+  const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const [convs, setConvs] = useState([]);
   const [active, setActive] = useState(sp.get("c") || null);
@@ -28,7 +29,12 @@ export default function Chats() {
   const send = async () => {
     if (!text.trim() || !active) return;
     try { await api.post("/conversations/messages", { conversation_id: active, text }); setText(""); const r = await api.get(`/conversations/${active}/messages`); setMsgs(r.data); }
-    catch { toast.error(t("failed", lang)); }
+    catch (e) {
+      const d = e.response?.data?.detail || "";
+      if (d.startsWith("PHONE_BLOCKED:")) { const [, a, b] = d.split(":"); toast.error(t("phone_blocked", lang).replace("{a}", a).replace("{b}", b), { duration: 6000 }); }
+      else if (d.startsWith("BLOCKED:")) { toast.error(t("account_blocked", lang).replace("{d}", new Date(d.slice(8)).toLocaleDateString()), { duration: 8000 }); logout(); nav("/auth"); }
+      else toast.error(t("failed", lang));
+    }
   };
   const partner = convs.find(c => c.conversation_id === active)?.user;
 
@@ -67,9 +73,12 @@ export default function Chats() {
             <div ref={endRef}/>
           </div>
           {active && (
-            <div className="p-3 border-t border-white/10 flex gap-2">
-              <Input data-testid="chat-message-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==='Enter' && send()} placeholder={t("message_placeholder", lang)} className="bg-white/5 border-white/10"/>
-              <Button data-testid="chat-message-send-button" onClick={send} className="rose-btn text-white border-0"><Send size={16}/></Button>
+            <div className="p-3 border-t border-white/10">
+              <div className="flex gap-2">
+                <Input data-testid="chat-message-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==='Enter' && send()} placeholder={t("message_placeholder", lang)} className="bg-white/5 border-white/10"/>
+                <Button data-testid="chat-message-send-button" onClick={send} className="rose-btn text-white border-0"><Send size={16}/></Button>
+              </div>
+              <div data-testid="chat-rule-hint" className="mt-2 text-[11px] text-slate-500 flex items-center gap-1"><ShieldAlert size={11}/> {t("chat_rule_hint", lang)}</div>
             </div>
           )}
         </div>

@@ -29,6 +29,8 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - 9th–11th UI languages: Hindi (hi), Bengali (bn), Urdu (ur, RTL) — all keys translated each.
 - Advanced search filters (intent, kids, smoking, religion, height range) → GET /api/profiles params.
 - Full profile page /profile/:id (GET /api/profiles/{id} + is_premium/liked_by_me/conversation_id); card image click opens it.
+- Phone-number guard in chat: numbers (7+ digits incl. separators, or messenger keyword + digits) are blocked until the pair has a confirmed/released date booking. Each violation → warning notification (PHONE_BLOCKED:n:3); 3rd violation → account blocked 7 days (blocked_until; login and all API return 403 BLOCKED:<iso>), logged in db.moderation_log. Chat shows rule hint under the input.
+- Per-profile date price (`date_price`, ≥ global min 300) editable on /profile; shown on card chip and profile page; prefilled in booking modal.
 - Admin "Prices" tab: GET/PUT /api/admin/settings (gifts, coin packs, premium price, video rate, date min coins, referral bonus, commission) stored in db.settings id=pricing; all pricing reads via get_settings().
 
 ## Backlog

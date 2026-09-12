@@ -24,7 +24,11 @@ export default function Auth() {
       if (mode === "login") { await login(f.email, f.password); toast.success(t("welcome_back", lang)); }
       else { await register(f); toast.success(t("welcome_new", lang)); }
       nav("/browse");
-    } catch (err) { toast.error(err.response?.data?.detail || t("failed", lang)); }
+    } catch (err) {
+      const d = err.response?.data?.detail || "";
+      if (d.startsWith("BLOCKED:")) toast.error(t("account_blocked", lang).replace("{d}", new Date(d.slice(8)).toLocaleDateString()), { duration: 8000 });
+      else toast.error(d || t("failed", lang));
+    }
     finally { setBusy(false); }
   };
 
