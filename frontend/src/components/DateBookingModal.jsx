@@ -19,15 +19,15 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
   React.useEffect(() => { setCity(target?.city || ""); }, [target]);
 
   const submit = async () => {
-    if (!venue || !when) { toast.error("Fill all fields"); return; }
-    if (user.coins < coins) { toast.error("Not enough coins"); return; }
+    if (!venue || !when) { toast.error(t("fill_all", lang)); return; }
+    if (user.coins < coins) { toast.error(t("not_enough_coins", lang)); return; }
     setBusy(true);
     try {
       await api.post("/dates/book", { target_id: target.id, venue, city, scheduled_at: new Date(when).toISOString(), coins });
       await refreshUser();
-      toast.success("Date booked! Coins held in escrow.");
+      toast.success(t("date_booked", lang));
       onOpenChange(false);
-    } catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+    } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusy(false); }
   };
 

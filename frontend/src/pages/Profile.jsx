@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
+import PhotoGrid from "../components/PhotoGrid";
 
 export default function Profile() {
   const { user, refreshUser, lang } = useApp();
@@ -15,15 +16,18 @@ export default function Profile() {
 
   const save = async () => {
     setBusy(true);
-    try { await api.patch("/auth/me", f); await refreshUser(); toast.success("Saved"); }
-    catch { toast.error("Failed"); } finally { setBusy(false); }
+    try { await api.patch("/auth/me", f); await refreshUser(); toast.success(t("saved", lang)); }
+    catch { toast.error(t("failed", lang)); } finally { setBusy(false); }
   };
 
   return (
     <div className="aurora-bg min-h-[calc(100vh-4rem)]">
       <div className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="font-serif-luxe text-4xl mb-6">{t("profile", lang)}</h1>
-        <div className="glass rounded-2xl p-6 space-y-4">
+        <div className="glass rounded-2xl p-6 space-y-4 mb-6">
+          <PhotoGrid />
+        </div>
+        <div className="glass rounded-2xl p-6 space-y-4 mb-6">
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs text-slate-400">{t("name", lang)}</Label>
               <Input data-testid="profile-name-input" value={f.name || ""} onChange={e => setF({ ...f, name: e.target.value })} className="bg-white/5 border-white/10 mt-1"/></div>

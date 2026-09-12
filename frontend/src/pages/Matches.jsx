@@ -23,7 +23,7 @@ export default function Matches() {
       <div className="max-w-5xl mx-auto px-4 py-10">
         <h1 className="font-serif-luxe text-4xl mb-8 flex items-center gap-3"><Heart className="fill-rose-500 text-rose-500"/> {t("matches", lang)}</h1>
         {items.length === 0 ? (
-          <div className="glass rounded-2xl p-10 text-center text-slate-400">Like someone to make a match.</div>
+          <div className="glass rounded-2xl p-10 text-center text-slate-400">{t("like_to_match", lang)}</div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {items.map(m => (

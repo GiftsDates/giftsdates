@@ -74,6 +74,25 @@ GIFT_CATALOG = [
 GIFT_COMMISSION = 0.30
 VIDEO_RATE_PER_MIN = 10
 DATE_MIN_COINS = 500
+REFERRAL_BONUS = 100
+MAX_PHOTOS = 6
+
+def is_premium(u: dict) -> bool:
+    pu = u.get("premium_until")
+    if not pu: return False
+    try: return datetime.fromisoformat(pu.replace("Z", "+00:00")) > datetime.now(timezone.utc)
+    except Exception: return False
+
+async def notify(user_id: str, ntype: str, title: str, body: str, data: dict | None = None, email: bool = False):
+    now = datetime.now(timezone.utc).isoformat()
+    await db.notifications.insert_one({"id": str(uuid.uuid4()), "user_id": user_id, "type": ntype, "title": title,
+                                       "body": body, "data": data or {}, "read": False, "created_at": now})
+    if email:
+        u = await db.users.find_one({"id": user_id}, {"email": 1})
+        if u:
+            # MOCKED email delivery: stored in outbox until a real provider (Resend/SendGrid) is connected
+            await db.email_outbox.insert_one({"id": str(uuid.uuid4()), "to": u["email"], "subject": title, "body": body, "status": "queued", "created_at": now})
+            logging.info(f"[EMAIL MOCK] to={u['email']} subject={title}")
 
 # ---------- Auth helpers ----------
 def hash_pwd(p: str) -> str:
@@ -99,6 +118,9 @@ async def get_current_user(authorization: Optional[str] = Header(None), auth: Op
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(401, "User not found")
+    if not user.get("referral_code"):
+        user["referral_code"] = user["id"][:8].upper()
+        await db.users.update_one({"id": user["id"]}, {"$set": {"referral_code": user["referral_code"]}})
     return user
 
 # ---------- Models ----------
@@ -112,6 +134,7 @@ class RegisterReq(BaseModel):
     city: str
     country: str
     bio: Optional[str] = ""
+    referral_code: Optional[str] = None
 
 class LoginReq(BaseModel):
     email: EmailStr
@@ -152,8 +175,25 @@ class DateConfirmReq(BaseModel):
 
 class WithdrawReq(BaseModel):
     amount: float
-    method: str  # bank/card/crypto
-    destination: str
+
+class PayoutAccountReq(BaseModel):
+    holder_name: str
+    bank_name: str
+    iban: str
+    country: str
+    swift: Optional[str] = ""
+    document_path: Optional[str] = None
+
+class AdminVerifyReq(BaseModel):
+    approve: bool
+    reason: Optional[str] = ""
+
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+def is_admin(u: dict) -> bool:
+    return u.get("is_admin") is True or u["email"].lower() in ADMIN_EMAILS
+async def get_admin(user=Depends(get_current_user)):
+    if not is_admin(user): raise HTTPException(403, "Admin only")
+    return user
 
 class CheckoutReq(BaseModel):
     package_id: str  # coin package id or "premium_monthly"
@@ -170,6 +210,7 @@ async def _startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
     await db.likes.create_index([("from_id", 1), ("to_id", 1)], unique=True)
+    await db.notifications.create_index([("user_id", 1), ("read", 1)])
     logging.info("GiftsDates backend ready")
 
 # ---------- Meta ----------
@@ -182,6 +223,8 @@ async def meta():
         "video_rate": VIDEO_RATE_PER_MIN,
         "gift_commission": GIFT_COMMISSION,
         "date_min_coins": DATE_MIN_COINS,
+        "referral_bonus": REFERRAL_BONUS,
+        "max_photos": MAX_PHOTOS,
     }
 
 # ---------- Auth ----------
@@ -190,6 +233,9 @@ async def register(req: RegisterReq):
     if await db.users.find_one({"email": req.email.lower()}):
         raise HTTPException(400, "Email already registered")
     uid = str(uuid.uuid4())
+    referrer = None
+    if req.referral_code:
+        referrer = await db.users.find_one({"referral_code": req.referral_code.strip().upper()}, {"id": 1})
     doc = {
         "id": uid, "email": req.email.lower(), "password": hash_pwd(req.password),
         "name": req.name, "age": req.age, "gender": req.gender,
@@ -198,6 +244,8 @@ async def register(req: RegisterReq):
         "coins": 100,  # welcome bonus
         "escrow": 0.0, "withdrawable": 0.0,
         "premium_until": None, "verified": False,
+        "referral_code": uid[:8].upper(), "referred_by": referrer["id"] if referrer else None,
+        "referral_rewarded": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)
@@ -217,6 +265,8 @@ async def me(user=Depends(get_current_user)):
 @api.patch("/auth/me")
 async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
     upd = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if "photos" in upd and len(upd["photos"]) > MAX_PHOTOS:
+        raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
     if upd:
         await db.users.update_one({"id": user["id"]}, {"$set": upd})
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
@@ -236,6 +286,40 @@ async def upload(file: UploadFile = File(...), user=Depends(get_current_user)):
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"path": result["path"], "url": f"/api/files/{result['path']}"}
+
+@api.post("/profile/photos")
+async def add_photo(file: UploadFile = File(...), user=Depends(get_current_user)):
+    photos = user.get("photos") or []
+    if len(photos) >= MAX_PHOTOS: raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
+    if not (file.content_type or "").startswith("image/"): raise HTTPException(400, "Only images allowed")
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "jpg").lower()
+    path = f"{APP_NAME}/photos/{user['id']}/{uuid.uuid4()}.{ext}"
+    data = await file.read()
+    result = put_object(path, data, file.content_type)
+    await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": result["path"], "user_id": user["id"],
+                               "content_type": file.content_type, "size": result["size"], "is_deleted": False,
+                               "created_at": datetime.now(timezone.utc).isoformat()})
+    photos.append(result["path"])
+    await db.users.update_one({"id": user["id"]}, {"$set": {"photos": photos}})
+    return {"photos": photos}
+
+class PhotoReq(BaseModel):
+    path: str
+
+@api.delete("/profile/photos")
+async def delete_photo(req: PhotoReq, user=Depends(get_current_user)):
+    photos = [p for p in (user.get("photos") or []) if p != req.path]
+    await db.users.update_one({"id": user["id"]}, {"$set": {"photos": photos}})
+    await db.files.update_one({"storage_path": req.path, "user_id": user["id"]}, {"$set": {"is_deleted": True}})
+    return {"photos": photos}
+
+@api.post("/profile/photos/primary")
+async def primary_photo(req: PhotoReq, user=Depends(get_current_user)):
+    photos = user.get("photos") or []
+    if req.path not in photos: raise HTTPException(404, "Photo not found")
+    photos = [req.path] + [p for p in photos if p != req.path]
+    await db.users.update_one({"id": user["id"]}, {"$set": {"photos": photos}})
+    return {"photos": photos}
 
 @api.get("/files/{path:path}")
 async def download(path: str, authorization: Optional[str] = Header(None), auth: Optional[str] = None):
@@ -257,8 +341,16 @@ async def list_profiles(
     if country: query["country"] = {"$regex": country, "$options": "i"}
     if gender and gender != "all": query["gender"] = gender
     if q: query["$or"] = [{"name": {"$regex": q, "$options": "i"}}, {"bio": {"$regex": q, "$options": "i"}}]
-    cursor = db.users.find(query, {"_id": 0, "password": 0, "email": 0}).limit(limit)
-    return await cursor.to_list(limit)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    proj = {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0}
+    boosted = await db.users.find({**query, "premium_until": {"$gt": now_iso}}, proj).limit(limit).to_list(limit)
+    rest_limit = max(limit - len(boosted), 0)
+    rest = await db.users.find({**query, "$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}, {"premium_until": {"$exists": False}}]} if not q else
+                               {**query, "$and": [{"$or": query["$or"]}, {"$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}]}]},
+                               proj).limit(rest_limit).to_list(rest_limit) if rest_limit else []
+    for p in boosted: p["is_premium"] = True
+    for p in rest: p["is_premium"] = False
+    return boosted + rest
 
 @api.get("/profiles/{pid}")
 async def profile_detail(pid: str, user=Depends(get_current_user)):
@@ -284,7 +376,42 @@ async def like(req: LikeReq, user=Depends(get_current_user)):
             conv_id = str(uuid.uuid4())
             await db.matches.insert_one({"id": conv_id, "users": [user["id"], req.target_id], "created_at": now})
             await db.conversations.insert_one({"id": conv_id, "users": [user["id"], req.target_id], "created_at": now, "last_message": None})
+            other = await db.users.find_one({"id": req.target_id}, {"name": 1})
+            await notify(req.target_id, "match", "It's a match! 💘", f"You and {user['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
+            await notify(user["id"], "match", "It's a match! 💘", f"You and {other['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": other["name"]}, email=True)
     return {"liked": True, "matched": matched}
+
+# ---------- Notifications ----------
+@api.get("/notifications")
+async def list_notifications(unread_only: bool = False, user=Depends(get_current_user)):
+    q = {"user_id": user["id"]}
+    if unread_only: q["read"] = False
+    items = await db.notifications.find(q, {"_id": 0}).sort("created_at", -1).to_list(50)
+    unread = await db.notifications.count_documents({"user_id": user["id"], "read": False})
+    return {"items": items, "unread": unread}
+
+@api.post("/notifications/read")
+async def read_notifications(user=Depends(get_current_user)):
+    await db.notifications.update_many({"user_id": user["id"], "read": False}, {"$set": {"read": True}})
+    return {"ok": True}
+
+# ---------- Referrals ----------
+@api.get("/referrals")
+async def referrals(user=Depends(get_current_user)):
+    invited = await db.users.find({"referred_by": user["id"]}, {"_id": 0, "name": 1, "created_at": 1, "referral_rewarded": 1}).to_list(200)
+    earned = await db.transactions.find({"to_id": user["id"], "type": "referral_bonus"}, {"_id": 0}).to_list(500)
+    return {"code": user["referral_code"], "bonus": REFERRAL_BONUS, "invited": invited,
+            "earned": sum(t["cost"] for t in earned), "rewarded_count": len(earned)}
+
+async def _reward_referrer(buyer_id: str):
+    buyer = await db.users.find_one({"id": buyer_id})
+    if not buyer or not buyer.get("referred_by") or buyer.get("referral_rewarded"): return
+    res = await db.users.update_one({"id": buyer_id, "referral_rewarded": {"$ne": True}}, {"$set": {"referral_rewarded": True}})
+    if res.modified_count == 0: return
+    await db.users.update_one({"id": buyer["referred_by"]}, {"$inc": {"coins": REFERRAL_BONUS}})
+    await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "referral_bonus", "from_id": buyer_id, "to_id": buyer["referred_by"],
+                                      "cost": REFERRAL_BONUS, "net": REFERRAL_BONUS, "created_at": datetime.now(timezone.utc).isoformat()})
+    await notify(buyer["referred_by"], "referral", f"+{REFERRAL_BONUS} 🪙 referral bonus", f"{buyer['name']} made a first purchase. Thanks for inviting!", {"user_id": buyer_id})
 
 @api.get("/matches")
 async def my_matches(user=Depends(get_current_user)):
@@ -325,12 +452,11 @@ async def send_gift(req: GiftReq, user=Depends(get_current_user)):
     if user["coins"] < gift["cost"]: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
-    net = round(gift["cost"] * (1 - GIFT_COMMISSION), 2)
+    # full value credited to recipient; 30% commission is withheld at withdrawal time
+    net = gift["cost"]
     commission = round(gift["cost"] * GIFT_COMMISSION, 2)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -gift["cost"]}})
-    # 70% goes to withdrawable (as coin value equivalent, treated as $ balance -> coins/100 usd)
-    # Simpler model: withdrawable expressed in coins; conversion to USD at withdrawal (100 coins = $1)
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
     tx = {"id": str(uuid.uuid4()), "type": "gift", "from_id": user["id"], "to_id": req.target_id,
           "gift_id": gift["id"], "gift_icon": gift["icon"], "cost": gift["cost"],
@@ -355,7 +481,7 @@ async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
     if not target: raise HTTPException(404, "Recipient not found")
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -cost}})
-    net = round(cost * (1 - GIFT_COMMISSION), 2)
+    net = cost
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
     call_id = str(uuid.uuid4())
     await db.transactions.insert_one({"id": call_id, "type": "videocall", "from_id": user["id"], "to_id": req.target_id, "minutes": req.minutes, "cost": cost, "net": net, "created_at": now})
@@ -422,19 +548,71 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
 async def wallet(user=Depends(get_current_user)):
     txs = await db.transactions.find({"$or": [{"from_id": user["id"]}, {"to_id": user["id"]}]}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     withdrawals = await db.withdrawals.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
-    return {"coins": user["coins"], "escrow": user.get("escrow", 0), "withdrawable": user.get("withdrawable", 0), "transactions": txs, "withdrawals": withdrawals}
+    acct = await db.payout_accounts.find_one({"user_id": user["id"]}, {"_id": 0})
+    return {"coins": user["coins"], "escrow": user.get("escrow", 0), "withdrawable": user.get("withdrawable", 0),
+            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": GIFT_COMMISSION, "is_admin": is_admin(user)}
+
+@api.get("/wallet/payout-account")
+async def get_payout_account(user=Depends(get_current_user)):
+    return await db.payout_accounts.find_one({"user_id": user["id"]}, {"_id": 0})
+
+@api.post("/wallet/payout-account")
+async def submit_payout_account(req: PayoutAccountReq, user=Depends(get_current_user)):
+    iban = req.iban.replace(" ", "").upper()
+    if len(iban) < 8: raise HTTPException(400, "Invalid account number")
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_name": user["name"], "user_email": user["email"],
+           "holder_name": req.holder_name.strip(), "bank_name": req.bank_name.strip(), "iban": iban, "country": req.country.strip(),
+           "swift": (req.swift or "").strip(), "document_path": req.document_path, "status": "pending", "reason": "",
+           "submitted_at": datetime.now(timezone.utc).isoformat(), "verified_at": None}
+    await db.payout_accounts.replace_one({"user_id": user["id"]}, doc, upsert=True)
+    return {k: v for k, v in doc.items() if k != "_id"}
 
 @api.post("/wallet/withdraw")
 async def withdraw(req: WithdrawReq, user=Depends(get_current_user)):
-    # withdrawable is in coins; 100 coins = $1
+    # withdrawable is in coins; 100 coins = $1; 30% platform commission withheld here
     if req.amount <= 0: raise HTTPException(400, "Invalid amount")
     if user.get("withdrawable", 0) < req.amount: raise HTTPException(400, "Insufficient withdrawable balance")
+    acct = await db.payout_accounts.find_one({"user_id": user["id"]})
+    if not acct or acct["status"] != "verified": raise HTTPException(400, "Bank account not verified")
+    fee = round(req.amount * GIFT_COMMISSION, 2)
+    net = round(req.amount - fee, 2)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"withdrawable": -req.amount}})
-    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "usd": round(req.amount / 100, 2),
-           "method": req.method, "destination": req.destination, "status": "pending", "created_at": now}
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "fee": fee, "net": net, "usd": round(net / 100, 2),
+           "method": "bank", "destination": f"{acct['bank_name']} ····{acct['iban'][-4:]}", "status": "pending", "created_at": now}
     await db.withdrawals.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
+
+# ---------- Admin ----------
+@api.get("/admin/payout-accounts")
+async def admin_payout_accounts(status: str = "pending", admin=Depends(get_admin)):
+    q = {} if status == "all" else {"status": status}
+    return await db.payout_accounts.find(q, {"_id": 0}).sort("submitted_at", -1).to_list(200)
+
+@api.post("/admin/payout-accounts/{user_id}/verify")
+async def admin_verify_account(user_id: str, req: AdminVerifyReq, admin=Depends(get_admin)):
+    acct = await db.payout_accounts.find_one({"user_id": user_id})
+    if not acct: raise HTTPException(404, "Not found")
+    status = "verified" if req.approve else "rejected"
+    await db.payout_accounts.update_one({"user_id": user_id}, {"$set": {"status": status, "reason": req.reason or "", "verified_at": datetime.now(timezone.utc).isoformat(), "verified_by": admin["id"]}})
+    await notify(user_id, "payout_account", "Bank account verified ✅" if req.approve else "Bank account rejected",
+                 "You can now withdraw your earnings." if req.approve else (req.reason or "Please re-submit your bank details."), email=True)
+    return {"status": status}
+
+@api.get("/admin/withdrawals")
+async def admin_withdrawals(admin=Depends(get_admin)):
+    return await db.withdrawals.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+@api.post("/admin/withdrawals/{wid}/{action}")
+async def admin_withdrawal_action(wid: str, action: str, admin=Depends(get_admin)):
+    if action not in ("paid", "rejected"): raise HTTPException(400, "Bad action")
+    w = await db.withdrawals.find_one({"id": wid})
+    if not w or w["status"] != "pending": raise HTTPException(400, "Not pending")
+    if action == "rejected":
+        await db.users.update_one({"id": w["user_id"]}, {"$inc": {"withdrawable": w["amount"]}})
+    await db.withdrawals.update_one({"id": wid}, {"$set": {"status": action, "processed_at": datetime.now(timezone.utc).isoformat()}})
+    await notify(w["user_id"], "withdrawal", f"Withdrawal {action}", f"${w['usd']} → {w['destination']}", email=True)
+    return {"status": action}
 
 # ---------- Stripe checkout ----------
 @api.post("/payments/checkout")
@@ -474,6 +652,7 @@ async def _fulfill(session_id: str, meta: dict):
     if meta.get("type") == "coins":
         coins = int(meta.get("coins", 0))
         await db.users.update_one({"id": user_id}, {"$inc": {"coins": coins}})
+        await _reward_referrer(user_id)
     elif meta.get("type") == "premium":
         u = await db.users.find_one({"id": user_id})
         start = datetime.now(timezone.utc)

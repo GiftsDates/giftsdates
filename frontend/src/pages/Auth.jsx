@@ -15,16 +15,16 @@ export default function Auth() {
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const [mode, setMode] = useState(sp.get("register") ? "register" : "login");
-  const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", city: "", country: "", bio: "" });
+  const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", city: "", country: "", bio: "", referral_code: sp.get("ref") || "" });
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
-      if (mode === "login") { await login(f.email, f.password); toast.success("Welcome back!"); }
-      else { await register(f); toast.success("Welcome to GiftsDates! +100 🪙"); }
+      if (mode === "login") { await login(f.email, f.password); toast.success(t("welcome_back", lang)); }
+      else { await register(f); toast.success(t("welcome_new", lang)); }
       nav("/browse");
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    } catch (err) { toast.error(err.response?.data?.detail || t("failed", lang)); }
     finally { setBusy(false); }
   };
 
@@ -80,6 +80,8 @@ export default function Auth() {
               </div>
               <div><Label className="text-xs text-slate-400">{t("bio", lang)}</Label>
                 <Textarea data-testid="auth-bio-input" rows={2} value={f.bio} onChange={e => setF({ ...f, bio: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div><Label className="text-xs text-slate-400">{t("referral_optional", lang)}</Label>
+                <Input data-testid="auth-referral-input" value={f.referral_code} onChange={e => setF({ ...f, referral_code: e.target.value.toUpperCase() })} className="bg-white/5 border-white/10 mt-1 font-mono" /></div>
             </>
           )}
 

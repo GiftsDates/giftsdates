@@ -21,8 +21,8 @@ export default function Dates() {
 
   const cancel = async (id) => {
     setBusyId(id);
-    try { await api.post(`/dates/cancel/${id}`); await refreshUser(); await load(); toast.success("Date cancelled"); }
-    catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+    try { await api.post(`/dates/cancel/${id}`); await refreshUser(); await load(); toast.success(t("date_cancelled", lang)); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
 
@@ -36,8 +36,8 @@ export default function Dates() {
       const up = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       await api.post("/dates/confirm", { booking_id: bid, photo_url: up.data.path });
       await load();
-      toast.success("Photo uploaded, funds unlock in 24h");
-    } catch (err) { toast.error("Upload failed"); }
+      toast.success(t("photo_uploaded_unlock", lang));
+    } catch (err) { toast.error(t("upload_failed", lang)); }
     finally { setBusyId(null); e.target.value = ""; }
   };
 
@@ -72,12 +72,12 @@ export default function Dates() {
         <p className="text-xs text-slate-400 -mt-4">{t("photo_hint", lang)}</p>
 
         <section>
-          <h2 className="text-sm font-mono uppercase tracking-widest text-rose-400 mb-3">Incoming (you're invited)</h2>
-          {data.incoming.length === 0 ? <div className="glass rounded-xl p-6 text-sm text-slate-500">None</div> : <div className="space-y-3">{data.incoming.map(b => <Row key={b.id} b={b} isIncoming/>)}</div>}
+          <h2 className="text-sm font-mono uppercase tracking-widest text-rose-400 mb-3">{t("incoming_dates", lang)}</h2>
+          {data.incoming.length === 0 ? <div className="glass rounded-xl p-6 text-sm text-slate-500">{t("none", lang)}</div> : <div className="space-y-3">{data.incoming.map(b => <Row key={b.id} b={b} isIncoming/>)}</div>}
         </section>
         <section>
-          <h2 className="text-sm font-mono uppercase tracking-widest text-violet-400 mb-3">Outgoing (you booked)</h2>
-          {data.outgoing.length === 0 ? <div className="glass rounded-xl p-6 text-sm text-slate-500">None</div> : <div className="space-y-3">{data.outgoing.map(b => <Row key={b.id} b={b}/>)}</div>}
+          <h2 className="text-sm font-mono uppercase tracking-widest text-violet-400 mb-3">{t("outgoing_dates", lang)}</h2>
+          {data.outgoing.length === 0 ? <div className="glass rounded-xl p-6 text-sm text-slate-500">{t("none", lang)}</div> : <div className="space-y-3">{data.outgoing.map(b => <Row key={b.id} b={b}/>)}</div>}
         </section>
       </div>
     </div>

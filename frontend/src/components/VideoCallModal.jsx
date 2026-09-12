@@ -24,7 +24,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
 
   const start = async () => {
     const cost = minutes * (meta?.video_rate || 10);
-    if (user.coins < cost) { toast.error("Not enough coins"); return; }
+    if (user.coins < cost) { toast.error(t("not_enough_coins", lang)); return; }
     setPhase("connecting");
     try {
       await api.post("/videocalls/start", { target_id: target.id, minutes });
@@ -36,7 +36,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
           return x + 1;
         }), 1000);
       }, 1200);
-    } catch (e) { toast.error(e.response?.data?.detail || "Failed"); setPhase("setup"); }
+    } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); setPhase("setup"); }
   };
   const end = () => { clearInterval(timerRef.current); setPhase("ended"); };
 
@@ -53,7 +53,7 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
             <Label className="text-xs text-slate-400">{t("duration_min", lang)}</Label>
             <Input data-testid="videocall-minutes-input" type="number" min={1} max={60} value={minutes} onChange={e => setMinutes(parseInt(e.target.value || 1))} className="bg-white/5 border-white/10" />
             <div className="glass rounded-xl p-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">Rate</span><span className="font-mono-num text-amber-300">🪙 {meta?.video_rate}/{t("minutes", lang)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">{t("rate", lang)}</span><span className="font-mono-num text-amber-300">🪙 {meta?.video_rate}/{t("minutes", lang)}</span></div>
               <div className="flex justify-between mt-1"><span className="text-slate-400">{t("cost", lang)}</span><span className="font-mono-num text-amber-300">🪙 {cost}</span></div>
               <div className="flex justify-between mt-1"><span className="text-slate-400">{t("balance", lang)}</span><span className="font-mono-num">🪙 {user?.coins}</span></div>
             </div>
@@ -83,9 +83,9 @@ export default function VideoCallModal({ open, onOpenChange, target }) {
         {phase === "ended" && (
           <div className="p-8 text-center space-y-3">
             <div className="text-5xl">📞</div>
-            <div className="font-serif-luxe text-2xl">Call ended</div>
+            <div className="font-serif-luxe text-2xl">{t("call_ended", lang)}</div>
             <div className="text-sm text-slate-400">{mm}:{ss} · 🪙 {cost} charged</div>
-            <Button data-testid="videocall-close-button" onClick={() => onOpenChange(false)} className="rose-btn text-white border-0">Close</Button>
+            <Button data-testid="videocall-close-button" onClick={() => onOpenChange(false)} className="rose-btn text-white border-0">{t("close", lang)}</Button>
           </div>
         )}
       </DialogContent>

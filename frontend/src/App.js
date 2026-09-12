@@ -12,6 +12,7 @@ import Chats from "@/pages/Chats";
 import Dates from "@/pages/Dates";
 import Wallet from "@/pages/Wallet";
 import Profile from "@/pages/Profile";
+import Admin from "@/pages/Admin";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
 
 const Private = ({ children }) => {
@@ -33,6 +34,7 @@ const Shell = () => (
       <Route path="/dates" element={<Private><Dates /></Private>} />
       <Route path="/wallet" element={<Private><Wallet /></Private>} />
       <Route path="/profile" element={<Private><Profile /></Private>} />
+      <Route path="/admin" element={<Private><Admin /></Private>} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />
       <Route path="*" element={<Navigate to="/" replace />} />

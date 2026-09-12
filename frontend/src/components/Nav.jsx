@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Heart, Wallet, MessageCircle, Search, Crown, LogOut, CalendarHeart } from "lucide-react";
 import { Button } from "./ui/button";
 import LanguageSwitcher from "./LanguageSwitcher";
+import NotificationBell from "./NotificationBell";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
@@ -42,6 +43,7 @@ export default function Nav() {
           <LanguageSwitcher />
           {user ? (
             <>
+              <NotificationBell />
               <div data-testid="nav-wallet-coins-badge" className="coin-chip hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono-num">
                 <span>🪙</span>
                 <span>{user.coins}</span>

@@ -28,7 +28,7 @@ export default function Chats() {
   const send = async () => {
     if (!text.trim() || !active) return;
     try { await api.post("/conversations/messages", { conversation_id: active, text }); setText(""); const r = await api.get(`/conversations/${active}/messages`); setMsgs(r.data); }
-    catch { toast.error("Failed"); }
+    catch { toast.error(t("failed", lang)); }
   };
   const partner = convs.find(c => c.conversation_id === active)?.user;
 
@@ -37,7 +37,7 @@ export default function Chats() {
       <div className="max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-[280px_1fr] gap-4 h-[calc(100vh-8rem)]">
         <div className="glass rounded-2xl p-3 overflow-auto scrollbar-thin">
           <h3 className="font-serif-luxe text-xl px-2 pb-2">{t("chats", lang)}</h3>
-          {convs.length === 0 && <div className="text-xs text-slate-500 p-3">No matches yet.</div>}
+          {convs.length === 0 && <div className="text-xs text-slate-500 p-3">{t("no_matches_yet", lang)}</div>}
           {convs.map(c => (
             <button key={c.conversation_id} data-testid={`chat-item-${c.user.id}`} onClick={() => { setActive(c.conversation_id); setSp({ c: c.conversation_id }); }}
               className={`w-full text-left p-2 rounded-xl flex items-center gap-2 ${active===c.conversation_id ? "bg-rose-500/15 border border-rose-500/30" : "hover:bg-white/5"}`}>

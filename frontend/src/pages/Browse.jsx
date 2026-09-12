@@ -30,7 +30,7 @@ export default function Browse() {
       Object.keys(params).forEach(k => (params[k] === "" || params[k] == null) && delete params[k]);
       const { data } = await api.get("/profiles", { params });
       setProfiles(data);
-    } catch (e) { toast.error("Failed to load"); }
+    } catch (e) { toast.error(t("failed_load", lang)); }
     finally { setLoading(false); }
   }, [filters]);
 
@@ -41,7 +41,7 @@ export default function Browse() {
       const { data } = await api.post("/likes", { target_id: p.id });
       if (data.matched) toast.success(`💘 ${t("match", lang)} · ${p.name}`);
       else toast.success(`💗 ${t("like", lang)}: ${p.name}`);
-    } catch (e) { toast.error("Failed"); }
+    } catch (e) { toast.error(t("failed", lang)); }
   };
   const open = (m, p) => { setTarget(p); setModal(m); };
 

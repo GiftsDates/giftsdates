@@ -15,7 +15,7 @@ export default function GiftModal({ open, onOpenChange, target, onSent }) {
 
   const send = async () => {
     if (!selected) return;
-    if (user.coins < selected.cost) { toast.error("Not enough coins"); return; }
+    if (user.coins < selected.cost) { toast.error(t("not_enough_coins", lang)); return; }
     setBusy(true);
     try {
       await api.post("/gifts/send", { target_id: target.id, gift_id: selected.id, message: msg });
@@ -23,7 +23,7 @@ export default function GiftModal({ open, onOpenChange, target, onSent }) {
       toast.success(`${selected.icon} sent to ${target.name}!`);
       onSent && onSent();
       onOpenChange(false); setSelected(null); setMsg("");
-    } catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+    } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusy(false); }
   };
 
@@ -44,7 +44,7 @@ export default function GiftModal({ open, onOpenChange, target, onSent }) {
         <Textarea data-testid="gift-message-input" placeholder={t("personal_message", lang)} value={msg} onChange={e => setMsg(e.target.value)} className="bg-white/5 border-white/10 mt-2" rows={2} />
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span>{t("balance", lang)}: <span className="font-mono-num text-amber-300">🪙 {user?.coins}</span></span>
-          <span>-30% commission → recipient</span>
+          <span>{t("commission_to_recipient", lang)}</span>
         </div>
         <Button data-testid="gift-modal-send-button" disabled={!selected || busy} onClick={send} className="rose-btn text-white border-0 h-11">
           {selected ? `${t("send_gift", lang)} · 🪙 ${selected.cost}` : t("choose_gift", lang)}

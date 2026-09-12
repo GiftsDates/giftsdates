@@ -1,8 +1,9 @@
 import React from "react";
-import { Heart, Gift, Video, CalendarHeart, MapPin, BadgeCheck } from "lucide-react";
+import { Heart, Gift, Video, CalendarHeart, MapPin, BadgeCheck, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
+import { fileUrl } from "../lib/api";
 
 const FALLBACKS = [
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
@@ -13,17 +14,32 @@ const FALLBACKS = [
 
 export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMessage }) {
   const { lang } = useApp();
-  const img = p.photos?.[0] || FALLBACKS[Math.abs(hash(p.id)) % FALLBACKS.length];
+  const [idx, setIdx] = React.useState(0);
+  const photos = p.photos?.length ? p.photos.map(fileUrl) : [FALLBACKS[Math.abs(hash(p.id)) % FALLBACKS.length]];
+  const img = photos[Math.min(idx, photos.length - 1)];
+  const step = (d) => setIdx((idx + d + photos.length) % photos.length);
   return (
-    <div className="group relative rounded-3xl overflow-hidden border border-white/10 card-lift bg-[#161320]">
+    <div className={`group relative rounded-3xl overflow-hidden border card-lift bg-[#161320] ${p.is_premium ? "border-amber-400/50 shadow-[0_0_30px_-8px_rgba(251,191,36,0.45)]" : "border-white/10"}`} data-testid={`profile-card-${p.id}`}>
       <div className="aspect-[3/4] relative">
         <img src={img} alt={p.name} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/40 to-transparent" />
-        <div className="absolute top-3 left-3 flex items-center gap-2">
+        {photos.length > 1 && (
+          <>
+            <button data-testid={`profile-card-prev-photo-${p.id}`} onClick={() => step(-1)} className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16} /></button>
+            <button data-testid={`profile-card-next-photo-${p.id}`} onClick={() => step(1)} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={16} /></button>
+            <div className="absolute top-2 inset-x-3 flex gap-1">
+              {photos.map((_, i) => <span key={i} className={`h-0.5 flex-1 rounded-full ${i === idx ? "bg-white" : "bg-white/30"}`} />)}
+            </div>
+          </>
+        )}
+        <div className="absolute top-4 left-3 flex items-center gap-2">
           <span className="pulse-dot w-2.5 h-2.5 rounded-full bg-emerald-400" />
           <span className="text-xs text-emerald-200 font-mono uppercase tracking-widest">online</span>
         </div>
-        {p.verified && <BadgeCheck size={20} className="absolute top-3 right-3 text-amber-300" />}
+        <div className="absolute top-4 right-3 flex items-center gap-1.5">
+          {p.is_premium && <span data-testid={`profile-card-premium-badge-${p.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-black text-[10px] font-semibold uppercase tracking-wider"><Crown size={10} /> {t("premium", lang)}</span>}
+          {p.verified && <BadgeCheck size={20} className="text-amber-300" />}
+        </div>
         <div className="absolute inset-x-0 bottom-0 p-4">
           <div className="flex items-end justify-between gap-3">
             <div>
