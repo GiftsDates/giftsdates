@@ -12,11 +12,16 @@ export const RELIGIONS = ["christian", "muslim", "jewish", "buddhist", "hindu", 
 export const BUST = ["A", "B", "C", "D", "E", "F+"];
 export const SIZES = ["s", "m", "l", "xl"];
 
+export const GENDERS = ["female", "male", "trans_woman", "trans_man", "non_binary"];
+export const ORIENTATIONS = ["straight", "lesbian", "gay", "bisexual", "pansexual", "transgender", "queer", "prefer_not"];
+export const genderLabel = (g, lang) => t(g, lang);
+
 export const optLabel = (field, v, lang) => {
   if (!v) return "";
   if (v === "prefer_not") return t("prefer_not", lang);
   if (field === "income" && v === "custom") return t("income_custom", lang);
-  const prefix = { relationship_intent: "intent_", income: "income_", kids: "kids_", smoking: "habit_", drinking: "habit_", religion: "rel_", penis_size: "size_" }[field];
+  if (field === "gender") return t(v, lang);
+  const prefix = { relationship_intent: "intent_", income: "income_", kids: "kids_", smoking: "habit_", drinking: "habit_", religion: "rel_", penis_size: "size_", orientation: "or_" }[field];
   return prefix ? t(prefix + v, lang) : v;
 };
 
@@ -48,6 +53,7 @@ export default function ProfileDetailsForm({ f, setF, lang, gender }) {
         <h2 className="font-serif-luxe text-2xl">{t("details", lang)}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label={t("relationship_intent", lang)}><Sel testid="profile-intent-select" field="relationship_intent" value={f.relationship_intent} options={INTENTS} onChange={set("relationship_intent")} lang={lang} /></Field>
+          <Field label={t("orientation", lang)}><Sel testid="profile-orientation-select" field="orientation" value={f.orientation} options={ORIENTATIONS} onChange={set("orientation")} lang={lang} /></Field>
           <Field label={t("job_title", lang)}><Input data-testid="profile-job-input" value={f.job_title || ""} onChange={e => set("job_title")(e.target.value)} className="bg-white/5 border-white/10 mt-1" /></Field>
           <Field label={t("height", lang)}><Input data-testid="profile-height-input" type="number" min="100" max="250" value={f.height || ""} onChange={e => set("height")(e.target.value ? parseInt(e.target.value) : null)} className="bg-white/5 border-white/10 mt-1" /></Field>
           <Field label={t("weight", lang)}><Input data-testid="profile-weight-input" type="number" min="30" max="300" value={f.weight || ""} onChange={e => set("weight")(e.target.value ? parseInt(e.target.value) : null)} className="bg-white/5 border-white/10 mt-1" /></Field>

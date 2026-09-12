@@ -83,9 +83,11 @@ export default function ProfileView() {
 
             {p.bio && <div className="glass rounded-2xl p-5"><h3 className="font-serif-luxe text-xl mb-2">{t("about_me", lang)}</h3><p className="text-sm text-slate-300 whitespace-pre-line" data-testid="profile-view-bio">{p.bio}</p></div>}
 
-            {(p.job_title || p.height || p.weight || p.income || p.religion || langNames || p.hobbies?.length > 0) && (
+            {(p.job_title || p.height || p.weight || p.income || p.religion || langNames || p.hobbies?.length > 0 || p.orientation || p.gender) && (
             <div className="glass rounded-2xl p-5" data-testid="profile-view-details">
               <h3 className="font-serif-luxe text-xl mb-2">{t("details", lang)}</h3>
+              <Row label={t("gender", lang)} value={optLabel("gender", p.gender, lang)} testid="pv-gender" />
+              <Row label={t("orientation", lang)} value={optLabel("orientation", p.orientation, lang)} testid="pv-orientation" />
               <Row label={t("job_title", lang)} value={p.job_title} testid="pv-job" />
               <Row label={t("height", lang)} value={p.height && `${p.height} cm`} testid="pv-height" />
               <Row label={t("weight", lang)} value={p.weight && `${p.weight} kg`} testid="pv-weight" />

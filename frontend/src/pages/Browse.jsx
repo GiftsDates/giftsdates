@@ -12,12 +12,12 @@ import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
 import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, optLabel } from "../components/ProfileDetailsForm";
+import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, GENDERS, ORIENTATIONS, optLabel } from "../components/ProfileDetailsForm";
 import { LANGUAGES } from "../lib/i18n";
 import { Switch } from "../components/ui/switch";
 
 const ALL = "all";
-const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, drinking: ALL, religion: ALL, income: ALL, language: ALL, bust_size: ALL, penis_size: ALL,
+const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, drinking: ALL, religion: ALL, income: ALL, language: ALL, bust_size: ALL, penis_size: ALL, orientation: ALL,
   min_height: "", max_height: "", min_weight: "", max_weight: "", hobby: "", job: "", max_date_price: "", premium_only: false, with_photos: false, verified_only: false };
 
 function FilterSelect({ testid, field, value, options, onChange, lang, label, labelFn }) {
@@ -116,8 +116,7 @@ export default function Browse() {
               <SelectTrigger data-testid="profile-gender-filter-select" className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-[#161320] border-white/10 text-white">
                 <SelectItem value="all">{t("all", lang)}</SelectItem>
-                <SelectItem value="female">{t("female", lang)}</SelectItem>
-                <SelectItem value="male">{t("male", lang)}</SelectItem>
+                {GENDERS.map(g => <SelectItem key={g} value={g}>{t(g, lang)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -151,6 +150,7 @@ export default function Browse() {
           <div className="glass rounded-2xl p-4 mb-6 space-y-3 float-in" data-testid="profile-more-filters-panel">
             <div className="flex flex-wrap gap-3 items-end">
               <FilterSelect testid="filter-intent-select" field="relationship_intent" label={t("relationship_intent", lang)} value={filters.intent} options={INTENTS} onChange={v => setFilters({ ...filters, intent: v })} lang={lang} />
+              <FilterSelect testid="filter-orientation-select" field="orientation" label={t("orientation", lang)} value={filters.orientation} options={ORIENTATIONS.filter(o => o !== "prefer_not")} onChange={v => setFilters({ ...filters, orientation: v })} lang={lang} />
               <FilterSelect testid="filter-kids-select" field="kids" label={t("kids", lang)} value={filters.kids} options={KIDS} onChange={v => setFilters({ ...filters, kids: v })} lang={lang} />
               <FilterSelect testid="filter-smoking-select" field="smoking" label={t("smoking", lang)} value={filters.smoking} options={HABITS} onChange={v => setFilters({ ...filters, smoking: v })} lang={lang} />
               <FilterSelect testid="filter-drinking-select" field="drinking" label={t("drinking", lang)} value={filters.drinking} options={HABITS} onChange={v => setFilters({ ...filters, drinking: v })} lang={lang} />

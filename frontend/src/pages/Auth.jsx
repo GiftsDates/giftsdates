@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { GENDERS, ORIENTATIONS, optLabel } from "../components/ProfileDetailsForm";
 import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { toast } from "sonner";
@@ -15,7 +16,7 @@ export default function Auth() {
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const [mode, setMode] = useState(sp.get("register") ? "register" : "login");
-  const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", city: "", country: "", bio: "", referral_code: sp.get("ref") || "" });
+  const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", orientation: "straight", city: "", country: "", bio: "", referral_code: sp.get("ref") || "" });
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
@@ -65,14 +66,21 @@ export default function Auth() {
                   <Label className="text-xs text-slate-400">{t("gender", lang)}</Label>
                   <Select value={f.gender} onValueChange={v => setF({ ...f, gender: v })}>
                     <SelectTrigger data-testid="auth-gender-select" className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-[#161320] border-white/10"><SelectItem value="female">{t("female", lang)}</SelectItem><SelectItem value="male">{t("male", lang)}</SelectItem></SelectContent>
+                    <SelectContent className="bg-[#161320] border-white/10">{GENDERS.map(g => <SelectItem key={g} value={g}>{t(g, lang)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label className="text-xs text-slate-400">{t("interested_in", lang)}</Label>
                   <Select value={f.interested_in} onValueChange={v => setF({ ...f, interested_in: v })}>
                     <SelectTrigger data-testid="auth-interest-select" className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-[#161320] border-white/10"><SelectItem value="female">{t("female", lang)}</SelectItem><SelectItem value="male">{t("male", lang)}</SelectItem><SelectItem value="all">{t("all", lang)}</SelectItem></SelectContent>
+                    <SelectContent className="bg-[#161320] border-white/10">{GENDERS.map(g => <SelectItem key={g} value={g}>{t(g, lang)}</SelectItem>)}<SelectItem value="all">{t("all", lang)}</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-400">{t("orientation", lang)}</Label>
+                  <Select value={f.orientation} onValueChange={v => setF({ ...f, orientation: v })}>
+                    <SelectTrigger data-testid="auth-orientation-select" className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-[#161320] border-white/10">{ORIENTATIONS.map(o => <SelectItem key={o} value={o}>{optLabel("orientation", o, lang)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>

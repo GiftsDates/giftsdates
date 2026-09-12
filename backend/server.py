@@ -172,6 +172,7 @@ class RegisterReq(BaseModel):
     age: int
     gender: str
     interested_in: str
+    orientation: Optional[str] = "straight"
     city: str
     country: str
     bio: Optional[str] = ""
@@ -191,6 +192,8 @@ class ProfileUpdate(BaseModel):
     photos: Optional[List[str]] = None
     language: Optional[str] = None
     relationship_intent: Optional[str] = None
+    orientation: Optional[str] = None
+    gender: Optional[str] = None
     hobbies: Optional[List[str]] = None
     height: Optional[int] = None
     weight: Optional[int] = None
@@ -324,7 +327,7 @@ async def register(req: RegisterReq):
     doc = {
         "id": uid, "email": req.email.lower(), "password": hash_pwd(req.password),
         "name": req.name, "age": req.age, "gender": req.gender,
-        "interested_in": req.interested_in, "city": req.city, "country": req.country,
+        "interested_in": req.interested_in, "orientation": req.orientation or "straight", "city": req.city, "country": req.country,
         "bio": req.bio or "", "interests": [], "photos": [], "language": "en",
         "coins": 100,  # welcome bonus
         "escrow": 0.0, "withdrawable": 0.0,
@@ -483,7 +486,7 @@ async def list_profiles(
     q: Optional[str] = None, city: Optional[str] = None, country: Optional[str] = None,
     min_age: int = 18, max_age: int = 99, gender: Optional[str] = None,
     intent: Optional[str] = None, min_height: Optional[int] = None, max_height: Optional[int] = None,
-    kids: Optional[str] = None, smoking: Optional[str] = None, religion: Optional[str] = None,
+    kids: Optional[str] = None, smoking: Optional[str] = None, religion: Optional[str] = None, orientation: Optional[str] = None,
     drinking: Optional[str] = None, income: Optional[str] = None, language: Optional[str] = None,
     hobby: Optional[str] = None, job: Optional[str] = None, min_weight: Optional[int] = None, max_weight: Optional[int] = None,
     bust_size: Optional[str] = None, penis_size: Optional[str] = None, max_date_price: Optional[int] = None,
@@ -491,14 +494,14 @@ async def list_profiles(
     limit: int = 40, user=Depends(get_current_user)
 ):
     conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
-    advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language,
+    advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language, orientation,
                                                                    hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, with_photos, verified_only))
     if advanced_used and not is_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
     if city: conds.append({"city": {"$regex": city, "$options": "i"}})
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
     if gender and gender != "all": conds.append({"gender": gender})
     if q: conds.append({"$or": [{"name": {"$regex": q, "$options": "i"}}, {"bio": {"$regex": q, "$options": "i"}}]})
-    for field, val in (("relationship_intent", intent), ("kids", kids), ("smoking", smoking), ("religion", religion),
+    for field, val in (("relationship_intent", intent), ("kids", kids), ("smoking", smoking), ("religion", religion), ("orientation", orientation),
                        ("drinking", drinking), ("income", income), ("bust_size", bust_size), ("penis_size", penis_size)):
         if val and val != "all": conds.append({field: val})
     if language and language != "all": conds.append({"languages_spoken": language})
