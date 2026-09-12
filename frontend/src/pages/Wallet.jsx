@@ -16,7 +16,7 @@ export default function Wallet() {
   const { user, lang, meta, refreshUser } = useApp();
   const [sp] = useSearchParams();
   const nav = useNavigate();
-  const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3, coins_per_usd: 10 });
+  const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3, coins_per_usd: 10, min_withdraw_usd: 50 });
   const [topOpen, setTopOpen] = useState(false);
   const [wdOpen, setWdOpen] = useState(false);
   const [premOpen, setPremOpen] = useState(sp.get("premium") === "1");
@@ -38,9 +38,15 @@ export default function Wallet() {
   const verified = wallet.payout_account?.status === "verified";
   const fee = Math.round(wdForm.amount * wallet.withdraw_commission * 100) / 100;
   const net = Math.round((wdForm.amount - fee) * 100) / 100;
+  const netUsd = net / wallet.coins_per_usd;
+  const minCoins = Math.ceil(wallet.min_withdraw_usd * wallet.coins_per_usd / (1 - wallet.withdraw_commission));
+  const belowMin = netUsd < wallet.min_withdraw_usd;
   const withdraw = async () => {
     try { await api.post("/wallet/withdraw", { amount: wdForm.amount }); await refreshUser(); await load(); toast.success(t("withdrawal_requested", lang)); setWdOpen(false); }
-    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    catch (e) {
+      const d = e.response?.data?.detail || "";
+      toast.error(d.startsWith("MIN_WITHDRAW:") ? t("min_withdraw_err", lang).replace("{n}", d.split(":")[1]) : d || t("failed", lang));
+    }
   };
   const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
 
@@ -159,9 +165,10 @@ export default function Wallet() {
             {verified && <div className="text-xs text-slate-400">{t("bank", lang)}: {wallet.payout_account.bank_name} ····{wallet.payout_account.iban.slice(-4)}</div>}
             <div className="glass rounded-lg p-3 text-sm space-y-1 font-mono-num" data-testid="withdraw-breakdown">
               <div className="flex justify-between text-slate-400"><span>{t("commission", lang)} {Math.round(wallet.withdraw_commission*100)}%</span><span className="text-rose-300">− 🪙 {fee}</span></div>
-              <div className="flex justify-between"><span>{t("you_receive", lang)}</span><span className="text-emerald-300">🪙 {net} ≈ ${(net/wallet.coins_per_usd).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>{t("you_receive", lang)}</span><span className={belowMin ? "text-rose-300" : "text-emerald-300"}>🪙 {net} ≈ ${netUsd.toFixed(2)}</span></div>
+              <div data-testid="withdraw-min-note" className={`text-xs ${belowMin ? "text-rose-300" : "text-slate-500"}`}>{t("min_withdraw_note", lang).replace("{n}", wallet.min_withdraw_usd).replace("{c}", minCoins)}</div>
             </div>
-            <Button data-testid="wallet-withdraw-submit-button" disabled={!verified} onClick={withdraw} className="rose-btn text-white border-0 w-full h-11">{t("withdraw", lang)}</Button>
+            <Button data-testid="wallet-withdraw-submit-button" disabled={!verified || belowMin} onClick={withdraw} className="rose-btn text-white border-0 w-full h-11">{t("withdraw", lang)}</Button>
           </div>
         </DialogContent>
       </Dialog>

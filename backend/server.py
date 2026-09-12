@@ -68,6 +68,7 @@ CUSTOM_COINS_PER_USD = 10
 CUSTOM_BONUS_PCT = 2
 CUSTOM_MIN_USD = 1.0
 COINS_PER_USD = 10  # payout rate: 10 coins = $1
+MIN_WITHDRAW_USD = 50.0
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
@@ -104,6 +105,7 @@ DEFAULT_SETTINGS = {
     "custom_bonus_pct": CUSTOM_BONUS_PCT,
     "custom_min_usd": CUSTOM_MIN_USD,
     "coins_per_usd": COINS_PER_USD,
+    "min_withdraw_usd": MIN_WITHDRAW_USD,
 }
 
 async def get_settings() -> dict:
@@ -767,7 +769,7 @@ async def wallet(user=Depends(get_current_user)):
     acct = await db.payout_accounts.find_one({"user_id": user["id"]}, {"_id": 0})
     s = await get_settings()
     return {"coins": user["coins"], "escrow": user.get("escrow", 0), "withdrawable": user.get("withdrawable", 0),
-            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": s["commission"], "coins_per_usd": s["coins_per_usd"], "is_admin": is_admin(user)}
+            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": s["commission"], "coins_per_usd": s["coins_per_usd"], "min_withdraw_usd": s["min_withdraw_usd"], "is_admin": is_admin(user)}
 
 @api.get("/wallet/payout-account")
 async def get_payout_account(user=Depends(get_current_user)):
@@ -798,9 +800,11 @@ async def withdraw(req: WithdrawReq, user=Depends(get_current_user)):
     s = await get_settings()
     fee = round(req.amount * s["commission"], 2)
     net = round(req.amount - fee, 2)
+    usd = round(net / s["coins_per_usd"], 2)
+    if usd < s["min_withdraw_usd"]: raise HTTPException(400, f"MIN_WITHDRAW:{s['min_withdraw_usd']}")
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"withdrawable": -req.amount}})
-    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "fee": fee, "net": net, "usd": round(net / s["coins_per_usd"], 2), "rate": s["coins_per_usd"],
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "amount": req.amount, "fee": fee, "net": net, "usd": usd, "rate": s["coins_per_usd"],
            "method": "bank", "destination": f"{acct['bank_name']} ····{acct['iban'][-4:]}", "status": "pending", "created_at": now}
     await db.withdrawals.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
@@ -832,6 +836,7 @@ class SettingsReq(BaseModel):
     custom_bonus_pct: float = CUSTOM_BONUS_PCT
     custom_min_usd: float = CUSTOM_MIN_USD
     coins_per_usd: int = COINS_PER_USD
+    min_withdraw_usd: float = MIN_WITHDRAW_USD
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):
