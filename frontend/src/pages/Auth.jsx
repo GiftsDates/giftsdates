@@ -23,7 +23,7 @@ export default function Auth() {
     try {
       if (mode === "login") { await login(f.email, f.password); toast.success(t("welcome_back", lang)); }
       else { await register(f); toast.success(t("welcome_new", lang)); }
-      nav("/browse");
+      nav(mode === "login" ? "/browse" : "/verify");
     } catch (err) {
       const d = err.response?.data?.detail || "";
       if (d.startsWith("BLOCKED:")) toast.error(t("account_blocked", lang).replace("{d}", new Date(d.slice(8)).toLocaleDateString()), { duration: 8000 });

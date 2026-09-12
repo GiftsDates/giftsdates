@@ -417,11 +417,57 @@ async def primary_photo(req: PhotoReq, user=Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"photos": photos}})
     return {"photos": photos}
 
+# ---------- Identity verification (ID + selfie) ----------
+@api.post("/verification/upload")
+async def verification_upload(kind: str, file: UploadFile = File(...), user=Depends(get_current_user)):
+    if kind not in ("id", "selfie"): raise HTTPException(400, "kind must be id or selfie")
+    if not (file.content_type or "").startswith("image/"): raise HTTPException(400, "Only images allowed")
+    v = user.get("verification") or {}
+    if v.get("status") == "verified": raise HTTPException(400, "Already verified")
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "jpg").lower()
+    path = f"{APP_NAME}/verification/{user['id']}/{kind}-{uuid.uuid4()}.{ext}"
+    result = put_object(path, await file.read(), file.content_type)
+    await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": result["path"], "user_id": user["id"], "private": True,
+                               "content_type": file.content_type, "size": result["size"], "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    v[f"{kind}_path"] = result["path"]
+    v["status"] = "pending" if v.get("id_path") and v.get("selfie_path") else "incomplete"
+    v["reason"] = ""
+    if v["status"] == "pending": v["submitted_at"] = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$set": {"verification": v}})
+    return v
+
+@api.get("/verification")
+async def verification_status(user=Depends(get_current_user)):
+    return user.get("verification") or {"status": "none"}
+
+@api.get("/admin/verifications")
+async def admin_verifications(status: str = "pending", admin=Depends(get_admin)):
+    q = {"verification.status": status} if status != "all" else {"verification": {"$exists": True}}
+    users = await db.users.find(q, {"_id": 0, "id": 1, "name": 1, "email": 1, "age": 1, "city": 1, "country": 1, "verification": 1, "verified": 1}).sort("verification.submitted_at", -1).to_list(200)
+    return users
+
+@api.post("/admin/verifications/{user_id}/verify")
+async def admin_verify_identity(user_id: str, req: AdminVerifyReq, admin=Depends(get_admin)):
+    u = await db.users.find_one({"id": user_id})
+    if not u or not u.get("verification"): raise HTTPException(404, "Not found")
+    status = "verified" if req.approve else "rejected"
+    await db.users.update_one({"id": user_id}, {"$set": {"verified": req.approve, "verification.status": status, "verification.reason": req.reason or "",
+                                                          "verification.reviewed_at": datetime.now(timezone.utc).isoformat(), "verification.reviewed_by": admin["id"]}})
+    await notify(user_id, "identity", "Identity verified ✅" if req.approve else "Identity verification rejected",
+                 "Your profile now has the verified badge." if req.approve else (req.reason or "Please upload clearer photos of your ID and selfie."), email=True)
+    return {"status": status}
+
 @api.get("/files/{path:path}")
 async def download(path: str, authorization: Optional[str] = Header(None), auth: Optional[str] = None):
     rec = await db.files.find_one({"storage_path": path, "is_deleted": False})
     if not rec:
         raise HTTPException(404, "Not found")
+    if rec.get("private"):
+        token = auth or (authorization.split(" ", 1)[1] if authorization and " " in authorization else None)
+        try: uid = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])["sub"] if token else None
+        except Exception: uid = None
+        viewer = await db.users.find_one({"id": uid}) if uid else None
+        if not viewer or (viewer["id"] != rec["user_id"] and not is_admin(viewer)): raise HTTPException(403, "Private file")
     data, ct = get_object(path)
     return Response(content=data, media_type=rec.get("content_type") or ct)
 

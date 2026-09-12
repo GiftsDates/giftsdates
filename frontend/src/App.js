@@ -14,6 +14,7 @@ import Wallet from "@/pages/Wallet";
 import Profile from "@/pages/Profile";
 import Admin from "@/pages/Admin";
 import ProfileView from "@/pages/ProfileView";
+import Verify from "@/pages/Verify";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
 
 const Private = ({ children }) => {
@@ -36,6 +37,7 @@ const Shell = () => (
       <Route path="/wallet" element={<Private><Wallet /></Private>} />
       <Route path="/profile" element={<Private><Profile /></Private>} />
       <Route path="/profile/:id" element={<Private><ProfileView /></Private>} />
+      <Route path="/verify" element={<Private><Verify /></Private>} />
       <Route path="/admin" element={<Private><Admin /></Private>} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />

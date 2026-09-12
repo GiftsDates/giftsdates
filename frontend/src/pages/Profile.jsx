@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ShieldCheck } from "lucide-react";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
@@ -15,6 +17,7 @@ const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "lang
 
 export default function Profile() {
   const { user, refreshUser, lang, meta } = useApp();
+  const nav = useNavigate();
   const [f, setF] = useState(() => ({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country,
     ...Object.fromEntries(DETAIL_KEYS.map(k => [k, user?.[k] ?? null])) }));
   const [busy, setBusy] = useState(false);
@@ -40,6 +43,11 @@ export default function Profile() {
         <div className="glass rounded-2xl p-6 space-y-4 mb-6">
           <PhotoGrid />
         </div>
+        {!user?.verified && (
+          <button data-testid="profile-verify-banner" onClick={() => nav("/verify")} className="w-full text-left glass rounded-2xl p-4 mb-6 border border-amber-500/30 hover:bg-amber-500/5 flex items-center gap-3 transition-colors">
+            <ShieldCheck className="text-amber-300" size={20} /><span className="text-sm text-amber-200">{t("not_verified_banner", lang)}</span>
+          </button>
+        )}
         <div className="glass rounded-2xl p-6 space-y-4 mb-6">
           <h2 className="font-serif-luxe text-2xl">{t("about_me", lang)}</h2>
           <div className="grid grid-cols-2 gap-3">
