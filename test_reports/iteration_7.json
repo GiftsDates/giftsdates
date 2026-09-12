@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 7 focused testing of (1) chat photo upload gated by confirmed date and (2) presence/last_seen heartbeat. Backend pytest: 10/10 pass covering MEDIA_LOCKED lock, /matches.can_share_media=true after inserting a confirmed date_booking, successful image upload returning message type='image' with image_path, non-image 400, file access 200 for both conversation members and 403 for stranger, last_seen updated on authed request, and last_seen present in /api/matches user and /api/profiles/{id}. Text-message regression also passes. Frontend UI verified end-to-end: stranger sees Lock icon on chat-photo-button and clicking it fires the toast 'Photos in chat unlock after a confirmed date'. Ann (has confirmed date with Bob) sees Camera icon on chat-photo-button, chat-header-presence rendered with 'Active recently' label (city replaced), sidebar chat-presence-{id} dot present, and the previously uploaded image renders as <img data-testid=chat-image-{id}> (naturalWidth>0 confirming file GET auth works via ?auth= token). /browse ProfileCards render profile-card-presence-{id} with presence labels ('ONLINE') instead of hardcoded text.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter7.py",
+    "/app/test_reports/pytest/iter7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py get_current_user (line 178-181): last_seen throttle uses 60s but writes to DB on every crossing — for high-QPS this is per-user churn; consider a small in-process LRU keyed by user_id to avoid the write when another concurrent request just updated it (current impl is safe, just wasteful).",
+    "server.py send_chat_photo (line 675): only content-type header is validated; a client can send Content-Type: image/png with arbitrary bytes and still bypass. Consider sniffing the first bytes (magic number) or using Pillow to verify decodability before persisting.",
+    "server.py send_chat_photo: no size cap on upload — a malicious matched+dated user could upload arbitrarily large files. Add a MAX_UPLOAD size guard (e.g., 8MB) around file.read().",
+    "server.py /api/files/{path} (line 497): private-file token accepted via ?auth= query param — this URL will end up in browser history / server access logs / referrer headers. Consider signing with a short-lived HMAC token instead of the raw JWT.",
+    "server.py profile_detail (line 560): projection excludes email/referred_by/referral_code but returns all other fields including internal counters (violations, blocked_until, provider ids, notification_prefs, payout_account, etc). Whitelist the fields you want to expose instead of blacklisting.",
+    "Chats.jsx (line 45): toast text keyed by response.detail === 'MEDIA_LOCKED' — server currently returns exactly 'MEDIA_LOCKED' (good), but if it ever wraps the detail (e.g., 'MEDIA_LOCKED: ...') the UI will silently show the generic 'failed' toast. Match with startsWith or include a code field."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter7.py"],
+  "success_rate": {"backend": "10/10 (100%)", "frontend": "100% of exercised flows"},
+  "test_credentials": "admin@giftsdates.com / TestPass123!; matched+dated pair Ann/Bob: ga4cf01@t.com | gd83f32@t.com / TestPass123! (conversation dd446097-987a-4712-909a-dc55b45ea159); stranger: l321e72@t.com / TestPass123!",
+  "seed_data_creation": "Per test-module: 3 fresh TEST_iter7_* users (A liker, B liker, C stranger) + one confirmed date_booking A->B inserted directly into Mongo to unlock media. Existing Ann/Bob pair (with pre-seeded confirmed booking + image) used only for UI verification.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini pins -n 2 --dist loadscope so module-scoped fixtures re-run per worker; tests are structured self-contained within TestClass boundaries. To manually unlock chat photo between two users, insert into Mongo: db.date_bookings.insertOne({id, from_id, to_id, status:'confirmed', scheduled_at, created_at}). GET /api/files/{path} accepts token either via Authorization header or ?auth=<jwt>. Frontend fileUrl helper (used in Chats.jsx image rendering) appends ?auth= from localStorage token.",
+  "rca of the issue": null
+}

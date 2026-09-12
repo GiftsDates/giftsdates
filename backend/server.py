@@ -174,7 +174,15 @@ async def get_current_user(authorization: Optional[str] = Header(None), auth: Op
     if not user.get("referral_code"):
         user["referral_code"] = user["id"][:8].upper()
         await db.users.update_one({"id": user["id"]}, {"$set": {"referral_code": user["referral_code"]}})
+    now = datetime.now(timezone.utc)
+    ls = user.get("last_seen")
+    if not ls or (now - datetime.fromisoformat(ls.replace("Z", "+00:00"))).total_seconds() > 60:
+        user["last_seen"] = now.isoformat()
+        await db.users.update_one({"id": user["id"]}, {"$set": {"last_seen": user["last_seen"]}})
     return user
+
+async def have_met(a: str, b: str) -> bool:
+    return bool(await db.date_bookings.find_one({"status": {"$in": ["confirmed", "released"]}, "$or": [{"from_id": a, "to_id": b}, {"from_id": b, "to_id": a}]}))
 
 # ---------- Models ----------
 class RegisterReq(BaseModel):
@@ -496,7 +504,7 @@ async def download(path: str, authorization: Optional[str] = Header(None), auth:
         try: uid = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])["sub"] if token else None
         except Exception: uid = None
         viewer = await db.users.find_one({"id": uid}) if uid else None
-        if not viewer or (viewer["id"] != rec["user_id"] and not is_admin(viewer)): raise HTTPException(403, "Private file")
+        if not viewer or (viewer["id"] != rec["user_id"] and viewer["id"] not in (rec.get("viewers") or []) and not is_admin(viewer)): raise HTTPException(403, "Private file")
     data, ct = get_object(path)
     return Response(content=data, media_type=rec.get("content_type") or ct)
 
@@ -655,8 +663,26 @@ async def my_matches(user=Depends(get_current_user)):
     for m in matches:
         other_id = [u for u in m["users"] if u != user["id"]][0]
         other = await db.users.find_one({"id": other_id}, {"_id": 0, "password": 0, "email": 0})
-        if other: result.append({"conversation_id": m["id"], "user": other, "created_at": m["created_at"]})
+        if other: result.append({"conversation_id": m["id"], "user": other, "created_at": m["created_at"], "can_share_media": await have_met(user["id"], other_id)})
     return result
+
+@api.post("/conversations/{cid}/photo")
+async def send_chat_photo(cid: str, file: UploadFile = File(...), user=Depends(get_current_user)):
+    conv = await db.conversations.find_one({"id": cid})
+    if not conv or user["id"] not in conv["users"]: raise HTTPException(403, "No access")
+    other_id = [u for u in conv["users"] if u != user["id"]][0]
+    if not await have_met(user["id"], other_id): raise HTTPException(403, "MEDIA_LOCKED")
+    if not (file.content_type or "").startswith("image/"): raise HTTPException(400, "Only images allowed")
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "jpg").lower()
+    path = f"{APP_NAME}/chat/{cid}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, await file.read(), file.content_type)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": result["path"], "user_id": user["id"], "viewers": conv["users"], "private": True,
+                               "content_type": file.content_type, "size": result["size"], "is_deleted": False, "created_at": now})
+    msg = {"id": str(uuid.uuid4()), "conversation_id": cid, "from_id": user["id"], "text": "", "type": "image", "image_path": result["path"], "created_at": now}
+    await db.messages.insert_one(dict(msg))
+    await db.conversations.update_one({"id": cid}, {"$set": {"last_message": "📷", "last_at": now}})
+    return msg
 
 # ---------- Chat ----------
 @api.get("/conversations/{cid}/messages")

@@ -8,6 +8,7 @@ import { useApp } from "../context/AppContext";
 import { LANGUAGES, t } from "../lib/i18n";
 import { optLabel } from "../components/ProfileDetailsForm";
 import GiftModal from "../components/GiftModal";
+import { presence, PresenceDot } from "../lib/presence";
 const FALLBACKS = ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
@@ -70,7 +71,7 @@ export default function ProfileView() {
           <div className="space-y-6">
             <div>
               <h1 className="font-serif-luxe text-4xl sm:text-5xl flex items-center gap-3" data-testid="profile-view-name">{p.name}, {p.age} {p.verified && <BadgeCheck className="text-amber-300" size={24} />}</h1>
-              <p className="text-slate-400 flex items-center gap-1 mt-1"><MapPin size={14} /> {p.city}, {p.country}</p>
+              <p className="text-slate-400 flex items-center gap-1 mt-1"><MapPin size={14} /> {p.city}, {p.country} {p.last_seen && <span className="ms-2 inline-flex items-center gap-1.5 text-xs" data-testid="profile-view-presence"><PresenceDot u={p} lang={lang} />{presence(p, lang).label}</span>}</p>
               {p.relationship_intent && <span className="inline-block mt-3 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-sm text-rose-200" data-testid="profile-view-intent">{optLabel("relationship_intent", p.relationship_intent, lang)}</span>}
             </div>
 

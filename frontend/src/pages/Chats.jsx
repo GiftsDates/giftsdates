@@ -5,9 +5,11 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Send, ShieldAlert, Gift } from "lucide-react";
+import { Send, ShieldAlert, Gift, Camera, Lock } from "lucide-react";
 import { toast } from "sonner";
 import GiftModal from "../components/GiftModal";
+import { fileUrl } from "../lib/api";
+import { presence, PresenceDot } from "../lib/presence";
 
 const FALLBACKS = [
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
@@ -31,8 +33,18 @@ export default function Chats() {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [giftOpen, setGiftOpen] = useState(false);
+  const fileRef = useRef();
+  const [uploading, setUploading] = useState(false);
   const endRef = useRef();
   const reload = () => active && api.get(`/conversations/${active}/messages`).then(r => setMsgs(r.data));
+  const sendPhoto = async (f) => {
+    if (!f || !active) return;
+    setUploading(true);
+    const fd = new FormData(); fd.append("file", f);
+    try { await api.post(`/conversations/${active}/photo`, fd, { headers: { "Content-Type": "multipart/form-data" } }); reload(); }
+    catch (e) { toast.error(e.response?.data?.detail === "MEDIA_LOCKED" ? t("photos_locked", lang) : t("failed", lang)); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
   const thanks = async (mid, r) => { try { await api.post("/gifts/thanks", { message_id: mid, reaction: r }); reload(); } catch { toast.error(t("failed", lang)); } };
 
   useEffect(() => { api.get("/matches").then(r => { setConvs(r.data); if (!active && r.data[0]) setActive(r.data[0].conversation_id); }); }, []);
@@ -54,6 +66,8 @@ export default function Chats() {
     }
   };
   const partner = convs.find(c => c.conversation_id === active)?.user;
+  const canMedia = convs.find(c => c.conversation_id === active)?.can_share_media;
+  const pres = presence(partner, lang);
 
   return (
     <div className="aurora-bg min-h-[calc(100vh-4rem)]">
@@ -64,7 +78,7 @@ export default function Chats() {
           {convs.map(c => (
             <button key={c.conversation_id} data-testid={`chat-item-${c.user.id}`} onClick={() => { setActive(c.conversation_id); setSp({ c: c.conversation_id }); }}
               className={`w-full text-left p-2 rounded-xl flex items-center gap-2 ${active===c.conversation_id ? "bg-rose-500/15 border border-rose-500/30" : "hover:bg-white/5"}`}>
-              <Avatar u={c.user} testid={`chat-avatar-${c.user.id}`} />
+              <div className="relative"><Avatar u={c.user} testid={`chat-avatar-${c.user.id}`} /><PresenceDot u={c.user} lang={lang} className="absolute bottom-0 right-0" testid={`chat-presence-${c.user.id}`} /></div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{c.user.name}</div>
                 <div className="text-xs text-slate-400 truncate">{c.user.city}</div>
@@ -76,7 +90,7 @@ export default function Chats() {
           {partner && (
             <div className="p-4 border-b border-white/10 flex items-center gap-3">
               <Avatar u={partner} testid="chat-header-avatar" onClick={() => nav(`/profile/${partner.id}`)} />
-              <div><button data-testid="chat-header-name" onClick={() => nav(`/profile/${partner.id}`)} className="font-serif-luxe text-lg leading-tight hover:text-rose-300">{partner.name}</button><div className="text-xs text-slate-400">{partner.city}</div></div>
+              <div><button data-testid="chat-header-name" onClick={() => nav(`/profile/${partner.id}`)} className="font-serif-luxe text-lg leading-tight hover:text-rose-300">{partner.name}</button><div className="text-xs text-slate-400 flex items-center gap-1.5"><PresenceDot u={partner} lang={lang} testid="chat-header-presence" />{pres.label || partner.city}</div></div>
               {partner.photos?.length > 1 && (
                 <div className="ml-auto flex gap-1" data-testid="chat-header-photos">
                   {partner.photos.slice(1, 5).map((p, i) => <img key={i} src={p} alt="" onClick={() => nav(`/profile/${partner.id}`)} className="w-8 h-8 rounded-lg object-cover border border-white/10 cursor-pointer hover:scale-110 transition-transform" />)}
@@ -88,7 +102,7 @@ export default function Chats() {
             {msgs.map(m => (
               <div key={m.id} className={`flex items-end gap-2 ${m.from_id === user.id ? "justify-end" : "justify-start"}`}>
                 {m.from_id !== user.id && <Avatar u={partner} size="w-7 h-7" testid={`chat-msg-avatar-${m.id}`} onClick={() => nav(`/profile/${partner.id}`)} />}
-                <div data-testid={`chat-message-${m.id}`} className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${m.type === "gift" ? "border border-amber-400/40 bg-amber-500/10 text-amber-100" : m.from_id===user.id ? "rose-btn text-white" : "bg-white/10 text-slate-100"}`}>
+                <div data-testid={`chat-message-${m.id}`} className={`max-w-[70%] ${m.type === "image" ? "p-1 rounded-2xl bg-white/5" : "px-3 py-2 rounded-2xl"} text-sm ${m.type === "image" ? "" : m.type === "gift" ? "border border-amber-400/40 bg-amber-500/10 text-amber-100" : m.from_id===user.id ? "rose-btn text-white" : "bg-white/10 text-slate-100"}`}>
                   {m.type === "gift" ? (
                     <div data-testid={`chat-gift-${m.id}`} className="text-center">
                       <div className="text-4xl leading-none">{m.gift_icon}</div>
@@ -101,7 +115,8 @@ export default function Chats() {
                       )}
                       {m.thanks && <div data-testid={`chat-gift-thanked-${m.id}`} className="mt-1 text-[10px] text-slate-400">{t("thanked", lang)} {m.thanks}</div>}
                     </div>
-                  ) : m.type === "thanks" ? <span data-testid={`chat-thanks-${m.id}`}>{t("thanks", lang)} {m.reaction}</span> : m.text}
+                  ) : m.type === "thanks" ? <span data-testid={`chat-thanks-${m.id}`}>{t("thanks", lang)} {m.reaction}</span>
+                  : m.type === "image" ? <img data-testid={`chat-image-${m.id}`} src={fileUrl(m.image_path)} alt="" className="max-h-64 rounded-xl object-cover cursor-zoom-in" onClick={() => window.open(fileUrl(m.image_path), "_blank")} /> : m.text}
                 </div>
               </div>
             ))}
@@ -111,6 +126,9 @@ export default function Chats() {
             <div className="p-3 border-t border-white/10">
               <div className="flex gap-2">
                 <Button data-testid="chat-gift-button" variant="outline" onClick={() => setGiftOpen(true)} className="border-amber-400/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title={t("send_gift", lang)}><Gift size={16}/></Button>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" data-testid="chat-photo-input" onChange={e => sendPhoto(e.target.files?.[0])} />
+                <Button data-testid="chat-photo-button" variant="outline" disabled={uploading} onClick={() => canMedia ? fileRef.current?.click() : toast.info(t("photos_locked", lang))} title={canMedia ? t("send_photo", lang) : t("photos_locked", lang)}
+                  className={canMedia ? "border-sky-400/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20" : "border-white/10 bg-white/5 text-slate-500"}>{canMedia ? <Camera size={16}/> : <Lock size={16}/>}</Button>
                 <Input data-testid="chat-message-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==='Enter' && send()} placeholder={t("message_placeholder", lang)} className="bg-white/5 border-white/10"/>
                 <Button data-testid="chat-message-send-button" onClick={send} className="rose-btn text-white border-0"><Send size={16}/></Button>
               </div>

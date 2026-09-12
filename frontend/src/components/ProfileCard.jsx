@@ -5,6 +5,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { fileUrl } from "../lib/api";
 import { optLabel } from "./ProfileDetailsForm";
+import { presence } from "../lib/presence";
 
 const FALLBACKS = [
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
@@ -33,10 +34,11 @@ export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMess
             </div>
           </>
         )}
-        <div className="absolute top-4 left-3 flex items-center gap-2">
-          <span className="pulse-dot w-2.5 h-2.5 rounded-full bg-emerald-400" />
-          <span className="text-xs text-emerald-200 font-mono uppercase tracking-widest">online</span>
-        </div>
+        {(() => { const pr = presence(p, lang); return p.last_seen ? (
+        <div className="absolute top-4 left-3 flex items-center gap-2" data-testid={`profile-card-presence-${p.id}`}>
+          <span className={`w-2.5 h-2.5 rounded-full ${pr.online ? "pulse-dot bg-emerald-400" : pr.key === "recent" ? "bg-amber-400" : "bg-slate-500"}`} />
+          <span className={`text-xs font-mono uppercase tracking-widest ${pr.online ? "text-emerald-200" : "text-slate-300"}`}>{pr.label}</span>
+        </div>) : null; })()}
         <div className="absolute top-4 right-3 flex items-center gap-1.5">
           {p.is_premium && <span data-testid={`profile-card-premium-badge-${p.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-black text-[10px] font-semibold uppercase tracking-wider"><Crown size={10} /> {t("premium", lang)}</span>}
           {p.verified && <BadgeCheck size={20} className="text-amber-300" />}
