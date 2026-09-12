@@ -402,6 +402,7 @@ const T = {
   spin_locked_note: { ru: "1 попытка на человека · бонус только после регистрации", en: "1 spin per person · bonus only after registration" },
   spin_banner: { ru: "Вы выиграли {p} — завершите регистрацию, чтобы получить бонус", en: "You won {p} — finish signup to claim your bonus" },
   spin_bonus_applied: { ru: "Бонус зачислен: {p}", en: "Bonus credited: {p}" },
+  online_now: { ru: "Сейчас онлайн", en: "Online right now" },
 };
 
 export function t(key, lang) {

@@ -64,6 +64,9 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - 2026-09-12: REMOVED "propose new address" (change-location) feature. Backend: deleted LocationReq, _expire_location_proposals, _split_cancel, POST /api/dates/location/{bid} + /respond (now 404), and the confirm-endpoint LOCATION_PENDING guard + list_dates expire call. Frontend Dates.jsx: removed propose button, edit form, pending-location approve/reject UI, location_changed badge, editLoc state & handlers (AddressPicker still used in DateBookingModal for initial booking; MapsLink kept for venue map link).
 
 
+- 2026-09-12: Added "Online right now" advanced (premium) filter. Backend /api/profiles online_now:bool → last_seen within 5 min (matches presence.jsx online window); gated like other advanced filters (403 PREMIUM_REQUIRED for non-premium). Frontend Browse.jsx toggle 🟢 + EXTRA_DEFAULT online_now + i18n online_now. Curl-verified.
+- 2026-09-12: Chat header — the whole person block (avatar+name+status) is now one clickable button opening /profile/{id} (larger tap target, hover highlight). (Chats.jsx)
+
 ## Backlog
 - P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock (waiting for user API key).
 - P2: Real WebRTC video calls; multi-currency payouts; "see who liked you" premium perk.
