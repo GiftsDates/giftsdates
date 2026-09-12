@@ -69,6 +69,7 @@ CUSTOM_BONUS_PCT = 2
 CUSTOM_MIN_USD = 1.0
 COINS_PER_USD = 10  # payout rate: 10 coins = $1
 MIN_WITHDRAW_USD = 50.0
+CANCEL_REFUND_PCT = 0.5  # booker gets 50% back when cancelling a date; the rest compensates the recipient
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
@@ -109,6 +110,7 @@ DEFAULT_SETTINGS = {
     "coins_per_usd": COINS_PER_USD,
     "min_withdraw_usd": MIN_WITHDRAW_USD,
     "referral_package_id": "popular",
+    "cancel_refund_pct": CANCEL_REFUND_PCT,
 }
 
 async def get_settings() -> dict:
@@ -312,6 +314,7 @@ async def meta():
         "free_daily_likes": s["free_daily_likes"],
         "custom_coins": {"per_usd": s["custom_coins_per_usd"], "bonus_pct": s["custom_bonus_pct"], "min_usd": s["custom_min_usd"]},
         "coins_per_usd": s["coins_per_usd"],
+        "cancel_refund_pct": s.get("cancel_refund_pct", CANCEL_REFUND_PCT),
         "max_photos": MAX_PHOTOS,
     }
 
@@ -820,10 +823,17 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
     if not b: raise HTTPException(404, "Not found")
     if b["from_id"] != user["id"]: raise HTTPException(403, "Only booker can cancel")
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot cancel")
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": b["coins"]}})
-    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"]}})
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled"}})
-    return {"status": "cancelled"}
+    pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
+    refund = int(round(b["coins"] * pct))
+    kept = b["coins"] - refund
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": refund}})
+    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept}})
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now}})
+    if kept:
+        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_fee", "from_id": user["id"], "to_id": b["to_id"], "cost": kept, "net": kept, "created_at": now})
+        await notify(b["to_id"], "date_cancelled", "Date cancelled", f"{user['name']} cancelled the date at {b['venue']}. You received 🪙 {kept} as compensation.", {"booking_id": bid}, email=True)
+    return {"status": "cancelled", "refund": refund, "compensation": kept}
 
 # ---------- Wallet / Withdraw ----------
 @api.get("/wallet")
@@ -902,6 +912,7 @@ class SettingsReq(BaseModel):
     coins_per_usd: int = COINS_PER_USD
     min_withdraw_usd: float = MIN_WITHDRAW_USD
     referral_package_id: Optional[str] = "popular"
+    cancel_refund_pct: float = CANCEL_REFUND_PCT
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):

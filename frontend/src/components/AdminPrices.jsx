@@ -27,7 +27,7 @@ export default function AdminPrices() {
     try {
       const payload = { gifts: s.gifts, coin_packages: s.coin_packages, premium_amount: Number(s.premium_amount), video_rate: Number(s.video_rate),
         date_min_coins: Number(s.date_min_coins), referral_bonus: Number(s.referral_bonus), commission: Number(s.commission_pct) / 100, free_daily_likes: Number(s.free_daily_likes),
-        custom_coins_per_usd: Number(s.custom_coins_per_usd), custom_bonus_pct: Number(s.custom_bonus_pct), custom_min_usd: Number(s.custom_min_usd), coins_per_usd: Number(s.coins_per_usd), min_withdraw_usd: Number(s.min_withdraw_usd), referral_package_id: s.referral_package_id || null };
+        custom_coins_per_usd: Number(s.custom_coins_per_usd), custom_bonus_pct: Number(s.custom_bonus_pct), custom_min_usd: Number(s.custom_min_usd), coins_per_usd: Number(s.coins_per_usd), min_withdraw_usd: Number(s.min_withdraw_usd), referral_package_id: s.referral_package_id || null, cancel_refund_pct: Number(s.cancel_refund_pct ?? 0.5) };
       const { data } = await api.put("/admin/settings", payload);
       setS({ ...data, commission_pct: Math.round(data.commission * 100) }); toast.success(t("saved", lang));
     } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
@@ -49,6 +49,7 @@ export default function AdminPrices() {
         <div><Label className="text-xs text-slate-400">{t("free_likes_label", lang)}</Label><Input data-testid="admin-free-likes" type="number" min="0" value={s.free_daily_likes} onChange={e => upd("free_daily_likes", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("payout_rate_label", lang)}</Label><Input data-testid="admin-coins-per-usd" type="number" min="1" value={s.coins_per_usd} onChange={e => upd("coins_per_usd", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("min_withdraw_label", lang)}</Label><Input data-testid="admin-min-withdraw" type="number" min="0" step="1" value={s.min_withdraw_usd} onChange={e => upd("min_withdraw_usd", num(e.target.value))} className={inp} /></div>
+        <div><Label className="text-xs text-slate-400">{t("cancel_refund_label", lang)}</Label><Input data-testid="admin-cancel-refund" type="number" min="0" max="100" value={Math.round((s.cancel_refund_pct ?? 0.5) * 100)} onChange={e => upd("cancel_refund_pct", num(e.target.value) / 100)} className={inp} /></div>
         <div className="sm:col-span-2 lg:col-span-3"><Label className="text-xs text-slate-400">{t("custom_coins_settings", lang)}</Label>
           <div className="grid grid-cols-3 gap-2">
             <Input data-testid="admin-custom-per-usd" type="number" min="1" value={s.custom_coins_per_usd} onChange={e => upd("custom_coins_per_usd", num(e.target.value))} className={inp} />

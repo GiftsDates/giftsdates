@@ -11,7 +11,8 @@ const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confi
 const STATUS_COLOR = { escrow: "bg-amber-500/15 text-amber-300 border-amber-500/30", accepted: "bg-sky-500/15 text-sky-300 border-sky-500/30", confirmed: "bg-violet-500/15 text-violet-300 border-violet-500/30", released: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", cancelled: "bg-red-500/15 text-red-300 border-red-500/30", declined: "bg-red-500/15 text-red-300 border-red-500/30" };
 
 export default function Dates() {
-  const { lang, refreshUser } = useApp();
+  const { lang, refreshUser, meta } = useApp();
+  const pct = Math.round((meta?.cancel_refund_pct ?? 0.5) * 100);
   const [data, setData] = useState({ outgoing: [], incoming: [] });
   const [busyId, setBusyId] = useState(null);
   const [editLoc, setEditLoc] = useState(null); // { id, venue, city }
@@ -21,9 +22,11 @@ export default function Dates() {
   const load = () => api.get("/dates").then(r => setData(r.data));
   useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, []);
 
-  const cancel = async (id) => {
-    setBusyId(id);
-    try { await api.post(`/dates/cancel/${id}`); await refreshUser(); await load(); toast.success(t("date_cancelled", lang)); }
+  const cancel = async (b) => {
+    const r = Math.round(b.coins * pct / 100), k = b.coins - r;
+    if (!window.confirm(t("cancel_warning", lang).replace("{p}", pct).replace("{r}", r).replace("{k}", k))) return;
+    setBusyId(b.id);
+    try { const { data } = await api.post(`/dates/cancel/${b.id}`); await refreshUser(); await load(); toast.success(t("date_cancelled_partial", lang).replace("{r}", data.refund)); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
@@ -93,7 +96,10 @@ export default function Dates() {
           <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || new Date(b.scheduled_at) > new Date()} title={new Date(b.scheduled_at) > new Date() ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
         )}
         {!isIncoming && (b.status === "escrow" || b.status === "accepted") && (
-          <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b.id)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
+          <div className="flex flex-col items-start gap-1">
+            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
+            <span data-testid={`date-cancel-note-${b.id}`} className="text-[11px] text-amber-300/80">⚠️ {t("cancel_note", lang).replace("{p}", pct)}</span>
+          </div>
         )}
       </div>
     </div>
