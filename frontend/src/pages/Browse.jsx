@@ -129,25 +129,26 @@ export default function Browse() {
             <Input data-testid="profile-max-age-input" type="number" min="18" max="99" value={filters.max_age} onChange={e => setFilters({ ...filters, max_age: parseInt(e.target.value||99) })} className="bg-white/5 border-white/10 mt-1" />
           </div>
           <Button data-testid="profile-search-submit-button" onClick={load} className="rose-btn text-white border-0"><SlidersHorizontal size={14} className="me-1"/> {t("filters", lang)}</Button>
-          <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className={`bg-white/5 border-white/10 hover:bg-white/10 ${!isPremium ? "text-amber-300 border-amber-500/30" : ""}`}>{isPremium ? <ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/> : <Crown size={14} className="me-1"/>} {t("more_filters", lang)}</Button>
+          <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className={`bg-white/5 border-white/10 hover:bg-white/10 ${!isPremium ? "text-amber-300 border-amber-500/30" : ""}`}><ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/>{!isPremium && <Crown size={14} className="me-1 text-amber-300"/>} {t("more_filters", lang)}</Button>
           {quota && !quota.premium && (
             <button data-testid="likes-quota-badge" onClick={() => nav("/wallet?premium=1")} className={`ms-auto px-3 py-2 rounded-full text-xs border font-mono-num ${quota.remaining === 0 ? "bg-rose-500/15 border-rose-500/40 text-rose-300" : "bg-white/5 border-white/10 text-slate-300"}`}>
               💗 {t("likes_left", lang).replace("{a}", quota.used).replace("{b}", quota.limit)}
             </button>
           )}
         </div>
-        {showMore && !isPremium && (
-          <div data-testid="profile-filters-premium-lock" className="glass rounded-2xl p-6 mb-6 float-in border border-amber-500/30 flex flex-wrap items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center"><Lock className="text-amber-300" /></div>
-            <div className="flex-1 min-w-[220px]">
-              <div className="font-serif-luxe text-xl">{t("premium_filters_locked", lang)}</div>
-              <div className="text-xs text-slate-400 mt-1">{t("premium_perks_short", lang)}</div>
-            </div>
-            <Button data-testid="profile-filters-get-premium" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 h-11"><Crown size={16} className="me-1" /> {t("buy_premium", lang)}</Button>
-          </div>
-        )}
-        {showMore && isPremium && (
+        {showMore && (
           <div className="glass rounded-2xl p-4 mb-6 space-y-3 float-in" data-testid="profile-more-filters-panel">
+            {!isPremium && (
+              <div data-testid="profile-filters-premium-lock" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex flex-wrap items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0"><Lock size={16} className="text-amber-300" /></div>
+                <div className="flex-1 min-w-[200px]">
+                  <div className="font-serif-luxe text-base">{t("premium_filters_locked", lang)}</div>
+                  <div className="text-xs text-slate-400">{t("premium_perks_short", lang)}</div>
+                </div>
+                <Button data-testid="profile-filters-get-premium" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 h-10"><Crown size={16} className="me-1" /> {t("buy_premium", lang)}</Button>
+              </div>
+            )}
+            <fieldset disabled={!isPremium} data-testid="profile-more-filters-controls" className={`space-y-3 border-0 p-0 m-0 min-w-0 ${!isPremium ? "opacity-60 select-none" : ""}`}>
             <div className="flex flex-wrap gap-3 items-end">
               <FilterSelect testid="filter-intent-select" field="relationship_intent" label={t("relationship_intent", lang)} value={filters.intent} options={INTENTS} onChange={v => setFilters({ ...filters, intent: v })} lang={lang} />
               <FilterSelect testid="filter-orientation-select" field="orientation" label={t("orientation", lang)} value={filters.orientation} options={ORIENTATIONS.filter(o => o !== "prefer_not")} onChange={v => setFilters({ ...filters, orientation: v })} lang={lang} />
@@ -175,8 +176,9 @@ export default function Browse() {
               <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
               <Toggle testid="filter-with-photos" label={`📷 ${t("with_photos", lang)}`} checked={filters.with_photos} onChange={v => setFilters({ ...filters, with_photos: v })} />
               <Toggle testid="filter-verified-only" label={`✅ ${t("verified_only", lang)}`} checked={filters.verified_only} onChange={v => setFilters({ ...filters, verified_only: v })} />
-              <Button data-testid="profile-filters-reset-button" variant="ghost" onClick={() => setFilters({ ...filters, ...EXTRA_DEFAULT })} className="text-slate-400 hover:text-white ms-auto">{t("reset", lang)}</Button>
+              {isPremium && <Button data-testid="profile-filters-reset-button" variant="ghost" onClick={() => setFilters({ ...filters, ...EXTRA_DEFAULT })} className="text-slate-400 hover:text-white ms-auto">{t("reset", lang)}</Button>}
             </div>
+            </fieldset>
           </div>
         )}
 
