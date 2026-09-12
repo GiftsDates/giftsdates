@@ -41,6 +41,9 @@ export default function Browse() {
   const [showMore, setShowMore] = useState(false);
   const [target, setTarget] = useState(null);
   const [modal, setModal] = useState(null);
+  const [quota, setQuota] = useState(null);
+  const loadQuota = () => api.get("/likes/quota").then(r => setQuota(r.data)).catch(() => {});
+  useEffect(() => { loadQuota(); }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,7 +63,12 @@ export default function Browse() {
       const { data } = await api.post("/likes", { target_id: p.id });
       if (data.matched) toast.success(`💘 ${t("match", lang)} · ${p.name}`);
       else toast.success(`💗 ${t("like", lang)}: ${p.name}`);
-    } catch (e) { toast.error(t("failed", lang)); }
+      loadQuota();
+    } catch (e) {
+      const d = e.response?.data?.detail || "";
+      if (d.startsWith("LIKE_LIMIT:")) toast.error(t("like_limit_reached", lang).replace("{n}", d.split(":")[1]), { duration: 6000, action: { label: t("premium", lang), onClick: () => nav("/wallet?premium=1") } });
+      else toast.error(t("failed", lang));
+    }
   };
   const open = (m, p) => { setTarget(p); setModal(m); };
 
@@ -101,6 +109,11 @@ export default function Browse() {
           </div>
           <Button data-testid="profile-search-submit-button" onClick={load} className="rose-btn text-white border-0"><SlidersHorizontal size={14} className="me-1"/> {t("filters", lang)}</Button>
           <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10"><ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/> {t("more_filters", lang)}</Button>
+          {quota && !quota.premium && (
+            <button data-testid="likes-quota-badge" onClick={() => nav("/wallet?premium=1")} className={`ms-auto px-3 py-2 rounded-full text-xs border font-mono-num ${quota.remaining === 0 ? "bg-rose-500/15 border-rose-500/40 text-rose-300" : "bg-white/5 border-white/10 text-slate-300"}`}>
+              💗 {t("likes_left", lang).replace("{a}", quota.used).replace("{b}", quota.limit)}
+            </button>
+          )}
         </div>
         {showMore && (
           <div className="glass rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-end float-in" data-testid="profile-more-filters-panel">

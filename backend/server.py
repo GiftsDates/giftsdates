@@ -80,6 +80,7 @@ PHONE_RE = re.compile(r"(?:\+?\d[\s\-\.\(\)_]*){7,}")
 PHONE_WORDS_RE = re.compile(r"\b(whatsapp|telegram|viber|wechat|signal|тел[её]фон|ватсап|телеграм)\b", re.I)
 MAX_VIOLATIONS = 3
 BLOCK_DAYS = 7
+FREE_DAILY_LIKES = 15
 
 def contains_phone(text: str) -> bool:
     return bool(PHONE_RE.search(text)) or bool(PHONE_WORDS_RE.search(text) and re.search(r"\d{4,}", text))
@@ -92,6 +93,7 @@ DEFAULT_SETTINGS = {
     "date_min_coins": DATE_MIN_COINS,
     "referral_bonus": REFERRAL_BONUS,
     "commission": GIFT_COMMISSION,
+    "free_daily_likes": FREE_DAILY_LIKES,
 }
 
 async def get_settings() -> dict:
@@ -263,6 +265,7 @@ async def meta():
         "gift_commission": s["commission"],
         "date_min_coins": s["date_min_coins"],
         "referral_bonus": s["referral_bonus"],
+        "free_daily_likes": s["free_daily_likes"],
         "max_photos": MAX_PHOTOS,
     }
 
@@ -424,6 +427,12 @@ async def profile_detail(pid: str, user=Depends(get_current_user)):
 async def like(req: LikeReq, user=Depends(get_current_user)):
     if req.target_id == user["id"]: raise HTTPException(400, "Cannot like yourself")
     now = datetime.now(timezone.utc).isoformat()
+    already = await db.likes.find_one({"from_id": user["id"], "to_id": req.target_id})
+    if not already and not is_premium(user):
+        limit = (await get_settings())["free_daily_likes"]
+        day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        used = await db.likes.count_documents({"from_id": user["id"], "created_at": {"$gte": day_start}})
+        if used >= limit: raise HTTPException(429, f"LIKE_LIMIT:{limit}")
     try:
         await db.likes.insert_one({"from_id": user["id"], "to_id": req.target_id, "created_at": now})
     except Exception:
@@ -441,6 +450,14 @@ async def like(req: LikeReq, user=Depends(get_current_user)):
             await notify(req.target_id, "match", "It's a match! 💘", f"You and {user['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
             await notify(user["id"], "match", "It's a match! 💘", f"You and {other['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": other["name"]}, email=True)
     return {"liked": True, "matched": matched}
+
+@api.get("/likes/quota")
+async def likes_quota(user=Depends(get_current_user)):
+    limit = (await get_settings())["free_daily_likes"]
+    day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    used = await db.likes.count_documents({"from_id": user["id"], "created_at": {"$gte": day_start}})
+    prem = is_premium(user)
+    return {"premium": prem, "limit": None if prem else limit, "used": used, "remaining": None if prem else max(limit - used, 0)}
 
 # ---------- Notifications ----------
 @api.get("/notifications")
@@ -689,6 +706,7 @@ class SettingsReq(BaseModel):
     date_min_coins: int
     referral_bonus: int
     commission: float
+    free_daily_likes: int = FREE_DAILY_LIKES
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):

@@ -38,7 +38,11 @@ export default function ProfileView() {
       const { data } = await api.post("/likes", { target_id: p.id });
       toast.success(data.matched ? `💘 ${t("match", lang)} · ${p.name}` : `💗 ${t("liked", lang)}`);
       load();
-    } catch { toast.error(t("failed", lang)); }
+    } catch (e) {
+      const d = e.response?.data?.detail || "";
+      if (d.startsWith("LIKE_LIMIT:")) toast.error(t("like_limit_reached", lang).replace("{n}", d.split(":")[1]), { duration: 6000, action: { label: t("premium", lang), onClick: () => nav("/wallet?premium=1") } });
+      else toast.error(t("failed", lang));
+    }
   };
 
   if (!p) return <div className="aurora-bg min-h-[calc(100vh-4rem)]" />;
