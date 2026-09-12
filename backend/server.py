@@ -215,8 +215,12 @@ class LikeReq(BaseModel):
 
 class GiftReq(BaseModel):
     target_id: str
-    gift_id: str
+    gift_id: str  # catalog id or "custom"
     message: Optional[str] = ""
+    custom_icon: Optional[str] = None
+    custom_cost: Optional[int] = None
+
+CUSTOM_GIFT_MIN = 10
 
 class VideoCallReq(BaseModel):
     target_id: str
@@ -656,7 +660,12 @@ async def _find_gift(gid):
 
 @api.post("/gifts/send")
 async def send_gift(req: GiftReq, user=Depends(get_current_user)):
-    gift = await _find_gift(req.gift_id)
+    if req.gift_id == "custom":
+        icon = (req.custom_icon or "🎁").strip()[:4] or "🎁"
+        if not req.custom_cost or req.custom_cost < CUSTOM_GIFT_MIN: raise HTTPException(400, f"Minimum {CUSTOM_GIFT_MIN} coins")
+        gift = {"id": "custom", "name_key": "gift_custom", "icon": icon, "cost": int(req.custom_cost)}
+    else:
+        gift = await _find_gift(req.gift_id)
     if not gift: raise HTTPException(400, "Unknown gift")
     if user["coins"] < gift["cost"]: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})

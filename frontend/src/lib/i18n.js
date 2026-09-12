@@ -326,6 +326,9 @@ const T = {
   verifications: { ru: "Верификации", en: "Verifications", es: "Verificaciones", fr: "Vérifications", de: "Verifizierungen", pt: "Verificações", zh: "验证", ar: "التحققات", hi: "सत्यापन", bn: "যাচাই", ur: "تصدیقات" },
   gift_dress: { ru: "Платье", en: "Dress", es: "Vestido", fr: "Robe", de: "Kleid", pt: "Vestido", zh: "连衣裙", ar: "فستان", hi: "ड्रेस", bn: "পোশাক", ur: "لباس" },
   gift_jewelry: { ru: "Украшение", en: "Jewelry", es: "Joya", fr: "Bijou", de: "Schmuck", pt: "Joia", zh: "首饰", ar: "مجوهرات", hi: "आभूषण", bn: "অলঙ্কার", ur: "زیورات" },
+  gift_custom: { ru: "Свой подарок", en: "Custom gift", es: "Regalo personalizado", fr: "Cadeau personnalisé", de: "Eigenes Geschenk", pt: "Presente personalizado", zh: "自定义礼物", ar: "هدية مخصصة", hi: "कस्टम उपहार", bn: "নিজের উপহার", ur: "اپنا تحفہ" },
+  gift_custom_amount: { ru: "Сумма (монеты, минимум 10)", en: "Amount (coins, min 10)", es: "Cantidad (monedas, mín. 10)", fr: "Montant (pièces, min. 10)", de: "Betrag (Münzen, mind. 10)", pt: "Valor (moedas, mín. 10)", zh: "金额（金币，最少 10）", ar: "المبلغ (عملات، الحد الأدنى 10)", hi: "राशि (कॉइन, न्यूनतम 10)", bn: "পরিমাণ (কয়েন, সর্বনিম্ন ১০)", ur: "رقم (کوائنز، کم سے کم 10)" },
+  custom_gift_min: { ru: "Минимум 10 монет", en: "Minimum 10 coins", es: "Mínimo 10 monedas", fr: "Minimum 10 pièces", de: "Mindestens 10 Münzen", pt: "Mínimo 10 moedas", zh: "最少 10 金币", ar: "الحد الأدنى 10 عملات", hi: "न्यूनतम 10 कॉइन", bn: "সর্বনিম্ন ১০ কয়েন", ur: "کم سے کم 10 کوائنز" },
 };
 
 export function t(key, lang) {
