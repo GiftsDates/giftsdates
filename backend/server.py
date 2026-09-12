@@ -386,6 +386,10 @@ async def list_profiles(
     min_age: int = 18, max_age: int = 99, gender: Optional[str] = None,
     intent: Optional[str] = None, min_height: Optional[int] = None, max_height: Optional[int] = None,
     kids: Optional[str] = None, smoking: Optional[str] = None, religion: Optional[str] = None,
+    drinking: Optional[str] = None, income: Optional[str] = None, language: Optional[str] = None,
+    hobby: Optional[str] = None, job: Optional[str] = None, min_weight: Optional[int] = None, max_weight: Optional[int] = None,
+    bust_size: Optional[str] = None, penis_size: Optional[str] = None, max_date_price: Optional[int] = None,
+    premium_only: bool = False, with_photos: bool = False, verified_only: bool = False,
     limit: int = 40, user=Depends(get_current_user)
 ):
     conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
@@ -393,16 +397,23 @@ async def list_profiles(
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
     if gender and gender != "all": conds.append({"gender": gender})
     if q: conds.append({"$or": [{"name": {"$regex": q, "$options": "i"}}, {"bio": {"$regex": q, "$options": "i"}}]})
-    if intent and intent != "all": conds.append({"relationship_intent": intent})
-    if kids and kids != "all": conds.append({"kids": kids})
-    if smoking and smoking != "all": conds.append({"smoking": smoking})
-    if religion and religion != "all": conds.append({"religion": religion})
-    if min_height or max_height:
-        h = {}
-        if min_height: h["$gte"] = min_height
-        if max_height: h["$lte"] = max_height
-        conds.append({"height": h})
+    for field, val in (("relationship_intent", intent), ("kids", kids), ("smoking", smoking), ("religion", religion),
+                       ("drinking", drinking), ("income", income), ("bust_size", bust_size), ("penis_size", penis_size)):
+        if val and val != "all": conds.append({field: val})
+    if language and language != "all": conds.append({"languages_spoken": language})
+    if hobby: conds.append({"hobbies": {"$elemMatch": {"$regex": re.escape(hobby), "$options": "i"}}})
+    if job: conds.append({"job_title": {"$regex": re.escape(job), "$options": "i"}})
+    for field, lo, hi in (("height", min_height, max_height), ("weight", min_weight, max_weight)):
+        if lo or hi:
+            r = {}
+            if lo: r["$gte"] = lo
+            if hi: r["$lte"] = hi
+            conds.append({field: r})
+    if max_date_price: conds.append({"$or": [{"date_price": {"$lte": max_date_price}}, {"date_price": None}, {"date_price": {"$exists": False}}]})
+    if with_photos: conds.append({"photos.0": {"$exists": True}})
+    if verified_only: conds.append({"verified": True})
     now_iso = datetime.now(timezone.utc).isoformat()
+    if premium_only: conds.append({"premium_until": {"$gt": now_iso}})
     proj = {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0}
     boosted = await db.users.find({"$and": conds + [{"premium_until": {"$gt": now_iso}}]}, proj).limit(limit).to_list(limit)
     rest_limit = max(limit - len(boosted), 0)

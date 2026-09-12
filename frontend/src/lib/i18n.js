@@ -248,8 +248,13 @@ const T = {
   like_limit_reached: { ru: "Лимит {n} лайков в день исчерпан. Оформите Премиум для безлимитных лайков!", en: "Daily limit of {n} likes reached. Get Premium for unlimited likes!", es: "Límite diario de {n} likes alcanzado. ¡Hazte Premium para likes ilimitados!", fr: "Limite quotidienne de {n} likes atteinte. Passez Premium pour des likes illimités !", de: "Tageslimit von {n} Likes erreicht. Hol dir Premium für unbegrenzte Likes!", pt: "Limite diário de {n} likes atingido. Assine o Premium para likes ilimitados!", zh: "已达到每日 {n} 次点赞上限。升级 Premium 享无限点赞！", ar: "تم الوصول إلى حد {n} إعجاباً يومياً. احصل على بريميوم لإعجابات غير محدودة!", hi: "प्रति दिन {n} लाइक की सीमा पूरी। असीमित लाइक के लिए प्रीमियम लें!", bn: "দৈনিক {n} লাইকের সীমা শেষ। সীমাহীন লাইকের জন্য প্রিমিয়াম নিন!", ur: "روزانہ {n} لائکس کی حد پوری ہو گئی۔ لامحدود لائکس کے لیے پریمیم لیں!" },
   likes_left: { ru: "Лайков сегодня: {a}/{b}", en: "Likes today: {a}/{b}", es: "Likes hoy: {a}/{b}", fr: "Likes aujourd'hui : {a}/{b}", de: "Likes heute: {a}/{b}", pt: "Likes hoje: {a}/{b}", zh: "今日点赞：{a}/{b}", ar: "إعجابات اليوم: {a}/{b}", hi: "आज के लाइक: {a}/{b}", bn: "আজকের লাইক: {a}/{b}", ur: "آج کے لائکس: {a}/{b}" },
   free_likes_label: { ru: "Бесплатных лайков в день", en: "Free likes per day", es: "Likes gratis al día", fr: "Likes gratuits par jour", de: "Kostenlose Likes pro Tag", pt: "Likes grátis por dia", zh: "每日免费点赞", ar: "إعجابات مجانية يومياً", hi: "प्रति दिन मुफ़्त लाइक", bn: "দৈনিক বিনামূল্যে লাইক", ur: "روزانہ مفت لائکس" },
-};
-export function t(key, lang) {
+  premium_only: { ru: "Только Премиум", en: "Premium only", es: "Solo Premium", fr: "Premium uniquement", de: "Nur Premium", pt: "Só Premium", zh: "仅 Premium", ar: "بريميوم فقط", hi: "केवल प्रीमियम", bn: "শুধু প্রিমিয়াম", ur: "صرف پریمیم" },
+  with_photos: { ru: "С фото", en: "With photos", es: "Con fotos", fr: "Avec photos", de: "Mit Fotos", pt: "Com fotos", zh: "有照片", ar: "مع صور", hi: "फ़ोटो सहित", bn: "ছবি সহ", ur: "تصاویر کے ساتھ" },
+  verified_only: { ru: "Верифицированные", en: "Verified only", es: "Solo verificados", fr: "Vérifiés uniquement", de: "Nur verifizierte", pt: "Só verificados", zh: "仅已验证", ar: "الموثقون فقط", hi: "केवल सत्यापित", bn: "শুধু যাচাইকৃত", ur: "صرف تصدیق شدہ" },
+  max_date_price: { ru: "Цена свидания до (🪙)", en: "Date price up to (🪙)", es: "Precio de cita hasta (🪙)", fr: "Prix du rendez-vous jusqu'à (🪙)", de: "Date-Preis bis (🪙)", pt: "Preço do encontro até (🪙)", zh: "约会价格不超过（🪙）", ar: "سعر الموعد حتى (🪙)", hi: "डेट की कीमत अधिकतम (🪙)", bn: "ডেটের মূল্য সর্বোচ্চ (🪙)", ur: "ملاقات کی قیمت زیادہ سے زیادہ (🪙)" },
+  language_filter: { ru: "Говорит на", en: "Speaks", es: "Habla", fr: "Parle", de: "Spricht", pt: "Fala", zh: "会说", ar: "يتحدث", hi: "बोलता है", bn: "কথা বলে", ur: "بولتا ہے" },
+  hobby_filter: { ru: "Хобби (поиск)", en: "Hobby (search)", es: "Pasatiempo (buscar)", fr: "Loisir (recherche)", de: "Hobby (Suche)", pt: "Hobby (busca)", zh: "爱好（搜索）", ar: "هواية (بحث)", hi: "शौक (खोज)", bn: "শখ (খোঁজ)", ur: "مشغلہ (تلاش)" },
+};export function t(key, lang) {
   const entry = T[key];
   if (!entry) return key;
   return entry[lang] || entry.en || key;

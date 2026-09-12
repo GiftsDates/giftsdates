@@ -27,7 +27,7 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - All remaining hardcoded UI strings (toasts, premium perks, empty states, dates headers) translated into all 8 languages.
 - Extended profile: relationship intent, hobbies, height, weight, languages spoken, job title, income, kids, smoking, drinking, religion, bust size (non-male), 🍆 size (non-female). PATCH /api/auth/me validates height 100–250 / weight 30–300. ProfileDetailsForm on /profile; intent/height/job chips on browse cards.
 - 9th–11th UI languages: Hindi (hi), Bengali (bn), Urdu (ur, RTL) — all keys translated each.
-- Advanced search filters (intent, kids, smoking, religion, height range) → GET /api/profiles params.
+- Advanced search filters (intent, kids, smoking, drinking, religion, income, spoken language, hobby text, job text, height/weight ranges, bust/🍆 size, max date price, premium-only, with-photos, verified-only) → GET /api/profiles params.
 - Full profile page /profile/:id (GET /api/profiles/{id} + is_premium/liked_by_me/conversation_id); card image click opens it.
 - Phone-number guard in chat: numbers (7+ digits incl. separators, or messenger keyword + digits) are blocked until the pair has a confirmed/released date booking. Each violation → warning notification (PHONE_BLOCKED:n:3); 3rd violation → account blocked 7 days (blocked_until; login and all API return 403 BLOCKED:<iso>), logged in db.moderation_log. Chat shows rule hint under the input.
 - Free users: 15 likes/day (repeat likes of same target not counted); 16th → 429 LIKE_LIMIT:n; Premium unlimited. GET /api/likes/quota; quota badge on /browse; limit editable in admin Prices (free_daily_likes).

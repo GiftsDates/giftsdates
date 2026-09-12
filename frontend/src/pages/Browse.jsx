@@ -12,12 +12,15 @@ import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
 import { Search, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { INTENTS, KIDS, HABITS, RELIGIONS, optLabel } from "../components/ProfileDetailsForm";
+import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, optLabel } from "../components/ProfileDetailsForm";
+import { LANGUAGES } from "../lib/i18n";
+import { Switch } from "../components/ui/switch";
 
 const ALL = "all";
-const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, religion: ALL, min_height: "", max_height: "" };
+const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, drinking: ALL, religion: ALL, income: ALL, language: ALL, bust_size: ALL, penis_size: ALL,
+  min_height: "", max_height: "", min_weight: "", max_weight: "", hobby: "", job: "", max_date_price: "", premium_only: false, with_photos: false, verified_only: false };
 
-function FilterSelect({ testid, field, value, options, onChange, lang, label }) {
+function FilterSelect({ testid, field, value, options, onChange, lang, label, labelFn }) {
   return (
     <div className="min-w-[150px]">
       <label className="text-xs text-slate-400">{label}</label>
@@ -25,10 +28,25 @@ function FilterSelect({ testid, field, value, options, onChange, lang, label }) 
         <SelectTrigger data-testid={testid} className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
         <SelectContent className="bg-[#161320] border-white/10 text-white max-h-72">
           <SelectItem value={ALL}>{t("all", lang)}</SelectItem>
-          {options.map(o => <SelectItem key={o} value={o}>{optLabel(field, o, lang)}</SelectItem>)}
+          {options.map(o => <SelectItem key={o} value={o}>{labelFn ? labelFn(o) : optLabel(field, o, lang)}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>
+  );
+}
+function NumInput({ testid, label, value, onChange, min, max }) {
+  return (
+    <div className="min-w-[100px]">
+      <label className="text-xs text-slate-400">{label}</label>
+      <Input data-testid={testid} type="number" min={min} max={max} value={value} onChange={e => onChange(e.target.value)} className="bg-white/5 border-white/10 mt-1" />
+    </div>
+  );
+}
+function Toggle({ testid, label, checked, onChange }) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-slate-300 px-3 py-2 rounded-lg bg-white/5 border border-white/10 cursor-pointer">
+      <Switch data-testid={testid} checked={checked} onCheckedChange={onChange} /> {label}
+    </label>
   );
 }
 
@@ -49,7 +67,7 @@ export default function Browse() {
     setLoading(true);
     try {
       const params = { ...filters };
-      Object.keys(params).forEach(k => (params[k] === ALL || params[k] === "" || params[k] == null) && delete params[k]);
+      Object.keys(params).forEach(k => (params[k] === ALL || params[k] === "" || params[k] == null || params[k] === false) && delete params[k]);
       const { data } = await api.get("/profiles", { params });
       setProfiles(data);
     } catch (e) { toast.error(t("failed_load", lang)); }
@@ -116,20 +134,35 @@ export default function Browse() {
           )}
         </div>
         {showMore && (
-          <div className="glass rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-end float-in" data-testid="profile-more-filters-panel">
-            <FilterSelect testid="filter-intent-select" field="relationship_intent" label={t("relationship_intent", lang)} value={filters.intent} options={INTENTS} onChange={v => setFilters({ ...filters, intent: v })} lang={lang} />
-            <FilterSelect testid="filter-kids-select" field="kids" label={t("kids", lang)} value={filters.kids} options={KIDS} onChange={v => setFilters({ ...filters, kids: v })} lang={lang} />
-            <FilterSelect testid="filter-smoking-select" field="smoking" label={t("smoking", lang)} value={filters.smoking} options={HABITS} onChange={v => setFilters({ ...filters, smoking: v })} lang={lang} />
-            <FilterSelect testid="filter-religion-select" field="religion" label={t("religion", lang)} value={filters.religion} options={RELIGIONS.filter(r => r !== "prefer_not")} onChange={v => setFilters({ ...filters, religion: v })} lang={lang} />
-            <div className="min-w-[100px]">
-              <label className="text-xs text-slate-400">{t("height", lang)} · {t("min", lang)}</label>
-              <Input data-testid="filter-min-height-input" type="number" min="100" max="250" value={filters.min_height} onChange={e => setFilters({ ...filters, min_height: e.target.value })} className="bg-white/5 border-white/10 mt-1" />
+          <div className="glass rounded-2xl p-4 mb-6 space-y-3 float-in" data-testid="profile-more-filters-panel">
+            <div className="flex flex-wrap gap-3 items-end">
+              <FilterSelect testid="filter-intent-select" field="relationship_intent" label={t("relationship_intent", lang)} value={filters.intent} options={INTENTS} onChange={v => setFilters({ ...filters, intent: v })} lang={lang} />
+              <FilterSelect testid="filter-kids-select" field="kids" label={t("kids", lang)} value={filters.kids} options={KIDS} onChange={v => setFilters({ ...filters, kids: v })} lang={lang} />
+              <FilterSelect testid="filter-smoking-select" field="smoking" label={t("smoking", lang)} value={filters.smoking} options={HABITS} onChange={v => setFilters({ ...filters, smoking: v })} lang={lang} />
+              <FilterSelect testid="filter-drinking-select" field="drinking" label={t("drinking", lang)} value={filters.drinking} options={HABITS} onChange={v => setFilters({ ...filters, drinking: v })} lang={lang} />
+              <FilterSelect testid="filter-religion-select" field="religion" label={t("religion", lang)} value={filters.religion} options={RELIGIONS.filter(r => r !== "prefer_not")} onChange={v => setFilters({ ...filters, religion: v })} lang={lang} />
+              <FilterSelect testid="filter-income-select" field="income" label={t("income", lang)} value={filters.income} options={INCOMES.filter(r => r !== "prefer_not")} onChange={v => setFilters({ ...filters, income: v })} lang={lang} />
+              <FilterSelect testid="filter-language-select" field="language" label={t("language_filter", lang)} value={filters.language} options={LANGUAGES.map(l => l.code)} labelFn={c => { const l = LANGUAGES.find(x => x.code === c); return `${l.flag} ${l.name}`; }} onChange={v => setFilters({ ...filters, language: v })} lang={lang} />
             </div>
-            <div className="min-w-[100px]">
-              <label className="text-xs text-slate-400">{t("height", lang)} · {t("max", lang)}</label>
-              <Input data-testid="filter-max-height-input" type="number" min="100" max="250" value={filters.max_height} onChange={e => setFilters({ ...filters, max_height: e.target.value })} className="bg-white/5 border-white/10 mt-1" />
+            <div className="flex flex-wrap gap-3 items-end">
+              <NumInput testid="filter-min-height-input" label={`${t("height", lang)} · ${t("min", lang)}`} min="100" max="250" value={filters.min_height} onChange={v => setFilters({ ...filters, min_height: v })} />
+              <NumInput testid="filter-max-height-input" label={`${t("height", lang)} · ${t("max", lang)}`} min="100" max="250" value={filters.max_height} onChange={v => setFilters({ ...filters, max_height: v })} />
+              <NumInput testid="filter-min-weight-input" label={`${t("weight", lang)} · ${t("min", lang)}`} min="30" max="300" value={filters.min_weight} onChange={v => setFilters({ ...filters, min_weight: v })} />
+              <NumInput testid="filter-max-weight-input" label={`${t("weight", lang)} · ${t("max", lang)}`} min="30" max="300" value={filters.max_weight} onChange={v => setFilters({ ...filters, max_weight: v })} />
+              <NumInput testid="filter-max-date-price-input" label={t("max_date_price", lang)} min="0" value={filters.max_date_price} onChange={v => setFilters({ ...filters, max_date_price: v })} />
+              <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("hobby_filter", lang)}</label>
+                <Input data-testid="filter-hobby-input" value={filters.hobby} onChange={e => setFilters({ ...filters, hobby: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("job_title", lang)}</label>
+                <Input data-testid="filter-job-input" value={filters.job} onChange={e => setFilters({ ...filters, job: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+              {filters.gender !== "male" && <FilterSelect testid="filter-bust-select" field="bust_size" label={t("bust_size", lang)} value={filters.bust_size} options={BUST} onChange={v => setFilters({ ...filters, bust_size: v })} lang={lang} />}
+              {filters.gender !== "female" && <FilterSelect testid="filter-penis-select" field="penis_size" label={t("penis_size", lang)} value={filters.penis_size} options={SIZES} onChange={v => setFilters({ ...filters, penis_size: v })} lang={lang} />}
             </div>
-            <Button data-testid="profile-filters-reset-button" variant="ghost" onClick={() => setFilters({ ...filters, ...EXTRA_DEFAULT })} className="text-slate-400 hover:text-white">{t("reset", lang)}</Button>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
+              <Toggle testid="filter-with-photos" label={`📷 ${t("with_photos", lang)}`} checked={filters.with_photos} onChange={v => setFilters({ ...filters, with_photos: v })} />
+              <Toggle testid="filter-verified-only" label={`✅ ${t("verified_only", lang)}`} checked={filters.verified_only} onChange={v => setFilters({ ...filters, verified_only: v })} />
+              <Button data-testid="profile-filters-reset-button" variant="ghost" onClick={() => setFilters({ ...filters, ...EXTRA_DEFAULT })} className="text-slate-400 hover:text-white ms-auto">{t("reset", lang)}</Button>
+            </div>
           </div>
         )}
 
