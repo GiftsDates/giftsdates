@@ -29,7 +29,7 @@ export default function AddressPicker({ value, onChange, testid = "address" }) {
   }, [q, lang]);
   const pick = (r) => {
     const a = r.address || {};
-    onChange({ address: r.display_name, lat: parseFloat(r.lat), lng: parseFloat(r.lon), city: a.city || a.town || a.village || a.municipality || value?.city || "", venue: value?.venue || a.amenity || a.shop || a.tourism || "" });
+    onChange({ address: r.display_name, lat: parseFloat(r.lat), lng: parseFloat(r.lon), city: a.city || a.town || a.village || a.municipality || a.county || value?.city || "", postal_code: a.postcode || "", country: a.country || "", venue: value?.venue || a.amenity || a.shop || a.tourism || "" });
     setQ(r.display_name); setResults([]);
   };
   return (

@@ -5,8 +5,9 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Send, ShieldAlert } from "lucide-react";
+import { Send, ShieldAlert, Gift } from "lucide-react";
 import { toast } from "sonner";
+import GiftModal from "../components/GiftModal";
 
 export default function Chats() {
   const { user, lang, logout } = useApp();
@@ -16,7 +17,9 @@ export default function Chats() {
   const [active, setActive] = useState(sp.get("c") || null);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
+  const [giftOpen, setGiftOpen] = useState(false);
   const endRef = useRef();
+  const reload = () => active && api.get(`/conversations/${active}/messages`).then(r => setMsgs(r.data));
 
   useEffect(() => { api.get("/matches").then(r => { setConvs(r.data); if (!active && r.data[0]) setActive(r.data[0].conversation_id); }); }, []);
   useEffect(() => {
@@ -65,8 +68,14 @@ export default function Chats() {
           <div className="flex-1 p-4 overflow-auto space-y-2 scrollbar-thin">
             {msgs.map(m => (
               <div key={m.id} className={`flex ${m.from_id === user.id ? "justify-end" : "justify-start"}`}>
-                <div data-testid={`chat-message-${m.id}`} className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${m.from_id===user.id ? "rose-btn text-white" : "bg-white/10 text-slate-100"}`}>
-                  {m.text}
+                <div data-testid={`chat-message-${m.id}`} className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${m.type === "gift" ? "border border-amber-400/40 bg-amber-500/10 text-amber-100" : m.from_id===user.id ? "rose-btn text-white" : "bg-white/10 text-slate-100"}`}>
+                  {m.type === "gift" ? (
+                    <div data-testid={`chat-gift-${m.id}`} className="text-center">
+                      <div className="text-4xl leading-none">{m.gift_icon}</div>
+                      <div className="text-[11px] mt-1 text-amber-300 font-mono-num">{m.from_id === user.id ? t("gift_sent_you", lang) : t("gift_received_chat", lang)} · 🪙 {m.gift_cost}</div>
+                      {m.text && <div className="mt-1 text-xs text-slate-200 italic">“{m.text}”</div>}
+                    </div>
+                  ) : m.text}
                 </div>
               </div>
             ))}
@@ -75,6 +84,7 @@ export default function Chats() {
           {active && (
             <div className="p-3 border-t border-white/10">
               <div className="flex gap-2">
+                <Button data-testid="chat-gift-button" variant="outline" onClick={() => setGiftOpen(true)} className="border-amber-400/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20" title={t("send_gift", lang)}><Gift size={16}/></Button>
                 <Input data-testid="chat-message-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key==='Enter' && send()} placeholder={t("message_placeholder", lang)} className="bg-white/5 border-white/10"/>
                 <Button data-testid="chat-message-send-button" onClick={send} className="rose-btn text-white border-0"><Send size={16}/></Button>
               </div>
@@ -83,6 +93,7 @@ export default function Chats() {
           )}
         </div>
       </div>
+      {partner && <GiftModal open={giftOpen} onOpenChange={setGiftOpen} target={partner} conversationId={active} onSent={reload} />}
     </div>
   );
 }

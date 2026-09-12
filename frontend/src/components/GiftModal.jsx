@@ -8,7 +8,7 @@ import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
-export default function GiftModal({ open, onOpenChange, target, onSent }) {
+export default function GiftModal({ open, onOpenChange, target, onSent, conversationId }) {
   const { user, meta, lang, refreshUser } = useApp();
   const [selected, setSelected] = useState(null);
   const [msg, setMsg] = useState("");
@@ -25,7 +25,7 @@ export default function GiftModal({ open, onOpenChange, target, onSent }) {
     if (user.coins < effectiveCost) { toast.error(t("not_enough_coins", lang)); return; }
     setBusy(true);
     try {
-      await api.post("/gifts/send", { target_id: target.id, gift_id: selected.id, message: msg, ...(isCustom ? { custom_icon: customIcon, custom_cost: effectiveCost } : {}) });
+      await api.post("/gifts/send", { target_id: target.id, gift_id: selected.id, message: msg, ...(conversationId ? { conversation_id: conversationId } : {}), ...(isCustom ? { custom_icon: customIcon, custom_cost: effectiveCost } : {}) });
       await refreshUser();
       toast.success(`${isCustom ? customIcon : selected.icon} sent to ${target.name}!`);
       onSent && onSent();

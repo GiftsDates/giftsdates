@@ -31,6 +31,7 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Full profile page /profile/:id (GET /api/profiles/{id} + is_premium/liked_by_me/conversation_id); card image click opens it.
 - Phone-number guard in chat: numbers (7+ digits incl. separators, or messenger keyword + digits) are blocked until the pair has a confirmed/released date booking. Each violation → warning notification (PHONE_BLOCKED:n:3); 3rd violation → account blocked 7 days (blocked_until; login and all API return 403 BLOCKED:<iso>), logged in db.moderation_log. Chat shows rule hint under the input.
 - Advanced filters are Premium-only: backend returns 403 PREMIUM_REQUIRED if any advanced param is used by a free user; /browse shows a lock card with "Get Premium" CTA instead of the filter panel.
+- Booking & address change store full worldwide address: address, city/town, postal_code, country, lat/lng (AddressPicker via Nominatim autofills city/postcode/country; fields editable; Google Maps link). Shown on date cards.
 - Address change with map: either party proposes a new meeting address (AddressPicker: OpenStreetMap Nominatim autocomplete, no API key; "Open in Google Maps" link with coordinates). Proposal stored as `pending_location`; the other party must approve/decline (POST /api/dates/location/{bid}/respond). Photo-confirm blocked while pending (LOCATION_PENDING). If not approved before the meeting day → auto-cancel with 50% refund to booker / 50% compensation to recipient (checked lazily on GET /api/dates).
 - Date cancellation by booker refunds only 50% (`cancel_refund_pct`, admin-editable); the other 50% goes to the recipient's withdrawable as compensation (transaction type date_cancel_fee + notification). UI: warning note under Cancel button + confirm dialog with exact amounts.
 - Gender options: female, male, trans woman, trans man, non-binary (registration, "interested in", search filter). Orientation field (straight, lesbian, gay, bisexual, pansexual, transgender, queer/other, prefer not) on registration & profile; shown on profile page; premium search filter.
@@ -52,6 +53,8 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Free users: 15 likes/day (repeat likes of same target not counted); 16th → 429 LIKE_LIMIT:n; Premium unlimited. GET /api/likes/quota; quota badge on /browse; limit editable in admin Prices (free_daily_likes).
 - Per-profile date price (`date_price`, ≥ global min 300) editable on /profile; shown on card chip and profile page; prefilled in booking modal.
 - Admin "Prices" tab: GET/PUT /api/admin/settings (gifts, coin packs, premium price, video rate, date min coins, referral bonus, commission) stored in db.settings id=pricing; all pricing reads via get_settings().
+- Gifts in chat (2026-09-12): Gift button (data-testid chat-gift-button) in /chats composer opens GiftModal with `conversationId`; POST /api/gifts/send accepts optional `conversation_id` and inserts a `type: "gift"` message (gift_icon, gift_cost, text) rendered as an amber bubble in the thread. API + screenshot verified.
+
 
 ## Backlog
 - P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock (waiting for user API key).

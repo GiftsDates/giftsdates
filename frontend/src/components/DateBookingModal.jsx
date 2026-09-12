@@ -9,11 +9,13 @@ import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { toKey, fromKey } from "./AvailabilityCalendar";
+import AddressPicker from "./AddressPicker";
 
 export default function DateBookingModal({ open, onOpenChange, target }) {
   const { user, meta, lang, refreshUser } = useApp();
   const [venue, setVenue] = useState("");
   const [city, setCity] = useState(target?.city || "");
+  const [loc, setLoc] = useState({ address: "", postal_code: "", country: target?.country || "", lat: null, lng: null });
   const [day, setDay] = useState(null);
   const [time, setTime] = useState("19:00");
   const [coins, setCoins] = useState(target?.date_price || meta?.date_min_coins || 300);
@@ -21,7 +23,7 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setCity(target?.city || ""); setCoins(target?.date_price || meta?.date_min_coins || 300); setDay(null);
+    setCity(target?.city || ""); setLoc({ address: "", postal_code: "", country: target?.country || "", lat: null, lng: null }); setCoins(target?.date_price || meta?.date_min_coins || 300); setDay(null);
     if (open && target?.id) api.get(`/profiles/${target.id}/availability`).then(r => setAvail(r.data)).catch(() => {});
   }, [target, meta, open]);
 
@@ -44,7 +46,7 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
     try {
       const [h, m] = time.split(":").map(Number);
       const dt = fromKey(day); dt.setHours(h || 0, m || 0, 0, 0);
-      await api.post("/dates/book", { target_id: target.id, venue, city, scheduled_at: dt.toISOString(), coins, local_time: time });
+      await api.post("/dates/book", { target_id: target.id, venue, city, scheduled_at: dt.toISOString(), coins, local_time: time, address: loc.address, postal_code: loc.postal_code, country: loc.country, lat: loc.lat, lng: loc.lng });
       await refreshUser();
       toast.success(t("date_booked", lang));
       onOpenChange(false);
@@ -75,8 +77,16 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
           <div className="space-y-3">
             <div><Label className="text-xs text-slate-400">{t("venue", lang)}</Label>
               <Input data-testid="date-venue-input" value={venue} onChange={e => setVenue(e.target.value)} placeholder="Le Bernardin" className="bg-white/5 border-white/10 mt-1" /></div>
-            <div><Label className="text-xs text-slate-400">{t("city", lang)}</Label>
-              <Input data-testid="date-city-input" value={city} onChange={e => setCity(e.target.value)} className="bg-white/5 border-white/10 mt-1" /></div>
+            <div><Label className="text-xs text-slate-400">{t("address", lang)}</Label>
+              <div className="mt-1"><AddressPicker testid="date-address" value={loc} onChange={(l) => { setLoc({ ...loc, ...l }); if (l.city) setCity(l.city); if (!venue && l.venue) setVenue(l.venue); }} /></div></div>
+            <div className="grid grid-cols-3 gap-2">
+              <div><Label className="text-xs text-slate-400">{t("city", lang)}</Label>
+                <Input data-testid="date-city-input" value={city} onChange={e => setCity(e.target.value)} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div><Label className="text-xs text-slate-400">{t("postal_code", lang)}</Label>
+                <Input data-testid="date-postal-input" value={loc.postal_code} onChange={e => setLoc({ ...loc, postal_code: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div><Label className="text-xs text-slate-400">{t("country", lang)}</Label>
+                <Input data-testid="date-country-input" value={loc.country} onChange={e => setLoc({ ...loc, country: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">{t("when", lang)}</Label>
                 <div data-testid="date-selected-day" className="mt-1 h-10 flex items-center px-3 rounded-md bg-white/5 border border-white/10 text-sm font-mono-num">{day || "—"}</div></div>

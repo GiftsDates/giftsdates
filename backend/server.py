@@ -224,6 +224,7 @@ class GiftReq(BaseModel):
     message: Optional[str] = ""
     custom_icon: Optional[str] = None
     custom_cost: Optional[int] = None
+    conversation_id: Optional[str] = None
 
 CUSTOM_GIFT_MIN = 10
 
@@ -238,6 +239,11 @@ class DateBookingReq(BaseModel):
     scheduled_at: str  # ISO
     coins: int
     local_time: Optional[str] = None  # HH:MM in booker's local time, used for availability window check
+    address: Optional[str] = ""
+    postal_code: Optional[str] = ""
+    country: Optional[str] = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class DateConfirmReq(BaseModel):
     booking_id: str
@@ -686,6 +692,13 @@ async def send_gift(req: GiftReq, user=Depends(get_current_user)):
           "gift_id": gift["id"], "gift_icon": gift["icon"], "cost": gift["cost"],
           "commission": commission, "net": net, "message": req.message, "created_at": now}
     await db.transactions.insert_one(tx)
+    if req.conversation_id:
+        conv = await db.conversations.find_one({"id": req.conversation_id})
+        if conv and user["id"] in conv.get("users", []) and req.target_id in conv.get("users", []):
+            label = f"{gift['icon']} 🪙 {gift['cost']}"
+            await db.messages.insert_one({"id": str(uuid.uuid4()), "conversation_id": req.conversation_id, "from_id": user["id"],
+                                          "text": (req.message or "").strip(), "type": "gift", "gift_icon": gift["icon"], "gift_cost": gift["cost"], "created_at": now})
+            await db.conversations.update_one({"id": req.conversation_id}, {"$set": {"last_message": label, "last_at": now}})
     return {"ok": True, "commission": commission, "net_to_recipient": net}
 
 @api.get("/gifts/received")
@@ -734,7 +747,7 @@ async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
         raise HTTPException(400, "DAY_BUSY")
     booking_id = str(uuid.uuid4())
     doc = {"id": booking_id, "from_id": user["id"], "to_id": req.target_id,
-           "venue": req.venue, "city": req.city, "scheduled_at": req.scheduled_at,
+           "venue": req.venue, "city": req.city, "address": (req.address or "").strip(), "postal_code": (req.postal_code or "").strip(), "country": (req.country or "").strip(), "lat": req.lat, "lng": req.lng, "scheduled_at": req.scheduled_at,
            "coins": req.coins, "status": "escrow", "photo_url": None,
            "release_at": None, "created_at": now}
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -req.coins}})
@@ -765,6 +778,8 @@ class LocationReq(BaseModel):
     venue: str
     city: str
     address: Optional[str] = ""
+    postal_code: Optional[str] = ""
+    country: Optional[str] = ""
     lat: Optional[float] = None
     lng: Optional[float] = None
 
@@ -798,7 +813,7 @@ async def change_location(bid: str, req: LocationReq, user=Depends(get_current_u
     if not req.venue.strip() or not req.city.strip(): raise HTTPException(400, "Venue and city required")
     now = datetime.now(timezone.utc).isoformat()
     other = b["to_id"] if user["id"] == b["from_id"] else b["from_id"]
-    prop = {"venue": req.venue.strip(), "city": req.city.strip(), "address": (req.address or "").strip(), "lat": req.lat, "lng": req.lng, "proposed_by": user["id"], "proposed_at": now}
+    prop = {"venue": req.venue.strip(), "city": req.city.strip(), "address": (req.address or "").strip(), "postal_code": (req.postal_code or "").strip(), "country": (req.country or "").strip(), "lat": req.lat, "lng": req.lng, "proposed_by": user["id"], "proposed_at": now}
     await db.date_bookings.update_one({"id": bid}, {"$set": {"pending_location": prop}})
     await notify(other, "date_location", "New meeting address proposed 📍", f"{user['name']} proposes {prop['venue']}, {prop['address'] or prop['city']}. Approve it before the meeting day, otherwise the date is cancelled with a 50% refund.", {"booking_id": bid}, email=True)
     return {"status": b["status"], "pending_location": prop}
@@ -811,7 +826,7 @@ async def respond_location(bid: str, accept: bool, user=Depends(get_current_user
     if user["id"] not in (b["from_id"], b["to_id"]) or user["id"] == prop["proposed_by"]: raise HTTPException(403, "Only the other party can respond")
     now = datetime.now(timezone.utc).isoformat()
     if accept:
-        await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": prop["venue"], "city": prop["city"], "address": prop.get("address", ""), "lat": prop.get("lat"), "lng": prop.get("lng"),
+        await db.date_bookings.update_one({"id": bid}, {"$set": {"venue": prop["venue"], "city": prop["city"], "address": prop.get("address", ""), "postal_code": prop.get("postal_code", ""), "country": prop.get("country", ""), "lat": prop.get("lat"), "lng": prop.get("lng"),
             "location_changed_at": now, "original_venue": b.get("original_venue") or b["venue"], "original_city": b.get("original_city") or b["city"], "pending_location": None}})
         await notify(prop["proposed_by"], "date_location", "Address approved ✅", f"{user['name']} approved the new meeting place: {prop['venue']}.", {"booking_id": bid}, email=True)
         return {"status": "approved"}
