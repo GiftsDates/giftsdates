@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bell, Heart, Gift, Landmark } from "lucide-react";
+import { Bell, Heart, Gift, Landmark, CalendarHeart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -7,7 +7,7 @@ import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
-const ICONS = { match: Heart, referral: Gift, payout_account: Landmark, withdrawal: Landmark };
+const ICONS = { match: Heart, referral: Gift, payout_account: Landmark, withdrawal: Landmark, date_request: CalendarHeart, date_accepted: CalendarHeart, date_declined: CalendarHeart };
 
 export default function NotificationBell() {
   const { user, lang, refreshUser } = useApp();
@@ -52,7 +52,7 @@ export default function NotificationBell() {
           {items.length === 0 ? <div className="p-6 text-center text-sm text-slate-500">{t("no_notifications", lang)}</div> : items.map(n => {
             const Icon = ICONS[n.type] || Bell;
             return (
-              <button key={n.id} data-testid={`notification-item-${n.id}`} onClick={() => n.type === "match" ? nav("/chats") : nav("/wallet")} className="w-full text-left px-4 py-3 flex gap-3 hover:bg-white/5">
+              <button key={n.id} data-testid={`notification-item-${n.id}`} onClick={() => n.type === "match" ? nav("/chats") : n.type.startsWith("date_") ? nav("/dates") : nav("/wallet")} className="w-full text-left px-4 py-3 flex gap-3 hover:bg-white/5">
                 <Icon size={16} className={n.type === "match" ? "text-rose-400 mt-0.5" : "text-amber-300 mt-0.5"} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm">{n.title}</div>

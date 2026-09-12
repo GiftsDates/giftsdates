@@ -9,8 +9,9 @@ import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
+import AvailabilityCalendar from "../components/AvailabilityCalendar";
 
-const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price"];
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "availability"];
 
 export default function Profile() {
   const { user, refreshUser, lang, meta } = useApp();
@@ -22,7 +23,7 @@ export default function Profile() {
     setBusy(true);
     try {
       const payload = { ...f };
-      for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = k === "hobbies" || k === "languages_spoken" ? [] : "";
+      for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = ["hobbies", "languages_spoken", "availability"].includes(k) ? [] : "";
       if (!payload.height) delete payload.height;
       if (!payload.weight) delete payload.weight;
       if (!payload.date_price) delete payload.date_price;
@@ -60,6 +61,7 @@ export default function Profile() {
           </div>
         </div>
         <ProfileDetailsForm f={f} setF={setF} lang={lang} gender={user?.gender} />
+        <AvailabilityCalendar value={f.availability || []} onChange={(days) => setF({ ...f, availability: days })} />
         <div className="sticky bottom-4">
           <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-12 w-full shadow-xl">{t("save", lang)}</Button>
         </div>

@@ -197,6 +197,7 @@ class ProfileUpdate(BaseModel):
     bust_size: Optional[str] = None
     penis_size: Optional[str] = None
     date_price: Optional[int] = None
+    availability: Optional[List[str]] = None  # ISO dates YYYY-MM-DD when user is open for dates
 
 class LikeReq(BaseModel):
     target_id: str
@@ -327,6 +328,8 @@ async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
         if upd["date_price"] < mn: raise HTTPException(400, f"Date price must be at least {mn} coins")
     if "photos" in upd and len(upd["photos"]) > MAX_PHOTOS:
         raise HTTPException(400, f"Max {MAX_PHOTOS} photos")
+    if "availability" in upd:
+        upd["availability"] = sorted({d[:10] for d in upd["availability"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d[:10])})
     if upd:
         await db.users.update_one({"id": user["id"]}, {"$set": upd})
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
@@ -620,6 +623,11 @@ async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
     now = datetime.now(timezone.utc).isoformat()
+    day = req.scheduled_at[:10]
+    if target.get("availability") and day not in target["availability"]: raise HTTPException(400, "DAY_UNAVAILABLE")
+    if await db.date_bookings.find_one({"status": {"$in": ["escrow", "accepted", "confirmed"]}, "scheduled_at": {"$regex": f"^{day}"},
+                                        "$or": [{"to_id": req.target_id}, {"from_id": req.target_id}]}):
+        raise HTTPException(400, "DAY_BUSY")
     booking_id = str(uuid.uuid4())
     doc = {"id": booking_id, "from_id": user["id"], "to_id": req.target_id,
            "venue": req.venue, "city": req.city, "scheduled_at": req.scheduled_at,
@@ -629,7 +637,32 @@ async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
     # hold in escrow of recipient
     await db.users.update_one({"id": req.target_id}, {"$inc": {"escrow": req.coins}})
     await db.date_bookings.insert_one(doc)
+    await notify(req.target_id, "date_request", "New date request 📅", f"{user['name']} invited you to {req.venue}, {req.city} · 🪙 {req.coins}. Accept or decline in Dates.", {"booking_id": booking_id}, email=True)
     return {"booking_id": booking_id, "status": "escrow"}
+
+@api.post("/dates/respond/{bid}")
+async def respond_date(bid: str, accept: bool, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can respond")
+    if b["status"] != "escrow": raise HTTPException(400, "Cannot respond")
+    now = datetime.now(timezone.utc).isoformat()
+    if accept:
+        await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "accepted", "accepted_at": now}})
+        await notify(b["from_id"], "date_accepted", "Date accepted 💃", f"{user['name']} accepted your date at {b['venue']}.", {"booking_id": bid}, email=True)
+        return {"status": "accepted"}
+    await db.users.update_one({"id": b["from_id"]}, {"$inc": {"coins": b["coins"]}})
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"escrow": -b["coins"]}})
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "declined", "declined_at": now}})
+    await notify(b["from_id"], "date_declined", "Date declined", f"{user['name']} declined your date at {b['venue']}. 🪙 {b['coins']} refunded.", {"booking_id": bid}, email=True)
+    return {"status": "declined", "refunded": b["coins"]}
+
+@api.get("/profiles/{pid}/availability")
+async def profile_availability(pid: str, user=Depends(get_current_user)):
+    p = await db.users.find_one({"id": pid}, {"_id": 0, "availability": 1})
+    if not p: raise HTTPException(404, "Not found")
+    busy = await db.date_bookings.find({"status": {"$in": ["escrow", "accepted", "confirmed"]}, "$or": [{"to_id": pid}, {"from_id": pid}]}, {"_id": 0, "scheduled_at": 1}).to_list(500)
+    return {"available_days": p.get("availability") or [], "busy_days": sorted({b["scheduled_at"][:10] for b in busy})}
 
 @api.get("/dates")
 async def list_dates(user=Depends(get_current_user)):
@@ -652,7 +685,7 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": req.booking_id})
     if not b: raise HTTPException(404, "Not found")
     if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can confirm")
-    if b["status"] != "escrow": raise HTTPException(400, "Cannot confirm")
+    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot confirm")
     release_at = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
     await db.date_bookings.update_one({"id": req.booking_id}, {"$set": {"status": "confirmed", "photo_url": req.photo_url, "confirmed_at": datetime.now(timezone.utc).isoformat(), "release_at": release_at}})
     return {"status": "confirmed", "release_at": release_at}
@@ -662,7 +695,7 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": bid})
     if not b: raise HTTPException(404, "Not found")
     if b["from_id"] != user["id"]: raise HTTPException(403, "Only booker can cancel")
-    if b["status"] != "escrow": raise HTTPException(400, "Cannot cancel")
+    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot cancel")
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": b["coins"]}})
     await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"]}})
     await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled"}})

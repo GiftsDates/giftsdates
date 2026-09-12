@@ -4,10 +4,10 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { CalendarHeart, Camera, Clock } from "lucide-react";
+import { CalendarHeart, Camera, Clock, Check, X } from "lucide-react";
 
-const STATUS_MAP = { escrow: "status_escrow", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled" };
-const STATUS_COLOR = { escrow: "bg-amber-500/15 text-amber-300 border-amber-500/30", confirmed: "bg-violet-500/15 text-violet-300 border-violet-500/30", released: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", cancelled: "bg-red-500/15 text-red-300 border-red-500/30" };
+const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
+const STATUS_COLOR = { escrow: "bg-amber-500/15 text-amber-300 border-amber-500/30", accepted: "bg-sky-500/15 text-sky-300 border-sky-500/30", confirmed: "bg-violet-500/15 text-violet-300 border-violet-500/30", released: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", cancelled: "bg-red-500/15 text-red-300 border-red-500/30", declined: "bg-red-500/15 text-red-300 border-red-500/30" };
 
 export default function Dates() {
   const { lang, refreshUser } = useApp();
@@ -22,6 +22,13 @@ export default function Dates() {
   const cancel = async (id) => {
     setBusyId(id);
     try { await api.post(`/dates/cancel/${id}`); await refreshUser(); await load(); toast.success(t("date_cancelled", lang)); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const respond = async (id, accept) => {
+    setBusyId(id);
+    try { await api.post(`/dates/respond/${id}?accept=${accept}`); await refreshUser(); await load(); toast.success(t(accept ? "date_accepted_toast" : "date_declined_toast", lang)); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
@@ -53,11 +60,17 @@ export default function Dates() {
           {b.release_at && b.status === "confirmed" && <span className="text-xs text-slate-500">→ {new Date(b.release_at).toLocaleString()}</span>}
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {isIncoming && b.status === "escrow" && (
+          <>
+            <Button data-testid={`date-accept-btn-${b.id}`} disabled={busyId===b.id} onClick={() => respond(b.id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0"><Check size={14} className="me-1"/> {t("accept", lang)}</Button>
+            <Button data-testid={`date-decline-btn-${b.id}`} disabled={busyId===b.id} onClick={() => respond(b.id, false)} variant="outline" className="bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"><X size={14} className="me-1"/> {t("decline", lang)}</Button>
+          </>
+        )}
+        {isIncoming && b.status === "accepted" && (
           <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
         )}
-        {!isIncoming && b.status === "escrow" && (
+        {!isIncoming && (b.status === "escrow" || b.status === "accepted") && (
           <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b.id)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
         )}
       </div>
