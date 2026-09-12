@@ -1,0 +1,26 @@
+{
+  "summary": "Iter8 backend-only regression after storage init_storage() was hardened to raise HTTPException(503) on failure. 13/13 pytest cases pass. Verified: (1) storage happy-path still works — POST /api/upload returns {path,url}, GET /api/files/{path} returns bytes, POST /api/profile/photos + follow-up file GET all 200; no 503 anywhere. (2) chat-photo end-to-end regression — MEDIA_LOCKED before a confirmed date_booking, upload success (type=image) after seeding a confirmed booking, recipient can download the image via /api/files/{path}. (3) taxi gift flow — booker request -> 403 (Only invited can request), recipient request -> pending stored on booking.taxi, duplicate pending -> 400 TAXI_PENDING, recipient send -> 403, booker send deducts booker.coins by taxi coins, credits recipient.withdrawable by full coins, writes transactions doc {type:'gift', gift_id:'taxi', gift_icon:'🚕', commission>0}, sets taxi.status='sent'; second send -> 400; decline flow: recipient decline -> 403, booker decline -> 200 (taxi.status='declined'), recipient can re-request creating a fresh pending; GET /api/dates outgoing exposes booking.taxi.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter8.py",
+    "/app/test_reports/pytest/iter8.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py send_taxi (line 1016): recipient is credited the FULL coin amount to withdrawable while the transactions doc records commission separately — the commission is never actually deducted anywhere (from booker's spend or recipient's payout). Either subtract commission from the recipient credit (net = coins - commission) or add a matching platform revenue accounting entry; right now 'commission' is a computed-but-unused number.",
+    "server.py init_storage (line 32-43): fail-fast is good, but the 503 HTTPException is raised from a sync helper called inside async endpoints — fine for FastAPI, however the storage_key is a module-level global with no locking; two concurrent first-time callers can race the POST /init and one will get its key overwritten. Add asyncio.Lock or double-checked init.",
+    "server.py request_taxi (line 995): allows taxi request when booking.status in ('escrow','accepted','confirmed'), but send_taxi has no status guard — a booker could send taxi coins for a booking that has since been 'cancelled' or 'declined' if a stale pending taxi is present. Re-check b['status'] in send_taxi and decline_taxi.",
+    "server.py taxi endpoints: booking.taxi has no ledger — only the latest state is kept ($set taxi.status). If recipient re-requests after decline, the prior request's coins/timestamps are overwritten with no audit trail. Consider pushing into booking.taxi_history array.",
+    "server.py /api/upload (line 411): no MAX size guard and no content-type validation for the generic /upload endpoint (unlike /profile/photos which requires image/*). A logged-in user can upload arbitrary large files to STORAGE_URL under their user prefix.",
+    "server.py get_object/put_object are synchronous requests calls inside async handlers — blocks the event loop under load. Switch to httpx.AsyncClient or run in a thread pool."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter8.py"],
+  "success_rate": {"backend": "13/13 (100%)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "admin@giftsdates.com / TestPass123!; test users are ephemeral TEST_iter8_* accounts registered per module",
+  "seed_data_creation": "Per module: TEST_iter8_* users; direct Mongo insert of confirmed date_bookings to unlock MEDIA and to attach taxi; taxi test also boosts booker's user.coins to 1000 directly in Mongo.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini pins -n 2 --dist loadscope; iter8 test module is self-contained. Storage init works in this env — no 503 observed. Taxi endpoint suite covers request/send/decline auth, duplicate, coin flow, and decline->re-request happy path. Note the commission-not-deducted issue (critical code review comment #1) — flagged as review-only, main agent should decide the intended business semantics before changing.",
+  "rca of the issue": null
+}

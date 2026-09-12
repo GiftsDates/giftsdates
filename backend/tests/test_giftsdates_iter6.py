@@ -1,6 +1,6 @@
 """Iteration 6 backend tests: likes/received (free vs premium), like-back match creation,
 top_givers on /profiles/{id}, and light regression on chat message + gift."""
-import os, uuid, random, string, pytest, requests
+import os, uuid, secrets, string, pytest, requests
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -17,7 +17,7 @@ API = f"{BASE}/api"
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 
-def _rand(n=6): return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+def _rand(n=6): return "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 def _register(suffix="a"):
     email = f"TEST_iter6_{_rand()}_{suffix}@t.com"

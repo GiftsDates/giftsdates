@@ -1,6 +1,6 @@
 """Iter7 backend tests: chat photo (MEDIA_LOCKED / success / non-image / file access), 
 last_seen heartbeat + presence in /matches and /profiles/{id}."""
-import os, io, uuid, random, string, asyncio, pytest, requests
+import os, io, uuid, secrets, string, asyncio, pytest, requests
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -21,7 +21,7 @@ PNG_BYTES = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x
              b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xcf"
              b"\xc0\x00\x00\x00\x03\x00\x01\xdb\x87\xc4\xc9\x00\x00\x00\x00IEND\xaeB`\x82")
 
-def _rand(n=6): return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+def _rand(n=6): return "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 def _register(suffix="a", gender="male", interested_in="female"):
     email = f"TEST_iter7_{_rand()}_{suffix}@t.com"

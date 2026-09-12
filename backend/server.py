@@ -39,6 +39,7 @@ def init_storage(force: bool = False):
         storage_key = r.json()["storage_key"]
     except Exception as e:
         logging.error(f"Storage init failed: {e}")
+        raise HTTPException(503, "Storage unavailable")
     return storage_key
 
 def put_object(path: str, data: bytes, content_type: str):
@@ -1005,6 +1006,7 @@ async def send_taxi(bid: str, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": bid})
     if not b: raise HTTPException(404, "Not found")
     if b["from_id"] != user["id"]: raise HTTPException(403, "Only the booker can send a taxi")
+    if b["status"] not in ("escrow", "accepted", "confirmed"): raise HTTPException(400, "Cannot send taxi")
     taxi = b.get("taxi")
     if not taxi or taxi.get("status") != "pending": raise HTTPException(400, "No pending taxi request")
     coins = int(taxi["coins"])
