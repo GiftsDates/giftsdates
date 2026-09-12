@@ -393,6 +393,9 @@ async def list_profiles(
     limit: int = 40, user=Depends(get_current_user)
 ):
     conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
+    advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language,
+                                                                   hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, with_photos, verified_only))
+    if advanced_used and not is_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
     if city: conds.append({"city": {"$regex": city, "$options": "i"}})
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
     if gender and gender != "all": conds.append({"gender": gender})

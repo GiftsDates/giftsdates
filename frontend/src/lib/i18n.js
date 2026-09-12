@@ -254,7 +254,11 @@ const T = {
   max_date_price: { ru: "Цена свидания до (🪙)", en: "Date price up to (🪙)", es: "Precio de cita hasta (🪙)", fr: "Prix du rendez-vous jusqu'à (🪙)", de: "Date-Preis bis (🪙)", pt: "Preço do encontro até (🪙)", zh: "约会价格不超过（🪙）", ar: "سعر الموعد حتى (🪙)", hi: "डेट की कीमत अधिकतम (🪙)", bn: "ডেটের মূল্য সর্বোচ্চ (🪙)", ur: "ملاقات کی قیمت زیادہ سے زیادہ (🪙)" },
   language_filter: { ru: "Говорит на", en: "Speaks", es: "Habla", fr: "Parle", de: "Spricht", pt: "Fala", zh: "会说", ar: "يتحدث", hi: "बोलता है", bn: "কথা বলে", ur: "بولتا ہے" },
   hobby_filter: { ru: "Хобби (поиск)", en: "Hobby (search)", es: "Pasatiempo (buscar)", fr: "Loisir (recherche)", de: "Hobby (Suche)", pt: "Hobby (busca)", zh: "爱好（搜索）", ar: "هواية (بحث)", hi: "शौक (खोज)", bn: "শখ (খোঁজ)", ur: "مشغلہ (تلاش)" },
-};export function t(key, lang) {
+  premium_filters_locked: { ru: "Расширенные фильтры доступны только с Премиум-подпиской", en: "Advanced filters are available with Premium only", es: "Los filtros avanzados solo están disponibles con Premium", fr: "Les filtres avancés sont réservés aux membres Premium", de: "Erweiterte Filter nur mit Premium", pt: "Filtros avançados disponíveis apenas com Premium", zh: "高级筛选仅限 Premium 会员", ar: "الفلاتر المتقدمة متاحة لأعضاء بريميوم فقط", hi: "उन्नत फ़िल्टर केवल प्रीमियम के साथ", bn: "উন্নত ফিল্টার শুধু প্রিমিয়ামে", ur: "ایڈوانس فلٹرز صرف پریمیم کے ساتھ" },
+  perk_advanced_filters: { ru: "Расширенные фильтры поиска", en: "Advanced search filters", es: "Filtros de búsqueda avanzados", fr: "Filtres de recherche avancés", de: "Erweiterte Suchfilter", pt: "Filtros de busca avançados", zh: "高级搜索筛选", ar: "فلاتر بحث متقدمة", hi: "उन्नत खोज फ़िल्टर", bn: "উন্নত অনুসন্ধান ফিল্টার", ur: "ایڈوانس سرچ فلٹرز" },
+};
+
+export function t(key, lang) {
   const entry = T[key];
   if (!entry) return key;
   return entry[lang] || entry.en || key;

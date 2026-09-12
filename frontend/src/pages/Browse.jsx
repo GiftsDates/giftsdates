@@ -10,7 +10,7 @@ import ProfileCard from "../components/ProfileCard";
 import GiftModal from "../components/GiftModal";
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
-import { Search, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, optLabel } from "../components/ProfileDetailsForm";
 import { LANGUAGES } from "../lib/i18n";
@@ -51,7 +51,8 @@ function Toggle({ testid, label, checked, onChange }) {
 }
 
 export default function Browse() {
-  const { lang } = useApp();
+  const { lang, user } = useApp();
+  const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
   const nav = useNavigate();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +71,10 @@ export default function Browse() {
       Object.keys(params).forEach(k => (params[k] === ALL || params[k] === "" || params[k] == null || params[k] === false) && delete params[k]);
       const { data } = await api.get("/profiles", { params });
       setProfiles(data);
-    } catch (e) { toast.error(t("failed_load", lang)); }
+    } catch (e) {
+      if (e.response?.data?.detail === "PREMIUM_REQUIRED") { toast.error(t("premium_filters_locked", lang), { action: { label: t("premium", lang), onClick: () => nav("/wallet?premium=1") } }); setFilters(f => ({ ...f, ...EXTRA_DEFAULT })); }
+      else toast.error(t("failed_load", lang));
+    }
     finally { setLoading(false); }
   }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -126,14 +130,24 @@ export default function Browse() {
             <Input data-testid="profile-max-age-input" type="number" min="18" max="99" value={filters.max_age} onChange={e => setFilters({ ...filters, max_age: parseInt(e.target.value||99) })} className="bg-white/5 border-white/10 mt-1" />
           </div>
           <Button data-testid="profile-search-submit-button" onClick={load} className="rose-btn text-white border-0"><SlidersHorizontal size={14} className="me-1"/> {t("filters", lang)}</Button>
-          <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10"><ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/> {t("more_filters", lang)}</Button>
+          <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className={`bg-white/5 border-white/10 hover:bg-white/10 ${!isPremium ? "text-amber-300 border-amber-500/30" : ""}`}>{isPremium ? <ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/> : <Crown size={14} className="me-1"/>} {t("more_filters", lang)}</Button>
           {quota && !quota.premium && (
             <button data-testid="likes-quota-badge" onClick={() => nav("/wallet?premium=1")} className={`ms-auto px-3 py-2 rounded-full text-xs border font-mono-num ${quota.remaining === 0 ? "bg-rose-500/15 border-rose-500/40 text-rose-300" : "bg-white/5 border-white/10 text-slate-300"}`}>
               💗 {t("likes_left", lang).replace("{a}", quota.used).replace("{b}", quota.limit)}
             </button>
           )}
         </div>
-        {showMore && (
+        {showMore && !isPremium && (
+          <div data-testid="profile-filters-premium-lock" className="glass rounded-2xl p-6 mb-6 float-in border border-amber-500/30 flex flex-wrap items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center"><Lock className="text-amber-300" /></div>
+            <div className="flex-1 min-w-[220px]">
+              <div className="font-serif-luxe text-xl">{t("premium_filters_locked", lang)}</div>
+              <div className="text-xs text-slate-400 mt-1">{t("premium_perks_short", lang)}</div>
+            </div>
+            <Button data-testid="profile-filters-get-premium" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 h-11"><Crown size={16} className="me-1" /> {t("buy_premium", lang)}</Button>
+          </div>
+        )}
+        {showMore && isPremium && (
           <div className="glass rounded-2xl p-4 mb-6 space-y-3 float-in" data-testid="profile-more-filters-panel">
             <div className="flex flex-wrap gap-3 items-end">
               <FilterSelect testid="filter-intent-select" field="relationship_intent" label={t("relationship_intent", lang)} value={filters.intent} options={INTENTS} onChange={v => setFilters({ ...filters, intent: v })} lang={lang} />

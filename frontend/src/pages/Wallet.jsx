@@ -123,7 +123,7 @@ export default function Wallet() {
             <Crown size={40} className="mx-auto text-amber-300"/>
             <div className="font-serif-luxe text-2xl">${meta?.premium?.amount}<span className="text-sm text-slate-400"> {t("per_month", lang)}</span></div>
             <ul className="text-sm text-slate-300 text-left space-y-1">
-              <li>✓ {t("perk_unlimited_likes", lang)}</li><li>✓ {t("perk_top_placement", lang)}</li><li>✓ {t("perk_see_likes", lang)}</li><li>✓ {t("perk_priority_support", lang)}</li>
+              <li>✓ {t("perk_unlimited_likes", lang)}</li><li>✓ {t("perk_top_placement", lang)}</li><li>✓ {t("perk_advanced_filters", lang)}</li><li>✓ {t("perk_see_likes", lang)}</li><li>✓ {t("perk_priority_support", lang)}</li>
             </ul>
             <Button data-testid="premium-subscribe-confirm" onClick={() => buy("premium_monthly")} className="rose-btn text-white border-0 w-full h-11">{t("buy_premium", lang)}</Button>
           </div>
