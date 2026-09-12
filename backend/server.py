@@ -106,6 +106,7 @@ DEFAULT_SETTINGS = {
     "custom_min_usd": CUSTOM_MIN_USD,
     "coins_per_usd": COINS_PER_USD,
     "min_withdraw_usd": MIN_WITHDRAW_USD,
+    "referral_package_id": "popular",
 }
 
 async def get_settings() -> dict:
@@ -297,6 +298,7 @@ async def meta():
         "gift_commission": s["commission"],
         "date_min_coins": s["date_min_coins"],
         "referral_bonus": s["referral_bonus"],
+        "referral_package": next((p for p in s["coin_packages"] if p["id"] == s.get("referral_package_id")), None),
         "free_daily_likes": s["free_daily_likes"],
         "custom_coins": {"per_usd": s["custom_coins_per_usd"], "bonus_pct": s["custom_bonus_pct"], "min_usd": s["custom_min_usd"]},
         "coins_per_usd": s["coins_per_usd"],
@@ -536,7 +538,8 @@ async def referrals(user=Depends(get_current_user)):
     invited = await db.users.find({"referred_by": user["id"]}, {"_id": 0, "name": 1, "created_at": 1, "referral_rewarded": 1}).to_list(200)
     earned = await db.transactions.find({"to_id": user["id"], "type": "referral_bonus"}, {"_id": 0}).to_list(500)
     s = await get_settings()
-    return {"code": user["referral_code"], "bonus": s["referral_bonus"], "invited": invited,
+    pkg = next((p for p in s["coin_packages"] if p["id"] == s.get("referral_package_id")), None)
+    return {"code": user["referral_code"], "bonus": s["referral_bonus"], "package": pkg, "invited": invited,
             "earned": sum(t["cost"] for t in earned), "rewarded_count": len(earned)}
 
 async def _reward_referrer(buyer_id: str):
@@ -548,7 +551,7 @@ async def _reward_referrer(buyer_id: str):
     await db.users.update_one({"id": buyer["referred_by"]}, {"$inc": {"coins": bonus}})
     await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "referral_bonus", "from_id": buyer_id, "to_id": buyer["referred_by"],
                                       "cost": bonus, "net": bonus, "created_at": datetime.now(timezone.utc).isoformat()})
-    await notify(buyer["referred_by"], "referral", f"+{bonus} 🪙 referral bonus", f"{buyer['name']} made a first purchase. Thanks for inviting!", {"user_id": buyer_id})
+    await notify(buyer["referred_by"], "referral", f"+{bonus} 🪙 referral bonus", f"{buyer['name']} bought their first pack. Thanks for inviting!", {"user_id": buyer_id})
 
 @api.get("/matches")
 async def my_matches(user=Depends(get_current_user)):
@@ -837,6 +840,7 @@ class SettingsReq(BaseModel):
     custom_min_usd: float = CUSTOM_MIN_USD
     coins_per_usd: int = COINS_PER_USD
     min_withdraw_usd: float = MIN_WITHDRAW_USD
+    referral_package_id: Optional[str] = "popular"
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):
@@ -926,7 +930,9 @@ async def _fulfill(session_id: str, meta: dict):
     if meta.get("type") == "coins":
         coins = int(meta.get("coins", 0))
         await db.users.update_one({"id": user_id}, {"$inc": {"coins": coins}})
-        await _reward_referrer(user_id)
+        req_pkg = (await get_settings()).get("referral_package_id")
+        if not req_pkg or meta.get("package_id") == req_pkg:
+            await _reward_referrer(user_id)
     elif meta.get("type") == "premium":
         u = await db.users.find_one({"id": user_id})
         start = datetime.now(timezone.utc)

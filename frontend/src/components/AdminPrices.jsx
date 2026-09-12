@@ -27,7 +27,7 @@ export default function AdminPrices() {
     try {
       const payload = { gifts: s.gifts, coin_packages: s.coin_packages, premium_amount: Number(s.premium_amount), video_rate: Number(s.video_rate),
         date_min_coins: Number(s.date_min_coins), referral_bonus: Number(s.referral_bonus), commission: Number(s.commission_pct) / 100, free_daily_likes: Number(s.free_daily_likes),
-        custom_coins_per_usd: Number(s.custom_coins_per_usd), custom_bonus_pct: Number(s.custom_bonus_pct), custom_min_usd: Number(s.custom_min_usd), coins_per_usd: Number(s.coins_per_usd), min_withdraw_usd: Number(s.min_withdraw_usd) };
+        custom_coins_per_usd: Number(s.custom_coins_per_usd), custom_bonus_pct: Number(s.custom_bonus_pct), custom_min_usd: Number(s.custom_min_usd), coins_per_usd: Number(s.coins_per_usd), min_withdraw_usd: Number(s.min_withdraw_usd), referral_package_id: s.referral_package_id || null };
       const { data } = await api.put("/admin/settings", payload);
       setS({ ...data, commission_pct: Math.round(data.commission * 100) }); toast.success(t("saved", lang));
     } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
@@ -40,6 +40,11 @@ export default function AdminPrices() {
         <div><Label className="text-xs text-slate-400">{t("video_rate_label", lang)}</Label><Input data-testid="admin-video-rate" type="number" value={s.video_rate} onChange={e => upd("video_rate", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("date_min_label", lang)}</Label><Input data-testid="admin-date-min" type="number" value={s.date_min_coins} onChange={e => upd("date_min_coins", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("referral_bonus_label", lang)}</Label><Input data-testid="admin-referral-bonus" type="number" value={s.referral_bonus} onChange={e => upd("referral_bonus", num(e.target.value))} className={inp} /></div>
+        <div><Label className="text-xs text-slate-400">{t("referral_package_label", lang)}</Label>
+          <select data-testid="admin-referral-package" value={s.referral_package_id || ""} onChange={e => upd("referral_package_id", e.target.value || null)} className="mt-1 h-9 w-full rounded-md bg-white/5 border border-white/10 px-2 text-sm">
+            <option value="" className="bg-[#161320]">{t("any_package", lang)}</option>
+            {s.coin_packages.map(p => <option key={p.id} value={p.id} className="bg-[#161320]">{p.name}</option>)}
+          </select></div>
         <div><Label className="text-xs text-slate-400">{t("commission_label", lang)}</Label><Input data-testid="admin-commission" type="number" min="0" max="99" value={s.commission_pct} onChange={e => upd("commission_pct", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("free_likes_label", lang)}</Label><Input data-testid="admin-free-likes" type="number" min="0" value={s.free_daily_likes} onChange={e => upd("free_daily_likes", num(e.target.value))} className={inp} /></div>
         <div><Label className="text-xs text-slate-400">{t("payout_rate_label", lang)}</Label><Input data-testid="admin-coins-per-usd" type="number" min="1" value={s.coins_per_usd} onChange={e => upd("coins_per_usd", num(e.target.value))} className={inp} /></div>

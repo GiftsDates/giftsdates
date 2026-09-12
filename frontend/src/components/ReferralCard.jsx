@@ -23,7 +23,7 @@ export default function ReferralCard() {
         <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center"><Users className="text-violet-300" /></div>
         <div>
           <div className="font-serif-luxe text-xl">{t("referrals", lang)}</div>
-          <div className="text-xs text-slate-400">{t("referral_hint", lang).replace("{n}", data.bonus)}</div>
+          <div className="text-xs text-slate-400" data-testid="referral-hint">{data.package ? t("referral_hint_pkg", lang).replace("{n}", data.bonus).replace("{p}", data.package.name) : t("referral_hint", lang).replace("{n}", data.bonus)}</div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
