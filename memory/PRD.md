@@ -17,7 +17,7 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Auth, profiles search, likes/matches, chat, gifts, demo video calls, date escrow (confirm w/ photo → +24h release), wallet, Stripe checkout, i18n + RTL.
 
 ### 2026-09-12 (v2)
-- Multi-photo upload (max 6, Object Storage): POST/DELETE /api/profile/photos, /primary; PhotoGrid on /profile; photo carousel on browse cards.
+- Multi-photo upload (max 12, Object Storage): POST/DELETE /api/profile/photos, /primary; PhotoGrid on /profile; photo carousel on browse cards.
 - Notifications: db.notifications, GET /api/notifications, POST /read; NotificationBell in Nav (8s polling, toast on new match). Email delivery is MOCKED → db.email_outbox.
 - Boosted search: premium users first in GET /api/profiles (`is_premium` flag), Premium badge + gold border on card.
 - Referrals: `referral_code` per user, register with `referral_code` / `?ref=` link; referrer gets +100 coins on invitee's first coin purchase (idempotent, `referral_rewarded`). GET /api/referrals; ReferralCard on /wallet.

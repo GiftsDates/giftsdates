@@ -10,7 +10,7 @@ export default function PhotoGrid() {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const photos = user?.photos || [];
-  const max = meta?.max_photos || 6;
+  const max = meta?.max_photos || 12;
 
   const upload = async (files) => {
     if (!files?.length) return;
