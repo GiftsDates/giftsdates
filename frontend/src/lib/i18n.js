@@ -379,6 +379,17 @@ const T = {
   address_deadline_warning: { ru: "Другая сторона должна одобрить адрес до дня встречи, иначе свидание отменится с возвратом только 50% монет", en: "The other side must approve the address before the meeting day, otherwise the date is cancelled with only a 50% refund", es: "La otra parte debe aprobar la dirección antes del día de la cita; si no, se cancela con solo 50% de reembolso", fr: "L'autre partie doit approuver l'adresse avant le jour du rendez-vous, sinon il est annulé avec seulement 50 % de remboursement", de: "Die andere Seite muss die Adresse vor dem Treffen bestätigen, sonst wird das Date mit nur 50 % Rückerstattung abgesagt", pt: "A outra parte deve aprovar o endereço antes do dia do encontro, caso contrário ele é cancelado com apenas 50% de reembolso", zh: "对方须在约会当天前批准地址，否则约会取消且仅退款 50%", ar: "يجب أن يوافق الطرف الآخر على العنوان قبل يوم اللقاء وإلا يُلغى الموعد مع استرداد 50% فقط", hi: "दूसरे पक्ष को मिलने के दिन से पहले पता स्वीकृत करना होगा, अन्यथा डेट रद्द और केवल 50% वापसी", bn: "অন্য পক্ষকে সাক্ষাতের দিনের আগে ঠিকানা অনুমোদন করতে হবে, না হলে ডেট বাতিল ও কেবল ৫০% ফেরত", ur: "دوسرے فریق کو ملاقات کے دن سے پہلے پتہ منظور کرنا ہوگا ورنہ ملاقات منسوخ اور صرف 50% واپسی" },
   awaiting_approval: { ru: "ожидает одобрения партнёра", en: "awaiting partner approval", es: "esperando aprobación", fr: "en attente d'approbation", de: "wartet auf Freigabe", pt: "aguardando aprovação", zh: "等待对方批准", ar: "بانتظار موافقة الطرف الآخر", hi: "साथी की स्वीकृति प्रतीक्षित", bn: "সঙ্গীর অনুমোদনের অপেক্ষায়", ur: "ساتھی کی منظوری کا انتظار" },
   location_pending_err: { ru: "Сначала согласуйте новый адрес", en: "Resolve the pending address proposal first", es: "Resuelve primero la propuesta de dirección", fr: "Traitez d'abord la proposition d'adresse", de: "Zuerst den Adressvorschlag klären", pt: "Resolva primeiro a proposta de endereço", zh: "请先处理待定的地址提议", ar: "عالج اقتراح العنوان أولاً", hi: "पहले पता प्रस्ताव निपटाएँ", bn: "প্রথমে ঠিকানার প্রস্তাব নিষ্পত্তি করুন", ur: "پہلے پتے کی تجویز طے کریں" },
+  request_taxi: { ru: "Запросить такси", en: "Request taxi" },
+  taxi_amount: { ru: "Сумма на такси (монеты)", en: "Taxi amount (coins)" },
+  send_taxi: { ru: "Отправить такси", en: "Send taxi" },
+  taxi_pending_recipient: { ru: "Запрошено такси: ожидаем отправки", en: "Taxi requested — awaiting sender" },
+  taxi_pending_booker: { ru: "просит на такси", en: "requests for a taxi" },
+  taxi_received: { ru: "Такси получено", en: "Taxi received" },
+  taxi_sent: { ru: "Такси отправлено", en: "Taxi sent" },
+  taxi_declined: { ru: "Запрос на такси отклонён", en: "Taxi request declined" },
+  taxi_requested_toast: { ru: "Запрос на такси отправлен", en: "Taxi request sent" },
+  taxi_sent_toast: { ru: "Такси отправлено 🚕", en: "Taxi sent 🚕" },
+  taxi_pending_err: { ru: "Запрос на такси уже отправлен", en: "A taxi request is already pending" },
 };
 
 export function t(key, lang) {

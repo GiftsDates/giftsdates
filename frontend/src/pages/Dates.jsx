@@ -5,7 +5,7 @@ import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { CalendarHeart, Camera, Clock, Check, X, MapPin } from "lucide-react";
+import { CalendarHeart, Camera, Clock, Check, X, MapPin, Car } from "lucide-react";
 import AddressPicker, { MapsLink } from "../components/AddressPicker";
 
 const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
@@ -17,6 +17,7 @@ export default function Dates() {
   const [data, setData] = useState({ outgoing: [], incoming: [] });
   const [busyId, setBusyId] = useState(null);
   const [editLoc, setEditLoc] = useState(null); // { id, venue, city }
+  const [taxiFor, setTaxiFor] = useState(null); // { id, coins }
   const inputRef = useRef();
   const uploadingFor = useRef(null);
 
@@ -50,6 +51,28 @@ export default function Dates() {
   const respondLocation = async (id, accept) => {
     setBusyId(id);
     try { await api.post(`/dates/location/${id}/respond?accept=${accept}`); await load(); toast.success(accept ? t("approve", lang) : t("reject", lang)); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const requestTaxi = async (id, coins) => {
+    if (!coins || coins < 1) { toast.error(t("fill_all", lang)); return; }
+    setBusyId(id);
+    try { await api.post(`/dates/taxi/request/${id}`, { coins: parseInt(coins) }); await load(); toast.success(t("taxi_requested_toast", lang)); setTaxiFor(null); }
+    catch (e) { const d = e.response?.data?.detail; toast.error(d === "TAXI_PENDING" ? t("taxi_pending_err", lang) : d || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const sendTaxi = async (id) => {
+    setBusyId(id);
+    try { await api.post(`/dates/taxi/send/${id}`); await refreshUser(); await load(); toast.success(t("taxi_sent_toast", lang)); }
+    catch (e) { toast.error(e.response?.data?.detail === "Insufficient coins" ? t("not_enough_coins", lang) : e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const declineTaxi = async (id) => {
+    setBusyId(id);
+    try { await api.post(`/dates/taxi/decline/${id}`); await load(); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
@@ -104,6 +127,34 @@ export default function Dates() {
           <span className="text-xs text-amber-300 font-mono-num">🪙 {b.coins}</span>
           {b.release_at && b.status === "confirmed" && <span className="text-xs text-slate-500">🔓 {t("unlocks_at", lang)}: {new Date(b.release_at).toLocaleString()}</span>}
         </div>
+        {(() => {
+          const taxi = b.taxi;
+          const active = ["escrow", "accepted", "confirmed"].includes(b.status);
+          if (isIncoming) {
+            if (taxi?.status === "pending") return <div data-testid={`taxi-pending-${b.id}`} className="mt-2 text-xs text-amber-300 flex items-center gap-1"><Car size={12}/> {t("taxi_pending_recipient", lang)} · 🪙 {taxi.coins}</div>;
+            if (taxi?.status === "sent") return <div data-testid={`taxi-received-${b.id}`} className="mt-2 text-xs text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_received", lang)} · 🪙 {taxi.coins}</div>;
+            if (active && taxiFor?.id === b.id) return (
+              <div className="mt-2 flex items-center gap-2" data-testid={`taxi-form-${b.id}`}>
+                <Input data-testid={`taxi-coins-input-${b.id}`} type="number" min="1" value={taxiFor.coins} onChange={e => setTaxiFor({ ...taxiFor, coins: e.target.value })} placeholder={t("taxi_amount", lang)} className="bg-white/5 border-white/10 h-9 w-44" />
+                <Button data-testid={`taxi-request-submit-${b.id}`} size="sm" disabled={busyId===b.id} onClick={() => requestTaxi(b.id, taxiFor.coins)} className="rose-btn text-white border-0 h-9">{t("request_taxi", lang)}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setTaxiFor(null)} className="text-slate-400 h-9">{t("cancel", lang)}</Button>
+              </div>
+            );
+            if (active && (!taxi || taxi.status === "declined")) return <button data-testid={`taxi-request-btn-${b.id}`} onClick={() => setTaxiFor({ id: b.id, coins: "" })} className="mt-2 text-xs text-sky-300 hover:underline inline-flex items-center gap-1"><Car size={12}/> {t("request_taxi", lang)}</button>;
+            return null;
+          }
+          if (taxi?.status === "pending") return (
+            <div data-testid={`taxi-request-booker-${b.id}`} className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
+              <div className="text-amber-300 flex items-center gap-1"><Car size={12}/> {t("taxi_pending_booker", lang)} · 🪙 {taxi.coins}</div>
+              <div className="flex gap-2 mt-2">
+                <Button data-testid={`taxi-send-btn-${b.id}`} size="sm" disabled={busyId===b.id} onClick={() => sendTaxi(b.id)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 h-8">{t("send_taxi", lang)} · 🪙 {taxi.coins}</Button>
+                <Button data-testid={`taxi-decline-btn-${b.id}`} size="sm" variant="outline" disabled={busyId===b.id} onClick={() => declineTaxi(b.id)} className="bg-rose-500/10 border-rose-500/40 text-rose-300 h-8">{t("decline", lang)}</Button>
+              </div>
+            </div>
+          );
+          if (taxi?.status === "sent") return <div data-testid={`taxi-sent-${b.id}`} className="mt-2 text-xs text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_sent", lang)} · 🪙 {taxi.coins}</div>;
+          return null;
+        })()}
       </div>
       <div className="flex gap-2 flex-wrap">
         {(b.status === "escrow" || b.status === "accepted") && editLoc?.id !== b.id && !b.pending_location && (

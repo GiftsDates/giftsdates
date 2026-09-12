@@ -7,7 +7,7 @@ import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
-const ICONS = { match: Heart, referral: Gift, payout_account: Landmark, withdrawal: Landmark, date_request: CalendarHeart, date_accepted: CalendarHeart, date_declined: CalendarHeart, date_location: CalendarHeart };
+const ICONS = { match: Heart, referral: Gift, payout_account: Landmark, withdrawal: Landmark, date_request: CalendarHeart, date_accepted: CalendarHeart, date_declined: CalendarHeart, date_location: CalendarHeart, date_taxi: CalendarHeart };
 
 export default function NotificationBell() {
   const { user, lang, refreshUser } = useApp();

@@ -982,6 +982,55 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
         await notify(b["to_id"], "date_cancelled", "Date cancelled", f"{user['name']} cancelled the date at {b['venue']}. You received 🪙 {kept} as compensation.", {"booking_id": bid}, email=True)
     return {"status": "cancelled", "refund": refund, "compensation": kept}
 
+# ---------- Taxi gift for a date ----------
+class TaxiRequestReq(BaseModel):
+    coins: int
+
+@api.post("/dates/taxi/request/{bid}")
+async def request_taxi(bid: str, req: TaxiRequestReq, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["to_id"] != user["id"]: raise HTTPException(403, "Only the invited person can request a taxi")
+    if b["status"] not in ("escrow", "accepted", "confirmed"): raise HTTPException(400, "Cannot request taxi")
+    if req.coins < 1: raise HTTPException(400, "Invalid amount")
+    if (b.get("taxi") or {}).get("status") == "pending": raise HTTPException(400, "TAXI_PENDING")
+    now = datetime.now(timezone.utc).isoformat()
+    taxi = {"coins": int(req.coins), "status": "pending", "requested_at": now}
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"taxi": taxi}})
+    await notify(b["from_id"], "date_taxi", "Taxi requested 🚕", f"{user['name']} asks for 🪙 {req.coins} for a taxi to your date at {b['venue']}. Send it in Dates.", {"booking_id": bid, "coins": req.coins}, email=True)
+    return {"ok": True, "taxi": taxi}
+
+@api.post("/dates/taxi/send/{bid}")
+async def send_taxi(bid: str, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["from_id"] != user["id"]: raise HTTPException(403, "Only the booker can send a taxi")
+    taxi = b.get("taxi")
+    if not taxi or taxi.get("status") != "pending": raise HTTPException(400, "No pending taxi request")
+    coins = int(taxi["coins"])
+    if user["coins"] < coins: raise HTTPException(400, "Insufficient coins")
+    now = datetime.now(timezone.utc).isoformat()
+    commission = round(coins * (await get_settings())["commission"], 2)
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -coins}})
+    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"withdrawable": coins}})
+    await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "gift", "from_id": user["id"], "to_id": b["to_id"],
+                                      "gift_id": "taxi", "gift_icon": "🚕", "cost": coins, "commission": commission, "net": coins, "message": "Taxi", "created_at": now})
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"taxi.status": "sent", "taxi.sent_at": now}})
+    await notify(b["to_id"], "date_taxi", "🚕 Taxi received", f"{user['name']} sent you 🪙 {coins} for a taxi to your date at {b['venue']}.", {"booking_id": bid, "coins": coins}, email=True)
+    return {"ok": True, "coins": coins}
+
+@api.post("/dates/taxi/decline/{bid}")
+async def decline_taxi(bid: str, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["from_id"] != user["id"]: raise HTTPException(403, "Only the booker can decline")
+    taxi = b.get("taxi")
+    if not taxi or taxi.get("status") != "pending": raise HTTPException(400, "No pending taxi request")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"taxi.status": "declined", "taxi.declined_at": now}})
+    await notify(b["to_id"], "date_taxi", "Taxi request declined", f"{user['name']} declined your taxi request for the date at {b['venue']}.", {"booking_id": bid})
+    return {"ok": True}
+
 # ---------- Wallet / Withdraw ----------
 @api.get("/wallet")
 async def wallet(user=Depends(get_current_user)):
