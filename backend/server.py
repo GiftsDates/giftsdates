@@ -201,6 +201,8 @@ class ProfileUpdate(BaseModel):
     date_price: Optional[int] = None
     video_rate: Optional[int] = None  # coins per minute, >= global video_rate
     availability: Optional[List[str]] = None  # ISO dates YYYY-MM-DD when user is open for dates
+    availability_time: Optional[dict] = None  # {"from": "18:00", "to": "23:00"} default window
+    availability_slots: Optional[dict] = None  # {"YYYY-MM-DD": {"from": "..", "to": ".."}} per-day overrides
 
 class LikeReq(BaseModel):
     target_id: str
@@ -220,6 +222,7 @@ class DateBookingReq(BaseModel):
     city: str
     scheduled_at: str  # ISO
     coins: int
+    local_time: Optional[str] = None  # HH:MM in booker's local time, used for availability window check
 
 class DateConfirmReq(BaseModel):
     booking_id: str
@@ -337,6 +340,10 @@ async def update_me(patch: ProfileUpdate, user=Depends(get_current_user)):
         if upd["video_rate"] < mn: raise HTTPException(400, f"Video rate must be at least {mn} coins/min")
     if "availability" in upd:
         upd["availability"] = sorted({d[:10] for d in upd["availability"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d[:10])})
+    def _win_ok(w): return isinstance(w, dict) and re.fullmatch(r"\d{2}:\d{2}", str(w.get("from", ""))) and re.fullmatch(r"\d{2}:\d{2}", str(w.get("to", ""))) and w["from"] < w["to"]
+    if "availability_time" in upd and upd["availability_time"] and not _win_ok(upd["availability_time"]): raise HTTPException(400, "Invalid time window")
+    if "availability_slots" in upd:
+        upd["availability_slots"] = {k[:10]: v for k, v in (upd["availability_slots"] or {}).items() if re.fullmatch(r"\d{4}-\d{2}-\d{2}", k[:10]) and _win_ok(v)}
     if upd:
         await db.users.update_one({"id": user["id"]}, {"$set": upd})
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password": 0})
@@ -633,6 +640,12 @@ async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
     now = datetime.now(timezone.utc).isoformat()
     day = req.scheduled_at[:10]
     if target.get("availability") and day not in target["availability"]: raise HTTPException(400, "DAY_UNAVAILABLE")
+    win = (target.get("availability_slots") or {}).get(day) or target.get("availability_time")
+    if win:
+        try:
+            local_t = datetime.fromisoformat(req.scheduled_at.replace("Z", "+00:00")).strftime("%H:%M") if req.local_time is None else req.local_time
+        except Exception: local_t = req.local_time or "00:00"
+        if not (win["from"] <= local_t <= win["to"]): raise HTTPException(400, f"TIME_UNAVAILABLE:{win['from']}-{win['to']}")
     if await db.date_bookings.find_one({"status": {"$in": ["escrow", "accepted", "confirmed"]}, "scheduled_at": {"$regex": f"^{day}"},
                                         "$or": [{"to_id": req.target_id}, {"from_id": req.target_id}]}):
         raise HTTPException(400, "DAY_BUSY")
@@ -684,10 +697,11 @@ async def change_location(bid: str, req: LocationReq, user=Depends(get_current_u
 
 @api.get("/profiles/{pid}/availability")
 async def profile_availability(pid: str, user=Depends(get_current_user)):
-    p = await db.users.find_one({"id": pid}, {"_id": 0, "availability": 1})
+    p = await db.users.find_one({"id": pid}, {"_id": 0, "availability": 1, "availability_time": 1, "availability_slots": 1})
     if not p: raise HTTPException(404, "Not found")
     busy = await db.date_bookings.find({"status": {"$in": ["escrow", "accepted", "confirmed"]}, "$or": [{"to_id": pid}, {"from_id": pid}]}, {"_id": 0, "scheduled_at": 1}).to_list(500)
-    return {"available_days": p.get("availability") or [], "busy_days": sorted({b["scheduled_at"][:10] for b in busy})}
+    return {"available_days": p.get("availability") or [], "busy_days": sorted({b["scheduled_at"][:10] for b in busy}),
+            "time_window": p.get("availability_time"), "slots": p.get("availability_slots") or {}}
 
 @api.get("/dates")
 async def list_dates(user=Depends(get_current_user)):

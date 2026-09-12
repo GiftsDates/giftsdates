@@ -11,7 +11,7 @@ import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
 import AvailabilityCalendar from "../components/AvailabilityCalendar";
 
-const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability"];
+const DETAIL_KEYS = ["relationship_intent", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability", "availability_time", "availability_slots"];
 
 export default function Profile() {
   const { user, refreshUser, lang, meta } = useApp();
@@ -23,7 +23,8 @@ export default function Profile() {
     setBusy(true);
     try {
       const payload = { ...f };
-      for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = ["hobbies", "languages_spoken", "availability"].includes(k) ? [] : "";
+      for (const k of DETAIL_KEYS) if (payload[k] === "" || payload[k] === null) payload[k] = ["hobbies", "languages_spoken", "availability"].includes(k) ? [] : ["availability_time", "availability_slots"].includes(k) ? {} : "";
+      if (!payload.availability_time?.from) payload.availability_time = { from: "18:00", to: "23:00" };
       if (!payload.height) delete payload.height;
       if (!payload.weight) delete payload.weight;
       if (!payload.date_price) delete payload.date_price;
@@ -67,7 +68,9 @@ export default function Profile() {
           </div>
         </div>
         <ProfileDetailsForm f={f} setF={setF} lang={lang} gender={user?.gender} />
-        <AvailabilityCalendar value={f.availability || []} onChange={(days) => setF({ ...f, availability: days })} />
+        <AvailabilityCalendar value={f.availability || []} onChange={(days) => setF({ ...f, availability: days })}
+          timeWindow={f.availability_time} onTimeWindow={(w) => setF({ ...f, availability_time: w })}
+          slots={f.availability_slots || {}} onSlots={(s) => setF({ ...f, availability_slots: s })} />
         <div className="sticky bottom-4">
           <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-12 w-full shadow-xl">{t("save", lang)}</Button>
         </div>

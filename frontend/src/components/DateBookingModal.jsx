@@ -27,6 +27,8 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
 
   const busySet = new Set(avail.busy_days);
   const availSet = new Set(avail.available_days);
+  const win = day ? ((avail.slots || {})[day] || avail.time_window) : avail.time_window;
+  const timeOk = !win || (time >= win.from && time <= win.to);
   const isDisabled = (d) => {
     const k = toKey(d);
     if (d < new Date(new Date().setHours(0, 0, 0, 0))) return true;
@@ -42,13 +44,13 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
     try {
       const [h, m] = time.split(":").map(Number);
       const dt = fromKey(day); dt.setHours(h || 0, m || 0, 0, 0);
-      await api.post("/dates/book", { target_id: target.id, venue, city, scheduled_at: dt.toISOString(), coins });
+      await api.post("/dates/book", { target_id: target.id, venue, city, scheduled_at: dt.toISOString(), coins, local_time: time });
       await refreshUser();
       toast.success(t("date_booked", lang));
       onOpenChange(false);
     } catch (e) {
       const d = e.response?.data?.detail || "";
-      toast.error(d === "DAY_UNAVAILABLE" ? t("day_unavailable_err", lang) : d === "DAY_BUSY" ? t("day_busy_err", lang) : d || t("failed", lang));
+      toast.error(d === "DAY_UNAVAILABLE" ? t("day_unavailable_err", lang) : d === "DAY_BUSY" ? t("day_busy_err", lang) : d.startsWith("TIME_UNAVAILABLE:") ? t("time_unavailable_err", lang).replace("{w}", d.split(":").slice(1).join(":")) : d || t("failed", lang));
     } finally { setBusy(false); }
   };
 
@@ -78,13 +80,13 @@ export default function DateBookingModal({ open, onOpenChange, target }) {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">{t("when", lang)}</Label>
                 <div data-testid="date-selected-day" className="mt-1 h-10 flex items-center px-3 rounded-md bg-white/5 border border-white/10 text-sm font-mono-num">{day || "—"}</div></div>
-              <div><Label className="text-xs text-slate-400">{t("time", lang)}</Label>
-                <Input data-testid="date-time-input" type="time" value={time} onChange={e => setTime(e.target.value)} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div><Label className="text-xs text-slate-400">{t("time", lang)}{win ? <span className="text-emerald-300 ms-1" data-testid="date-time-window">({win.from}–{win.to})</span> : null}</Label>
+                <Input data-testid="date-time-input" type="time" min={win?.from} max={win?.to} value={time} onChange={e => setTime(e.target.value)} className={`bg-white/5 mt-1 ${timeOk ? "border-white/10" : "border-rose-500/60"}`} /></div>
             </div>
             <div><Label className="text-xs text-slate-400">{t("coins", lang)} (min {meta?.date_min_coins})</Label>
               <Input data-testid="date-coins-input" type="number" min={meta?.date_min_coins || 300} step="50" value={coins} onChange={e => setCoins(parseInt(e.target.value || 0))} className="bg-white/5 border-white/10 mt-1" /></div>
             <div className="text-xs text-slate-400 glass rounded-lg p-3">🔒 {t("commission_note", lang)}</div>
-            <Button data-testid="date-booking-submit-button" disabled={busy || !day} onClick={submit} className="rose-btn text-white border-0 w-full h-11">
+            <Button data-testid="date-booking-submit-button" disabled={busy || !day || !timeOk} onClick={submit} className="rose-btn text-white border-0 w-full h-11">
               {t("book_date", lang)} · 🪙 {coins}
             </Button>
           </div>
