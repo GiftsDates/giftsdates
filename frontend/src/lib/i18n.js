@@ -324,6 +324,8 @@ const T = {
   continue: { ru: "Продолжить", en: "Continue", es: "Continuar", fr: "Continuer", de: "Weiter", pt: "Continuar", zh: "继续", ar: "متابعة", hi: "जारी रखें", bn: "চালিয়ে যান", ur: "جاری رکھیں" },
   not_verified_banner: { ru: "Профиль не верифицирован — подтвердите личность, чтобы получить значок доверия", en: "Profile not verified — verify your identity to get the trust badge", es: "Perfil no verificado: verifica tu identidad para obtener la insignia", fr: "Profil non vérifié — vérifiez votre identité pour obtenir le badge", de: "Profil nicht verifiziert – Identität bestätigen für das Abzeichen", pt: "Perfil não verificado — verifique sua identidade para o selo", zh: "个人资料未验证——验证身份以获得信任徽章", ar: "الملف غير موثق — تحقق من هويتك للحصول على الشارة", hi: "प्रोफ़ाइल सत्यापित नहीं — बैज के लिए पहचान सत्यापित करें", bn: "প্রোফাইল যাচাই হয়নি — ব্যাজের জন্য পরিচয় যাচাই করুন", ur: "پروفائل تصدیق شدہ نہیں — بیج کے لیے شناخت کی تصدیق کریں" },
   verifications: { ru: "Верификации", en: "Verifications", es: "Verificaciones", fr: "Vérifications", de: "Verifizierungen", pt: "Verificações", zh: "验证", ar: "التحققات", hi: "सत्यापन", bn: "যাচাই", ur: "تصدیقات" },
+  gift_dress: { ru: "Платье", en: "Dress", es: "Vestido", fr: "Robe", de: "Kleid", pt: "Vestido", zh: "连衣裙", ar: "فستان", hi: "ड्रेस", bn: "পোশাক", ur: "لباس" },
+  gift_jewelry: { ru: "Украшение", en: "Jewelry", es: "Joya", fr: "Bijou", de: "Schmuck", pt: "Joia", zh: "首饰", ar: "مجوهرات", hi: "आभूषण", bn: "অলঙ্কার", ur: "زیورات" },
 };
 
 export function t(key, lang) {

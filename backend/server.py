@@ -73,9 +73,11 @@ PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsD
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
     {"id": "chocolate",  "name_key": "gift_chocolate",  "icon": "🍫", "cost": 100},
-    {"id": "champagne",  "name_key": "gift_champagne",  "icon": "🍾", "cost": 250},
-    {"id": "perfume",    "name_key": "gift_perfume",    "icon": "💐", "cost": 500},
+    {"id": "champagne",  "name_key": "gift_champagne",  "icon": "🍾", "cost": 200},
+    {"id": "dress",      "name_key": "gift_dress",      "icon": "👗", "cost": 400},
+    {"id": "perfume",    "name_key": "gift_perfume",    "icon": "🧴", "cost": 800},
     {"id": "watch",      "name_key": "gift_watch",      "icon": "⌚", "cost": 1000},
+    {"id": "jewelry",    "name_key": "gift_jewelry",    "icon": "💎", "cost": 1500},
     {"id": "ring",       "name_key": "gift_ring",       "icon": "💍", "cost": 5000},
 ]
 GIFT_COMMISSION = 0.30
