@@ -54,6 +54,8 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Per-profile date price (`date_price`, ≥ global min 300) editable on /profile; shown on card chip and profile page; prefilled in booking modal.
 - Admin "Prices" tab: GET/PUT /api/admin/settings (gifts, coin packs, premium price, video rate, date min coins, referral bonus, commission) stored in db.settings id=pricing; all pricing reads via get_settings().
 - Gifts in chat (2026-09-12): Gift button (data-testid chat-gift-button) in /chats composer opens GiftModal with `conversationId`; POST /api/gifts/send accepts optional `conversation_id` and inserts a `type: "gift"` message (gift_icon, gift_cost, text) rendered as an amber bubble in the thread. API + screenshot verified.
+- Gift notifications + auto-match + thanks (2026-09-12, iteration_5 pass 21/21): every gift → recipient `gift` notification (email MOCKED). Gift ≥ `gift_auto_match_coins` (default 100, Admin→Prices `admin-gift-auto-match`, in /api/meta) → ensure_match() creates match+conversation, both get `match` notifications, gift message lands in the chat. POST /api/gifts/thanks {message_id, reaction} — recipient-only one-tap "Thanks ❤️/😘/🥰" under gift bubble, appends `thanks` message, sender gets `gift_thanks` notification. Bell items deep-link to /chats?c=<conversation_id>.
+- AddressPicker: Google Places Autocomplete + map preview when REACT_APP_GOOGLE_MAPS_API_KEY is set (frontend/.env, currently EMPTY → OSM Nominatim fallback + Google Maps link). User has not yet provided a real key.
 
 
 ## Backlog

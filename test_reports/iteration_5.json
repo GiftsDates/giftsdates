@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 5 full regression + new gift-in-chat features. Backend: 21/21 pytest pass (meta, auth, profile validation, browse+premium filter gate, mutual like/match, chat phone-block, gift-in-chat with coin/withdrawable movement, thanks by sender=404, thanks by recipient + already:true, gift_thanks notification, auto-match on 100-coin chocolate, no-match below threshold, custom gift minimum, admin gift_auto_match_coins PUT/meta, dates min_coins, payout required-fields, admin verifications). Frontend: chat gift button opens GiftModal with 8 catalog + custom option and auto-match hint; gift bubble & thanks reactions render (chat-gift-{id}, chat-gift-thanked-{id}); notification bell present; admin-gift-auto-match=100 on /admin Prices tab; Book Date modal OSM AddressPicker returns real Nominatim results (Louvre Museum, Louvre Palace) with clickable options.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "GiftModal", "issues": ["Radix DialogContent missing Description / aria-describedby (accessibility warning in console)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter5.py",
+    "/app/test_reports/pytest/iter5.xml"
+  ],
+  "critical_code_review_comments": [
+    "server.py send_gift (line 704): when caller passes a stale/foreign conversation_id, the code silently ignores it (falls through to match-lookup) — no 403. Consider validating conversation_id belongs to (user, target) explicitly and returning 403 otherwise, instead of silent fall-through.",
+    "server.py gift_thanks (line 733): 'if not m or m.from_id == user.id → 404' collapses two distinct cases (missing vs. own gift). Own-gift attempt should be 400 ('cannot thank own gift') to avoid masking bugs where message truly doesn't exist.",
+    "server.py send_gift auto_matched flow (line 706): both users get a 'match' notification but the message-bubble is only inserted if conv already existed OR gift ≥ threshold; when conversation_id is passed for an existing match with a small gift, the gift bubble insertion is fine — but if a caller passes conversation_id from an unrelated match, the bubble is skipped without any error signal. Consider surfacing this to the client.",
+    "AddressPicker.jsx OSM fallback: no debounce cancel on unmount (uses setTimeout+return clearTimeout — fine) but no rate-limit; every keystroke after 400ms hits nominatim.openstreetmap.org. Respect the Nominatim usage policy by adding a real User-Agent header — browser can't set UA header but requests to Nominatim from third-party origins can be throttled. Consider proxying via /api or caching.",
+    "AddressPicker.jsx uses testid prefix from caller ('date-address', etc.). Review-request referenced 'address-search-input' — actual DOM has 'date-address-search-input'. Not a bug, but doc/testid contract inconsistency worth aligning across pages.",
+    "server.py list_profiles (line 542-547): still uses two-query 'boost premium then rest' pattern; skip/limit pagination remains incorrect (see iter4 comment). Not regressed but not fixed either.",
+    "GiftModal / other Radix Dialogs: warn 'Missing Description or aria-describedby' — add <DialogDescription> for a11y."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter5.py"],
+  "success_rate": {"backend": "21/21 (100%)", "frontend": "100% of exercised smoke flows"},
+  "test_credentials": "admin@giftsdates.com / TestPass123!; ga4cf01@t.com / TestPass123! (existing matched pair conv dd446097-987a-4712-909a-dc55b45ea159)",
+  "seed_data_creation": "Ephemeral iter5_* users registered per class; admin gift_auto_match_coins toggled 100->250->100 and restored in module teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend uses xdist LoadScope (2 workers). Dependent test flows MUST live in the same class using a class-scoped fixture — a module-level STATE dict does NOT survive across workers. Pytest command: `python -m pytest backend/tests/test_giftsdates_iter5.py --tb=short --junitxml=test_reports/pytest/iter5.xml`. OSM Nominatim is reachable from the preview; Louvre query returns 2+ results within ~4s. Note that AddressPicker testids are prefixed by the caller (e.g. 'date-address-search-input'), not the literal 'address-search-input' mentioned in the request.",
+  "rca of the issue": null
+}

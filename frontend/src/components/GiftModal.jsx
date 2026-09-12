@@ -25,9 +25,10 @@ export default function GiftModal({ open, onOpenChange, target, onSent, conversa
     if (user.coins < effectiveCost) { toast.error(t("not_enough_coins", lang)); return; }
     setBusy(true);
     try {
-      await api.post("/gifts/send", { target_id: target.id, gift_id: selected.id, message: msg, ...(conversationId ? { conversation_id: conversationId } : {}), ...(isCustom ? { custom_icon: customIcon, custom_cost: effectiveCost } : {}) });
+      const r = await api.post("/gifts/send", { target_id: target.id, gift_id: selected.id, message: msg, ...(conversationId ? { conversation_id: conversationId } : {}), ...(isCustom ? { custom_icon: customIcon, custom_cost: effectiveCost } : {}) });
       await refreshUser();
       toast.success(`${isCustom ? customIcon : selected.icon} sent to ${target.name}!`);
+      if (r.data?.auto_matched) toast.success(t("gift_auto_matched", lang).replace("{name}", target.name), { duration: 6000 });
       onSent && onSent();
       onOpenChange(false); setSelected(null); setMsg("");
     } catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
@@ -71,6 +72,7 @@ export default function GiftModal({ open, onOpenChange, target, onSent, conversa
           <span>{t("balance", lang)}: <span className="font-mono-num text-amber-300">🪙 {user?.coins}</span></span>
           <span>{t("commission_to_recipient", lang)}</span>
         </div>
+        {meta?.gift_auto_match_coins && <div data-testid="gift-auto-match-hint" className="text-[11px] text-violet-300">{t("gift_auto_match_hint", lang).replace("{n}", meta.gift_auto_match_coins)}</div>}
         <Button data-testid="gift-modal-send-button" disabled={!selected || busy} onClick={send} className="rose-btn text-white border-0 h-11">
           {selected ? `${t("send_gift", lang)} · 🪙 ${effectiveCost}` : t("choose_gift", lang)}
         </Button>

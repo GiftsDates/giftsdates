@@ -52,7 +52,7 @@ export default function NotificationBell() {
           {items.length === 0 ? <div className="p-6 text-center text-sm text-slate-500">{t("no_notifications", lang)}</div> : items.map(n => {
             const Icon = ICONS[n.type] || Bell;
             return (
-              <button key={n.id} data-testid={`notification-item-${n.id}`} onClick={() => n.type === "match" ? nav("/chats") : n.type.startsWith("date_") ? nav("/dates") : nav("/wallet")} className="w-full text-left px-4 py-3 flex gap-3 hover:bg-white/5">
+              <button key={n.id} data-testid={`notification-item-${n.id}`} onClick={() => n.type === "match" || n.type === "gift_thanks" || (n.type === "gift" && n.data?.conversation_id) ? nav(n.data?.conversation_id ? `/chats?c=${n.data.conversation_id}` : "/chats") : n.type.startsWith("date_") ? nav("/dates") : nav("/wallet")} className="w-full text-left px-4 py-3 flex gap-3 hover:bg-white/5">
                 <Icon size={16} className={n.type === "match" ? "text-rose-400 mt-0.5" : "text-amber-300 mt-0.5"} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm">{n.title}</div>

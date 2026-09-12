@@ -111,7 +111,17 @@ DEFAULT_SETTINGS = {
     "min_withdraw_usd": MIN_WITHDRAW_USD,
     "referral_package_id": "popular",
     "cancel_refund_pct": CANCEL_REFUND_PCT,
+    "gift_auto_match_coins": 100,
 }
+
+async def ensure_match(a_id: str, b_id: str, reason: str = "like") -> tuple[str, bool]:
+    exists = await db.matches.find_one({"users": {"$all": [a_id, b_id]}})
+    if exists: return exists["id"], False
+    now = datetime.now(timezone.utc).isoformat()
+    conv_id = str(uuid.uuid4())
+    await db.matches.insert_one({"id": conv_id, "users": [a_id, b_id], "created_at": now, "reason": reason})
+    await db.conversations.insert_one({"id": conv_id, "users": [a_id, b_id], "created_at": now, "last_message": None})
+    return conv_id, True
 
 async def get_settings() -> dict:
     doc = await db.settings.find_one({"id": "pricing"}, {"_id": 0, "id": 0}) or {}
@@ -321,6 +331,7 @@ async def meta():
         "custom_coins": {"per_usd": s["custom_coins_per_usd"], "bonus_pct": s["custom_bonus_pct"], "min_usd": s["custom_min_usd"]},
         "coins_per_usd": s["coins_per_usd"],
         "cancel_refund_pct": s.get("cancel_refund_pct", CANCEL_REFUND_PCT),
+        "gift_auto_match_coins": s.get("gift_auto_match_coins", 100),
         "max_photos": MAX_PHOTOS,
     }
 
@@ -565,11 +576,8 @@ async def like(req: LikeReq, user=Depends(get_current_user)):
     matched = False
     if reverse:
         matched = True
-        exists = await db.matches.find_one({"users": {"$all": [user["id"], req.target_id]}})
-        if not exists:
-            conv_id = str(uuid.uuid4())
-            await db.matches.insert_one({"id": conv_id, "users": [user["id"], req.target_id], "created_at": now})
-            await db.conversations.insert_one({"id": conv_id, "users": [user["id"], req.target_id], "created_at": now, "last_message": None})
+        conv_id, created = await ensure_match(user["id"], req.target_id)
+        if created:
             other = await db.users.find_one({"id": req.target_id}, {"name": 1})
             await notify(req.target_id, "match", "It's a match! 💘", f"You and {user['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
             await notify(user["id"], "match", "It's a match! 💘", f"You and {other['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": other["name"]}, email=True)
@@ -692,14 +700,47 @@ async def send_gift(req: GiftReq, user=Depends(get_current_user)):
           "gift_id": gift["id"], "gift_icon": gift["icon"], "cost": gift["cost"],
           "commission": commission, "net": net, "message": req.message, "created_at": now}
     await db.transactions.insert_one(tx)
-    if req.conversation_id:
-        conv = await db.conversations.find_one({"id": req.conversation_id})
+    s = await get_settings()
+    conv_id = req.conversation_id
+    auto_matched = False
+    if gift["cost"] >= s.get("gift_auto_match_coins", 100):
+        conv_id, auto_matched = await ensure_match(user["id"], req.target_id, reason="gift")
+    if not conv_id:
+        m = await db.matches.find_one({"users": {"$all": [user["id"], req.target_id]}})
+        conv_id = m["id"] if m else None
+    if conv_id:
+        conv = await db.conversations.find_one({"id": conv_id})
         if conv and user["id"] in conv.get("users", []) and req.target_id in conv.get("users", []):
             label = f"{gift['icon']} 🪙 {gift['cost']}"
-            await db.messages.insert_one({"id": str(uuid.uuid4()), "conversation_id": req.conversation_id, "from_id": user["id"],
-                                          "text": (req.message or "").strip(), "type": "gift", "gift_icon": gift["icon"], "gift_cost": gift["cost"], "created_at": now})
-            await db.conversations.update_one({"id": req.conversation_id}, {"$set": {"last_message": label, "last_at": now}})
-    return {"ok": True, "commission": commission, "net_to_recipient": net}
+            await db.messages.insert_one({"id": str(uuid.uuid4()), "conversation_id": conv_id, "from_id": user["id"],
+                                          "text": (req.message or "").strip(), "type": "gift", "gift_icon": gift["icon"], "gift_cost": gift["cost"], "tx_id": tx["id"], "created_at": now})
+            await db.conversations.update_one({"id": conv_id}, {"$set": {"last_message": label, "last_at": now}})
+    await notify(req.target_id, "gift", f"{gift['icon']} Gift from {user['name']}",
+                 f"{user['name']} sent you {gift['icon']} worth {gift['cost']} coins" + (f": “{req.message.strip()}”" if (req.message or "").strip() else ""),
+                 {"from_id": user["id"], "name": user["name"], "gift_icon": gift["icon"], "cost": gift["cost"], "conversation_id": conv_id, "auto_matched": auto_matched}, email=True)
+    if auto_matched:
+        await notify(req.target_id, "match", "It's a match! 💘", f"{user['name']} sent you a gift — you're now matched. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
+        await notify(user["id"], "match", "It's a match! 💘", f"Your gift to {target['name']} opened a chat. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": target["name"]}, email=True)
+    return {"ok": True, "commission": commission, "net_to_recipient": net, "conversation_id": conv_id, "auto_matched": auto_matched}
+
+class GiftThanksReq(BaseModel):
+    message_id: str
+    reaction: Optional[str] = "❤️"
+
+@api.post("/gifts/thanks")
+async def gift_thanks(req: GiftThanksReq, user=Depends(get_current_user)):
+    m = await db.messages.find_one({"id": req.message_id, "type": "gift"})
+    if not m or m["from_id"] == user["id"]: raise HTTPException(404, "Gift message not found")
+    conv = await db.conversations.find_one({"id": m["conversation_id"]})
+    if not conv or user["id"] not in conv["users"]: raise HTTPException(403, "No access")
+    if m.get("thanks"): return {"ok": True, "already": True}
+    reaction = (req.reaction or "❤️").strip()[:4] or "❤️"
+    now = datetime.now(timezone.utc).isoformat()
+    await db.messages.update_one({"id": m["id"]}, {"$set": {"thanks": reaction, "thanks_at": now}})
+    await db.messages.insert_one({"id": str(uuid.uuid4()), "conversation_id": m["conversation_id"], "from_id": user["id"], "text": f"Thank you {reaction}", "type": "thanks", "reaction": reaction, "gift_message_id": m["id"], "created_at": now})
+    await db.conversations.update_one({"id": m["conversation_id"]}, {"$set": {"last_message": f"Thank you {reaction}", "last_at": now}})
+    await notify(m["from_id"], "gift_thanks", f"{user['name']} said thanks {reaction}", f"{user['name']} thanked you for your gift {m.get('gift_icon','')}", {"conversation_id": m["conversation_id"], "user_id": user["id"]})
+    return {"ok": True}
 
 @api.get("/gifts/received")
 async def gifts_received(user=Depends(get_current_user)):
@@ -971,6 +1012,7 @@ class SettingsReq(BaseModel):
     min_withdraw_usd: float = MIN_WITHDRAW_USD
     referral_package_id: Optional[str] = "popular"
     cancel_refund_pct: float = CANCEL_REFUND_PCT
+    gift_auto_match_coins: int = 100
 
 @api.get("/admin/settings")
 async def admin_get_settings(admin=Depends(get_admin)):

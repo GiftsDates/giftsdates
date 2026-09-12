@@ -20,6 +20,7 @@ export default function Chats() {
   const [giftOpen, setGiftOpen] = useState(false);
   const endRef = useRef();
   const reload = () => active && api.get(`/conversations/${active}/messages`).then(r => setMsgs(r.data));
+  const thanks = async (mid, r) => { try { await api.post("/gifts/thanks", { message_id: mid, reaction: r }); reload(); } catch { toast.error(t("failed", lang)); } };
 
   useEffect(() => { api.get("/matches").then(r => { setConvs(r.data); if (!active && r.data[0]) setActive(r.data[0].conversation_id); }); }, []);
   useEffect(() => {
@@ -74,8 +75,14 @@ export default function Chats() {
                       <div className="text-4xl leading-none">{m.gift_icon}</div>
                       <div className="text-[11px] mt-1 text-amber-300 font-mono-num">{m.from_id === user.id ? t("gift_sent_you", lang) : t("gift_received_chat", lang)} · 🪙 {m.gift_cost}</div>
                       {m.text && <div className="mt-1 text-xs text-slate-200 italic">“{m.text}”</div>}
+                      {m.from_id !== user.id && !m.thanks && (
+                        <div className="mt-2 flex justify-center gap-1">
+                          {["❤️", "😘", "🥰"].map(r => <button key={r} type="button" data-testid={`chat-gift-thanks-${m.id}-${r.codePointAt(0)}`} onClick={() => thanks(m.id, r)} className="px-2 py-1 rounded-full bg-white/10 hover:bg-rose-500/30 text-xs transition-colors">{t("thanks", lang)} {r}</button>)}
+                        </div>
+                      )}
+                      {m.thanks && <div data-testid={`chat-gift-thanked-${m.id}`} className="mt-1 text-[10px] text-slate-400">{t("thanked", lang)} {m.thanks}</div>}
                     </div>
-                  ) : m.text}
+                  ) : m.type === "thanks" ? <span data-testid={`chat-thanks-${m.id}`}>{t("thanks", lang)} {m.reaction}</span> : m.text}
                 </div>
               </div>
             ))}
