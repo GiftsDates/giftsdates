@@ -77,6 +77,20 @@ DATE_MIN_COINS = 500
 REFERRAL_BONUS = 100
 MAX_PHOTOS = 6
 
+DEFAULT_SETTINGS = {
+    "gifts": GIFT_CATALOG,
+    "coin_packages": [{"id": k, **v} for k, v in COIN_PACKAGES.items()],
+    "premium_amount": PREMIUM_PACKAGE["amount"],
+    "video_rate": VIDEO_RATE_PER_MIN,
+    "date_min_coins": DATE_MIN_COINS,
+    "referral_bonus": REFERRAL_BONUS,
+    "commission": GIFT_COMMISSION,
+}
+
+async def get_settings() -> dict:
+    doc = await db.settings.find_one({"id": "pricing"}, {"_id": 0, "id": 0}) or {}
+    return {**DEFAULT_SETTINGS, **doc}
+
 def is_premium(u: dict) -> bool:
     pu = u.get("premium_until")
     if not pu: return False
@@ -229,14 +243,15 @@ async def _startup():
 # ---------- Meta ----------
 @api.get("/meta")
 async def meta():
+    s = await get_settings()
     return {
-        "gifts": GIFT_CATALOG,
-        "coin_packages": [{"id": k, **v} for k, v in COIN_PACKAGES.items()],
-        "premium": PREMIUM_PACKAGE,
-        "video_rate": VIDEO_RATE_PER_MIN,
-        "gift_commission": GIFT_COMMISSION,
-        "date_min_coins": DATE_MIN_COINS,
-        "referral_bonus": REFERRAL_BONUS,
+        "gifts": s["gifts"],
+        "coin_packages": s["coin_packages"],
+        "premium": {**PREMIUM_PACKAGE, "amount": s["premium_amount"]},
+        "video_rate": s["video_rate"],
+        "gift_commission": s["commission"],
+        "date_min_coins": s["date_min_coins"],
+        "referral_bonus": s["referral_bonus"],
         "max_photos": MAX_PHOTOS,
     }
 
@@ -349,19 +364,29 @@ async def download(path: str, authorization: Optional[str] = Header(None), auth:
 async def list_profiles(
     q: Optional[str] = None, city: Optional[str] = None, country: Optional[str] = None,
     min_age: int = 18, max_age: int = 99, gender: Optional[str] = None,
+    intent: Optional[str] = None, min_height: Optional[int] = None, max_height: Optional[int] = None,
+    kids: Optional[str] = None, smoking: Optional[str] = None, religion: Optional[str] = None,
     limit: int = 40, user=Depends(get_current_user)
 ):
-    query = {"id": {"$ne": user["id"]}, "age": {"$gte": min_age, "$lte": max_age}}
-    if city: query["city"] = {"$regex": city, "$options": "i"}
-    if country: query["country"] = {"$regex": country, "$options": "i"}
-    if gender and gender != "all": query["gender"] = gender
-    if q: query["$or"] = [{"name": {"$regex": q, "$options": "i"}}, {"bio": {"$regex": q, "$options": "i"}}]
+    conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
+    if city: conds.append({"city": {"$regex": city, "$options": "i"}})
+    if country: conds.append({"country": {"$regex": country, "$options": "i"}})
+    if gender and gender != "all": conds.append({"gender": gender})
+    if q: conds.append({"$or": [{"name": {"$regex": q, "$options": "i"}}, {"bio": {"$regex": q, "$options": "i"}}]})
+    if intent and intent != "all": conds.append({"relationship_intent": intent})
+    if kids and kids != "all": conds.append({"kids": kids})
+    if smoking and smoking != "all": conds.append({"smoking": smoking})
+    if religion and religion != "all": conds.append({"religion": religion})
+    if min_height or max_height:
+        h = {}
+        if min_height: h["$gte"] = min_height
+        if max_height: h["$lte"] = max_height
+        conds.append({"height": h})
     now_iso = datetime.now(timezone.utc).isoformat()
     proj = {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0}
-    boosted = await db.users.find({**query, "premium_until": {"$gt": now_iso}}, proj).limit(limit).to_list(limit)
+    boosted = await db.users.find({"$and": conds + [{"premium_until": {"$gt": now_iso}}]}, proj).limit(limit).to_list(limit)
     rest_limit = max(limit - len(boosted), 0)
-    rest = await db.users.find({**query, "$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}, {"premium_until": {"$exists": False}}]} if not q else
-                               {**query, "$and": [{"$or": query["$or"]}, {"$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}]}]},
+    rest = await db.users.find({"$and": conds + [{"$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}, {"premium_until": {"$exists": False}}]}]},
                                proj).limit(rest_limit).to_list(rest_limit) if rest_limit else []
     for p in boosted: p["is_premium"] = True
     for p in rest: p["is_premium"] = False
@@ -369,8 +394,12 @@ async def list_profiles(
 
 @api.get("/profiles/{pid}")
 async def profile_detail(pid: str, user=Depends(get_current_user)):
-    p = await db.users.find_one({"id": pid}, {"_id": 0, "password": 0, "email": 0})
+    p = await db.users.find_one({"id": pid}, {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0})
     if not p: raise HTTPException(404, "Not found")
+    p["is_premium"] = is_premium(p)
+    p["liked_by_me"] = bool(await db.likes.find_one({"from_id": user["id"], "to_id": pid}))
+    m = await db.matches.find_one({"users": {"$all": [user["id"], pid]}})
+    p["conversation_id"] = m["id"] if m else None
     return p
 
 # ---------- Likes / Matches ----------
@@ -415,7 +444,8 @@ async def read_notifications(user=Depends(get_current_user)):
 async def referrals(user=Depends(get_current_user)):
     invited = await db.users.find({"referred_by": user["id"]}, {"_id": 0, "name": 1, "created_at": 1, "referral_rewarded": 1}).to_list(200)
     earned = await db.transactions.find({"to_id": user["id"], "type": "referral_bonus"}, {"_id": 0}).to_list(500)
-    return {"code": user["referral_code"], "bonus": REFERRAL_BONUS, "invited": invited,
+    s = await get_settings()
+    return {"code": user["referral_code"], "bonus": s["referral_bonus"], "invited": invited,
             "earned": sum(t["cost"] for t in earned), "rewarded_count": len(earned)}
 
 async def _reward_referrer(buyer_id: str):
@@ -423,10 +453,11 @@ async def _reward_referrer(buyer_id: str):
     if not buyer or not buyer.get("referred_by") or buyer.get("referral_rewarded"): return
     res = await db.users.update_one({"id": buyer_id, "referral_rewarded": {"$ne": True}}, {"$set": {"referral_rewarded": True}})
     if res.modified_count == 0: return
-    await db.users.update_one({"id": buyer["referred_by"]}, {"$inc": {"coins": REFERRAL_BONUS}})
+    bonus = (await get_settings())["referral_bonus"]
+    await db.users.update_one({"id": buyer["referred_by"]}, {"$inc": {"coins": bonus}})
     await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "referral_bonus", "from_id": buyer_id, "to_id": buyer["referred_by"],
-                                      "cost": REFERRAL_BONUS, "net": REFERRAL_BONUS, "created_at": datetime.now(timezone.utc).isoformat()})
-    await notify(buyer["referred_by"], "referral", f"+{REFERRAL_BONUS} 🪙 referral bonus", f"{buyer['name']} made a first purchase. Thanks for inviting!", {"user_id": buyer_id})
+                                      "cost": bonus, "net": bonus, "created_at": datetime.now(timezone.utc).isoformat()})
+    await notify(buyer["referred_by"], "referral", f"+{bonus} 🪙 referral bonus", f"{buyer['name']} made a first purchase. Thanks for inviting!", {"user_id": buyer_id})
 
 @api.get("/matches")
 async def my_matches(user=Depends(get_current_user)):
@@ -457,19 +488,19 @@ async def send_message(req: MessageReq, user=Depends(get_current_user)):
     return msg
 
 # ---------- Gifts ----------
-def _find_gift(gid):
-    return next((g for g in GIFT_CATALOG if g["id"] == gid), None)
+async def _find_gift(gid):
+    return next((g for g in (await get_settings())["gifts"] if g["id"] == gid), None)
 
 @api.post("/gifts/send")
 async def send_gift(req: GiftReq, user=Depends(get_current_user)):
-    gift = _find_gift(req.gift_id)
+    gift = await _find_gift(req.gift_id)
     if not gift: raise HTTPException(400, "Unknown gift")
     if user["coins"] < gift["cost"]: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
     # full value credited to recipient; 30% commission is withheld at withdrawal time
     net = gift["cost"]
-    commission = round(gift["cost"] * GIFT_COMMISSION, 2)
+    commission = round(gift["cost"] * (await get_settings())["commission"], 2)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -gift["cost"]}})
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
@@ -490,7 +521,7 @@ async def gifts_sent(user=Depends(get_current_user)):
 # ---------- Video calls ----------
 @api.post("/videocalls/start")
 async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
-    cost = req.minutes * VIDEO_RATE_PER_MIN
+    cost = req.minutes * (await get_settings())["video_rate"]
     if user["coins"] < cost: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
@@ -505,7 +536,8 @@ async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
 # ---------- Date bookings with escrow ----------
 @api.post("/dates/book")
 async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
-    if req.coins < DATE_MIN_COINS: raise HTTPException(400, f"Minimum {DATE_MIN_COINS} coins")
+    min_coins = (await get_settings())["date_min_coins"]
+    if req.coins < min_coins: raise HTTPException(400, f"Minimum {min_coins} coins")
     if user["coins"] < req.coins: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
@@ -565,7 +597,7 @@ async def wallet(user=Depends(get_current_user)):
     withdrawals = await db.withdrawals.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     acct = await db.payout_accounts.find_one({"user_id": user["id"]}, {"_id": 0})
     return {"coins": user["coins"], "escrow": user.get("escrow", 0), "withdrawable": user.get("withdrawable", 0),
-            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": GIFT_COMMISSION, "is_admin": is_admin(user)}
+            "transactions": txs, "withdrawals": withdrawals, "payout_account": acct, "withdraw_commission": (await get_settings())["commission"], "is_admin": is_admin(user)}
 
 @api.get("/wallet/payout-account")
 async def get_payout_account(user=Depends(get_current_user)):
@@ -589,7 +621,7 @@ async def withdraw(req: WithdrawReq, user=Depends(get_current_user)):
     if user.get("withdrawable", 0) < req.amount: raise HTTPException(400, "Insufficient withdrawable balance")
     acct = await db.payout_accounts.find_one({"user_id": user["id"]})
     if not acct or acct["status"] != "verified": raise HTTPException(400, "Bank account not verified")
-    fee = round(req.amount * GIFT_COMMISSION, 2)
+    fee = round(req.amount * (await get_settings())["commission"], 2)
     net = round(req.amount - fee, 2)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"withdrawable": -req.amount}})
@@ -599,6 +631,40 @@ async def withdraw(req: WithdrawReq, user=Depends(get_current_user)):
     return {k: v for k, v in doc.items() if k != "_id"}
 
 # ---------- Admin ----------
+class GiftItem(BaseModel):
+    id: str
+    name_key: str
+    icon: str
+    cost: int
+
+class CoinPackageItem(BaseModel):
+    id: str
+    coins: int
+    amount: float
+    bonus: int = 0
+    name: str
+
+class SettingsReq(BaseModel):
+    gifts: List[GiftItem]
+    coin_packages: List[CoinPackageItem]
+    premium_amount: float
+    video_rate: int
+    date_min_coins: int
+    referral_bonus: int
+    commission: float
+
+@api.get("/admin/settings")
+async def admin_get_settings(admin=Depends(get_admin)):
+    return await get_settings()
+
+@api.put("/admin/settings")
+async def admin_put_settings(req: SettingsReq, admin=Depends(get_admin)):
+    if not (0 <= req.commission < 1): raise HTTPException(400, "Commission must be 0–0.99")
+    if any(g.cost <= 0 for g in req.gifts) or any(p.amount <= 0 or p.coins <= 0 for p in req.coin_packages): raise HTTPException(400, "Values must be positive")
+    doc = {"id": "pricing", **req.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": admin["id"]}
+    await db.settings.replace_one({"id": "pricing"}, doc, upsert=True)
+    return await get_settings()
+
 @api.get("/admin/payout-accounts")
 async def admin_payout_accounts(status: str = "pending", admin=Depends(get_admin)):
     q = {} if status == "all" else {"status": status}
@@ -632,13 +698,14 @@ async def admin_withdrawal_action(wid: str, action: str, admin=Depends(get_admin
 # ---------- Stripe checkout ----------
 @api.post("/payments/checkout")
 async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
+    s = await get_settings()
     if req.package_id == "premium_monthly":
-        pkg_name = PREMIUM_PACKAGE["name"]; amount = int(PREMIUM_PACKAGE["amount"] * 100); mode = "payment"
+        pkg_name = PREMIUM_PACKAGE["name"]; amount = int(round(s["premium_amount"] * 100)); mode = "payment"
         metadata = {"user_id": user["id"], "package_id": "premium_monthly", "type": "premium"}
     else:
-        pkg = COIN_PACKAGES.get(req.package_id)
+        pkg = next((p for p in s["coin_packages"] if p["id"] == req.package_id), None)
         if not pkg: raise HTTPException(400, "Unknown package")
-        pkg_name = pkg["name"]; amount = int(pkg["amount"] * 100); mode = "payment"
+        pkg_name = pkg["name"]; amount = int(round(pkg["amount"] * 100)); mode = "payment"
         metadata = {"user_id": user["id"], "package_id": req.package_id, "type": "coins", "coins": str(pkg["coins"] + pkg["bonus"])}
     try:
         session = stripe.checkout.Session.create(

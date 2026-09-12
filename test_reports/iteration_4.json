@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 4 — Advanced profile filters, /profile/:id detail page, and admin pricing settings + 11-language switcher (with Urdu RTL). Backend: 12/12 pytest assertions pass. Frontend: all Playwright flows green — More filters panel toggles and submits without errors, clicking a profile card opens ProfileView with all action buttons, Like disables + shows toast + back returns to /browse, admin flow reaches /admin → Prices tab, admin-referral-bonus persists across reload, and settings restored to defaults. Language switcher lists all 11 languages (ru,en,es,fr,de,pt,zh,hi,bn,ur,ar); Urdu sets document.documentElement.dir=rtl.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/profiles filters intent=serious&min_height=160&max_height=180&kids=none&smoking=never&religion=christian returns the patched target user",
+    "GET /api/profiles?intent=marriage excludes the target",
+    "PATCH /api/auth/me height=30 → 400 (validation)",
+    "GET /api/profiles/{id}: is_premium bool, liked_by_me flips false→true after POST /api/likes, no email/password/referral_code keys leaked, conversation_id null then set after mutual like, unknown id → 404",
+    "Non-admin GET /api/admin/settings → 403",
+    "Admin GET /api/admin/settings returns defaults: premium_amount=29.99, referral_bonus=100, commission=0.30, 6 gifts, 3 packages",
+    "PUT /api/admin/settings updates premium_amount, referral_bonus, gift.rose.cost, commission — persisted",
+    "GET /api/meta reflects updated premium.amount, referral_bonus, gift cost",
+    "GET /api/wallet withdraw_commission reflects updated commission",
+    "POST /api/gifts/send rose deducts the new cost (77 coins)",
+    "PUT /api/admin/settings commission=1.5 → 400",
+    "Defaults restored (rose=50, premium=29.99, referral_bonus=100, commission=0.30) after tests",
+    "Frontend: profile-more-filters-toggle opens profile-more-filters-panel with intent/kids/smoking/religion/min-height/max-height controls + reset",
+    "Frontend: profile-search-submit-button reloads results (no error toast)",
+    "Frontend: click profile-card-open-<id> → /profile/:id renders profile-view-page with name, like/gift/video/date buttons",
+    "Frontend: Like → toast '💗 Liked' + button disabled with text 'Liked'",
+    "Frontend: profile-view-back returns to /browse",
+    "Frontend: nav-language-switcher-select shows 11 langs incl. हिन्दी, বাংলা, اردو",
+    "Frontend: selecting اردو sets document dir=rtl",
+    "Frontend: admin login → wallet-admin-link → /admin → admin-tab-prices → admin-prices-tab shows admin-premium-amount, admin-referral-bonus, admin-commission, admin-gift-cost-rose",
+    "Frontend: change admin-referral-bonus to 120 → save → reload → value persists 120 → restored to 100"
+  ],
+  "failed": [],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter4.py",
+    "/app/test_reports/pytest/iter4.xml"
+  ],
+  "critical_code_review_comments": [
+    "server.py list_profiles: two-query 'boost premium then rest' pattern (lines 387–393) doesn't paginate correctly across pages and duplicates the conds filter. Should switch to a single aggregation with $addFields boost=$cond → $sort boost desc for stable pagination and less code.",
+    "server.py update_me (line 294): PATCH accepts explicit `null` for photos as \"skip\" (since model_dump excludes only None) — but clients wanting to CLEAR arrays (hobbies, languages_spoken) cannot send [] distinctly from omitted. Consider exclude_unset=True on model_dump instead of the current v is not None filter, so empty lists/strings are preservable.",
+    "admin_put_settings (line 661): saves gifts/coin_packages verbatim, but doesn't validate uniqueness of gift.id / package.id — a duplicate id silently breaks _find_gift (returns only the first match). Add: assert len({g.id for g in req.gifts}) == len(req.gifts).",
+    "AdminPrices.jsx: commission_pct is Math.round()ed on load then divided by 100 on save — a defaults commission of 0.30 round-trips correctly, but any admin-set value like 0.33 would be silently truncated to 0.33 (fine) while 0.335 → 0.34. Consider input step=0.1 and store as decimal.",
+    "ProfileView.jsx line 33: on load failure the toast+redirect fires on ANY error, including transient 401 during token refresh. Consider checking err.response?.status === 404 specifically before redirecting to /browse."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter4.py"],
+  "success_rate": {"backend": "12/12 (100%)", "frontend": "100% of exercised flows"},
+  "test_credentials": "admin@giftsdates.com / TestPass123!",
+  "seed_data_creation": "Ephemeral users prefixed test_iter4_ / iter4v2_ registered via API and UI. Admin settings mutated then restored to defaults so other flows are unaffected.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter4 tests live at /app/backend/tests/test_giftsdates_iter4.py. Run with default pytest (xdist -n 2 --dist loadscope, per /app/backend/pytest.ini). The initial UI localStorage.getItem('user') returned null in first attempt — the AppContext apparently stores user in state only, so use DOM data-testids to locate profile ids rather than localStorage. profile-card-open-<uid> selectors are stable and reliable.",
+  "rca of the issue": null
+}

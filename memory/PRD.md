@@ -26,9 +26,11 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Admin: /admin page + /api/admin/payout-accounts, /api/admin/withdrawals (paid / rejected → refund).
 - All remaining hardcoded UI strings (toasts, premium perks, empty states, dates headers) translated into all 8 languages.
 - Extended profile: relationship intent, hobbies, height, weight, languages spoken, job title, income, kids, smoking, drinking, religion, bust size (non-male), 🍆 size (non-female). PATCH /api/auth/me validates height 100–250 / weight 30–300. ProfileDetailsForm on /profile; intent/height/job chips on browse cards.
-- 9th UI language: Hindi (hi) — all 195 keys translated.
+- 9th–11th UI languages: Hindi (hi), Bengali (bn), Urdu (ur, RTL) — all keys translated each.
+- Advanced search filters (intent, kids, smoking, religion, height range) → GET /api/profiles params.
+- Full profile page /profile/:id (GET /api/profiles/{id} + is_premium/liked_by_me/conversation_id); card image click opens it.
+- Admin "Prices" tab: GET/PUT /api/admin/settings (gifts, coin packs, premium price, video rate, date min coins, referral bonus, commission) stored in db.settings id=pricing; all pricing reads via get_settings().
 
 ## Backlog
-- P1: Admin panel for prices (gift catalog, coin packs, premium price, referral bonus) — currently constants in server.py.
-- P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock.
+- P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock (waiting for user API key).
 - P2: Real WebRTC video calls; multi-currency payouts; "see who liked you" premium perk.

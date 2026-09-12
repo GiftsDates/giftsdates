@@ -5,9 +5,11 @@ import { Button } from "../components/ui/button";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
+import AdminPrices from "../components/AdminPrices";
 
 export default function Admin() {
   const { lang } = useApp();
+  const [tab, setTab] = useState("payouts");
   const [accounts, setAccounts] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [err, setErr] = useState(null);
@@ -36,6 +38,12 @@ export default function Admin() {
     <div className="aurora-bg min-h-[calc(100vh-4rem)]">
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
         <h1 className="font-serif-luxe text-4xl flex items-center gap-3"><ShieldCheck /> {t("admin", lang)}</h1>
+        <div className="flex gap-2" data-testid="admin-tabs">
+          {["payouts", "prices"].map(k => (
+            <button key={k} data-testid={`admin-tab-${k}`} onClick={() => setTab(k)} className={`px-4 py-2 rounded-lg text-sm border transition-colors ${tab === k ? "bg-rose-500/15 text-rose-300 border-rose-500/30" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{t(k, lang)}</button>
+          ))}
+        </div>
+        {tab === "prices" ? <AdminPrices /> : <>
 
         <div className="glass rounded-2xl p-5" data-testid="admin-payout-accounts">
           <h3 className="font-serif-luxe text-xl mb-3">{t("bank_account", lang)} · {t("status_pending", lang)} ({accounts.length})</h3>
@@ -66,6 +74,7 @@ export default function Admin() {
             </div>
           ))}
         </div>
+        </>}
       </div>
     </div>
   );

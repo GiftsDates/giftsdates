@@ -13,7 +13,7 @@ const FALLBACKS = [
   "https://images.unsplash.com/photo-1539125530496-3ca408f9c2d9?crop=entropy&cs=srgb&fm=jpg&q=85",
 ];
 
-export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMessage }) {
+export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMessage, onOpen }) {
   const { lang } = useApp();
   const [idx, setIdx] = React.useState(0);
   const photos = p.photos?.length ? p.photos.map(fileUrl) : [FALLBACKS[Math.abs(hash(p.id)) % FALLBACKS.length]];
@@ -21,13 +21,13 @@ export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMess
   const step = (d) => setIdx((idx + d + photos.length) % photos.length);
   return (
     <div className={`group relative rounded-3xl overflow-hidden border card-lift bg-[#161320] ${p.is_premium ? "border-amber-400/50 shadow-[0_0_30px_-8px_rgba(251,191,36,0.45)]" : "border-white/10"}`} data-testid={`profile-card-${p.id}`}>
-      <div className="aspect-[3/4] relative">
-        <img src={img} alt={p.name} className="w-full h-full object-cover" />
+      <div className="aspect-[3/4] relative cursor-pointer" data-testid={`profile-card-open-${p.id}`} onClick={() => onOpen?.(p)}>
+        <img src={img} alt={p.name} onError={(e) => { e.currentTarget.src = FALLBACKS[0]; }} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/40 to-transparent" />
         {photos.length > 1 && (
           <>
-            <button data-testid={`profile-card-prev-photo-${p.id}`} onClick={() => step(-1)} className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16} /></button>
-            <button data-testid={`profile-card-next-photo-${p.id}`} onClick={() => step(1)} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={16} /></button>
+            <button data-testid={`profile-card-prev-photo-${p.id}`} onClick={(e) => { e.stopPropagation(); step(-1); }} className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16} /></button>
+            <button data-testid={`profile-card-next-photo-${p.id}`} onClick={(e) => { e.stopPropagation(); step(1); }} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={16} /></button>
             <div className="absolute top-2 inset-x-3 flex gap-1">
               {photos.map((_, i) => <span key={i} className={`h-0.5 flex-1 rounded-full ${i === idx ? "bg-white" : "bg-white/30"}`} />)}
             </div>

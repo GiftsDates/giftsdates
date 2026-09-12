@@ -1,0 +1,118 @@
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Heart, Gift, Video, CalendarHeart, MapPin, Crown, MessageCircle, BadgeCheck } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "../components/ui/button";
+import { api, fileUrl } from "../lib/api";
+import { useApp } from "../context/AppContext";
+import { LANGUAGES, t } from "../lib/i18n";
+import { optLabel } from "../components/ProfileDetailsForm";
+import GiftModal from "../components/GiftModal";
+import VideoCallModal from "../components/VideoCallModal";
+import DateBookingModal from "../components/DateBookingModal";
+
+const FALLBACK = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85";
+
+function Row({ label, value, testid }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between gap-4 py-2 border-b border-white/5 text-sm" data-testid={testid}>
+      <span className="text-slate-400">{label}</span><span className="text-right">{value}</span>
+    </div>
+  );
+}
+
+export default function ProfileView() {
+  const { id } = useParams();
+  const { lang, user } = useApp();
+  const nav = useNavigate();
+  const [p, setP] = useState(null);
+  const [idx, setIdx] = useState(0);
+  const [modal, setModal] = useState(null);
+
+  const load = () => api.get(`/profiles/${id}`).then(r => setP(r.data)).catch(() => { toast.error(t("failed_load", lang)); nav("/browse"); });
+  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const like = async () => {
+    try {
+      const { data } = await api.post("/likes", { target_id: p.id });
+      toast.success(data.matched ? `💘 ${t("match", lang)} · ${p.name}` : `💗 ${t("liked", lang)}`);
+      load();
+    } catch { toast.error(t("failed", lang)); }
+  };
+
+  if (!p) return <div className="aurora-bg min-h-[calc(100vh-4rem)]" />;
+  const photos = p.photos?.length ? p.photos.map(fileUrl) : [FALLBACK];
+  const langNames = (p.languages_spoken || []).map(c => LANGUAGES.find(l => l.code === c)?.name || c).join(", ");
+
+  return (
+    <div className="aurora-bg min-h-[calc(100vh-4rem)]" data-testid="profile-view-page">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <button data-testid="profile-view-back" onClick={() => nav(-1)} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-4"><ArrowLeft size={16} /> {t("back", lang)}</button>
+        <div className="grid lg:grid-cols-[minmax(0,420px)_1fr] gap-8">
+          <div>
+            <div className={`relative aspect-[3/4] rounded-3xl overflow-hidden border ${p.is_premium ? "border-amber-400/50" : "border-white/10"}`}>
+              <img data-testid="profile-view-main-photo" src={photos[Math.min(idx, photos.length - 1)]} alt={p.name} onError={(e) => { e.currentTarget.src = FALLBACK; }} className="w-full h-full object-cover" />
+              {p.is_premium && <span data-testid="profile-view-premium-badge" className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-black text-[10px] font-semibold uppercase"><Crown size={10} /> {t("premium", lang)}</span>}
+            </div>
+            {photos.length > 1 && (
+              <div className="grid grid-cols-6 gap-2 mt-3" data-testid="profile-view-thumbs">
+                {photos.map((src, i) => <button key={i} data-testid={`profile-view-thumb-${i}`} onClick={() => setIdx(i)} className={`aspect-[3/4] rounded-lg overflow-hidden border ${i === idx ? "border-rose-400" : "border-white/10 opacity-70 hover:opacity-100"}`}><img src={src} alt="" className="w-full h-full object-cover" /></button>)}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h1 className="font-serif-luxe text-4xl sm:text-5xl flex items-center gap-3" data-testid="profile-view-name">{p.name}, {p.age} {p.verified && <BadgeCheck className="text-amber-300" size={24} />}</h1>
+              <p className="text-slate-400 flex items-center gap-1 mt-1"><MapPin size={14} /> {p.city}, {p.country}</p>
+              {p.relationship_intent && <span className="inline-block mt-3 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-sm text-rose-200" data-testid="profile-view-intent">{optLabel("relationship_intent", p.relationship_intent, lang)}</span>}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button data-testid="profile-view-like-button" onClick={like} disabled={p.liked_by_me} className="rose-btn text-white border-0 h-11"><Heart size={16} className="me-1 fill-white" /> {p.liked_by_me ? t("liked", lang) : t("like", lang)}</Button>
+              {p.conversation_id && <Button data-testid="profile-view-chat-button" onClick={() => nav("/chats")} variant="outline" className="h-11 bg-white/5 border-white/15"><MessageCircle size={16} className="me-1" /> {t("open_chat", lang)}</Button>}
+              <Button data-testid="profile-view-gift-button" onClick={() => setModal("gift")} variant="outline" className="h-11 bg-amber-500/10 border-amber-500/40 text-amber-300"><Gift size={16} className="me-1" /> {t("gift", lang)}</Button>
+              <Button data-testid="profile-view-video-button" onClick={() => setModal("video")} variant="outline" className="h-11 bg-violet-500/10 border-violet-500/40 text-violet-300"><Video size={16} className="me-1" /> {t("video_call", lang)}</Button>
+              <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> {t("book_date", lang)}</Button>
+            </div>
+
+            {p.bio && <div className="glass rounded-2xl p-5"><h3 className="font-serif-luxe text-xl mb-2">{t("about_me", lang)}</h3><p className="text-sm text-slate-300 whitespace-pre-line" data-testid="profile-view-bio">{p.bio}</p></div>}
+
+            {(p.job_title || p.height || p.weight || p.income || p.religion || langNames || p.hobbies?.length > 0) && (
+            <div className="glass rounded-2xl p-5" data-testid="profile-view-details">
+              <h3 className="font-serif-luxe text-xl mb-2">{t("details", lang)}</h3>
+              <Row label={t("job_title", lang)} value={p.job_title} testid="pv-job" />
+              <Row label={t("height", lang)} value={p.height && `${p.height} cm`} testid="pv-height" />
+              <Row label={t("weight", lang)} value={p.weight && `${p.weight} kg`} testid="pv-weight" />
+              <Row label={t("income", lang)} value={optLabel("income", p.income, lang)} testid="pv-income" />
+              <Row label={t("religion", lang)} value={optLabel("religion", p.religion, lang)} testid="pv-religion" />
+              <Row label={t("languages_spoken", lang)} value={langNames} testid="pv-langs" />
+              {p.hobbies?.length > 0 && <div className="pt-3"><div className="text-xs text-slate-400 mb-2">{t("hobbies", lang)}</div><div className="flex flex-wrap gap-1.5" data-testid="pv-hobbies">{p.hobbies.map(h => <span key={h} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs">{h}</span>)}</div></div>}
+            </div>
+            )}
+
+            {(p.kids || p.smoking || p.drinking) && (
+              <div className="glass rounded-2xl p-5" data-testid="profile-view-lifestyle">
+                <h3 className="font-serif-luxe text-xl mb-2">{t("lifestyle", lang)}</h3>
+                <Row label={t("kids", lang)} value={optLabel("kids", p.kids, lang)} testid="pv-kids" />
+                <Row label={t("smoking", lang)} value={optLabel("smoking", p.smoking, lang)} testid="pv-smoking" />
+                <Row label={t("drinking", lang)} value={optLabel("drinking", p.drinking, lang)} testid="pv-drinking" />
+              </div>
+            )}
+            {(p.bust_size || p.penis_size) && (
+              <div className="glass rounded-2xl p-5 border border-rose-500/20" data-testid="profile-view-intimate">
+                <h3 className="font-serif-luxe text-xl mb-2">{t("intimate", lang)}</h3>
+                <Row label={t("bust_size", lang)} value={p.bust_size} testid="pv-bust" />
+                <Row label={t("penis_size", lang)} value={optLabel("penis_size", p.penis_size, lang)} testid="pv-penis" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <GiftModal open={modal === "gift"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <VideoCallModal open={modal === "video"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <DateBookingModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+    </div>
+  );
+}
