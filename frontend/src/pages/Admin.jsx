@@ -51,7 +51,10 @@ export default function Admin() {
             <div key={a.id} data-testid={`admin-account-${a.user_id}`} className="py-3 border-t border-white/5 flex flex-wrap items-center gap-3">
               <div className="flex-1 min-w-[240px]">
                 <div className="text-sm">{a.user_name} <span className="text-slate-500">· {a.user_email}</span></div>
-                <div className="text-xs text-slate-400 font-mono">{a.holder_name} · {a.bank_name} · {a.iban} · {a.country} {a.swift && `· ${a.swift}`}</div>
+                <div className="text-xs text-slate-400 font-mono">{a.holder_name} · Tax ID {a.tax_id} · {a.recipient_email}</div>
+                <div className="text-xs text-slate-500">{[a.recipient_street, a.recipient_city, a.recipient_province, a.recipient_postal_code, a.country].filter(Boolean).join(", ")}</div>
+                <div className="text-xs text-slate-400 font-mono mt-1">{a.bank_name} · {a.iban} · SWIFT {a.swift}{a.routing_number ? ` · RTN ${a.routing_number}` : ""}</div>
+                <div className="text-xs text-slate-500">{[a.bank_street, a.bank_city, a.bank_province, a.bank_postal_code, a.bank_country].filter(Boolean).join(", ")}</div>
               </div>
               <Button data-testid={`admin-approve-${a.user_id}`} size="sm" onClick={() => verify(a.user_id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0">{t("approve", lang)}</Button>
               <Button data-testid={`admin-reject-${a.user_id}`} size="sm" variant="outline" onClick={() => verify(a.user_id, false)} className="bg-rose-500/10 border-rose-500/40 text-rose-300">{t("reject", lang)}</Button>

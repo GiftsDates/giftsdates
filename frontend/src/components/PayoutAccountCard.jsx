@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Landmark, ShieldCheck, Clock, XCircle } from "lucide-react";
+import { Landmark, ShieldCheck, Clock, XCircle, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -14,19 +14,32 @@ const STATUS = {
   rejected: { icon: XCircle, cls: "bg-rose-500/15 border-rose-500/40 text-rose-300", key: "status_rejected" },
 };
 
+const RECIPIENT = [["tax_id", "tax_id"], ["holder_name", "full_name"], ["recipient_street", "street"], ["recipient_city", "city"], ["recipient_province", "province"], ["recipient_postal_code", "postal_code"], ["country", "country"], ["recipient_email", "recipient_email"]];
+const BANK = [["iban", "account_number"], ["swift", "swift_code"], ["routing_number", "routing_number"], ["bank_name", "bank_name"], ["bank_street", "bank_street"], ["bank_city", "bank_city"], ["bank_province", "bank_province"], ["bank_postal_code", "bank_postal_code"], ["bank_country", "bank_country"]];
+const ALL = [...RECIPIENT, ...BANK].map(([k]) => k);
+const OPTIONAL = new Set(["routing_number"]);
+
 export default function PayoutAccountCard({ account, onSaved }) {
-  const { lang } = useApp();
+  const { lang, user } = useApp();
   const [edit, setEdit] = useState(!account);
-  const [f, setF] = useState({ holder_name: account?.holder_name || "", bank_name: account?.bank_name || "", iban: account?.iban || "", country: account?.country || "", swift: account?.swift || "" });
+  const [f, setF] = useState(Object.fromEntries(ALL.map(k => [k, account?.[k] || (k === "recipient_email" ? user?.email || "" : "")])));
   const [busy, setBusy] = useState(false);
   const st = account && STATUS[account.status];
 
   const submit = async () => {
-    if (!f.holder_name || !f.bank_name || !f.iban || !f.country) { toast.error(t("fill_all", lang)); return; }
+    const missing = ALL.filter(k => !OPTIONAL.has(k) && !String(f[k] || "").trim());
+    if (missing.length) { toast.error(t("fill_all", lang)); return; }
     setBusy(true);
     try { await api.post("/wallet/payout-account", f); toast.success(t("status_pending", lang)); setEdit(false); onSaved?.(); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); } finally { setBusy(false); }
   };
+
+  const Field = ([k, label]) => (
+    <div key={k}>
+      <Label className="text-xs text-slate-400">{t(label, lang)}{OPTIONAL.has(k) ? "" : " *"}</Label>
+      <Input data-testid={`payout-${k.replace(/_/g, "-")}-input`} type={k === "recipient_email" ? "email" : "text"} value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} className={`bg-white/5 border-white/10 mt-1 h-9 ${["iban", "swift", "routing_number", "tax_id"].includes(k) ? "font-mono" : ""}`} />
+    </div>
+  );
 
   return (
     <div className="glass rounded-2xl p-5" data-testid="payout-account-card">
@@ -35,7 +48,7 @@ export default function PayoutAccountCard({ account, onSaved }) {
           <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center"><Landmark className="text-emerald-300" /></div>
           <div>
             <div className="font-serif-luxe text-xl">{t("bank_account", lang)}</div>
-            {account && !edit && <div className="text-xs text-slate-400">{account.bank_name} · ····{account.iban.slice(-4)} · {account.holder_name}</div>}
+            {account && !edit && <div className="text-xs text-slate-400">{account.holder_name} · {account.bank_name} · ····{account.iban.slice(-4)} · {account.swift}</div>}
           </div>
         </div>
         {st && !edit && (
@@ -47,15 +60,17 @@ export default function PayoutAccountCard({ account, onSaved }) {
       </div>
       {account?.status === "rejected" && account.reason && !edit && <div className="mt-2 text-xs text-rose-300">{account.reason}</div>}
       {edit && (
-        <div className="mt-4 grid sm:grid-cols-2 gap-3">
-          <div><Label className="text-xs text-slate-400">{t("holder_name", lang)}</Label><Input data-testid="payout-holder-input" value={f.holder_name} onChange={e => setF({ ...f, holder_name: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
-          <div><Label className="text-xs text-slate-400">{t("bank_name", lang)}</Label><Input data-testid="payout-bank-input" value={f.bank_name} onChange={e => setF({ ...f, bank_name: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
-          <div><Label className="text-xs text-slate-400">{t("iban", lang)}</Label><Input data-testid="payout-iban-input" value={f.iban} onChange={e => setF({ ...f, iban: e.target.value })} className="bg-white/5 border-white/10 mt-1 font-mono" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs text-slate-400">{t("country", lang)}</Label><Input data-testid="payout-country-input" value={f.country} onChange={e => setF({ ...f, country: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
-            <div><Label className="text-xs text-slate-400">SWIFT</Label><Input data-testid="payout-swift-input" value={f.swift} onChange={e => setF({ ...f, swift: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+        <div className="mt-4 space-y-5">
+          <p className="text-xs text-slate-400" data-testid="payout-verification-intro">{t("verification_intro", lang)}</p>
+          <div>
+            <div className="text-xs uppercase tracking-widest text-slate-500 font-mono mb-2 flex items-center gap-1"><User size={12} /> {t("recipient_details", lang)}</div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{RECIPIENT.map(Field)}</div>
           </div>
-          <div className="sm:col-span-2 flex gap-2">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-slate-500 font-mono mb-2 flex items-center gap-1"><Landmark size={12} /> {t("bank_details", lang)}</div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{BANK.map(Field)}</div>
+          </div>
+          <div className="flex gap-2">
             <Button data-testid="payout-account-submit-button" disabled={busy} onClick={submit} className="rose-btn text-white border-0 h-10">{t("submit_verification", lang)}</Button>
             {account && <Button variant="ghost" onClick={() => setEdit(false)} className="text-slate-400">{t("cancel", lang)}</Button>}
           </div>

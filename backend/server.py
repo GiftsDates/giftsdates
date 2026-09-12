@@ -232,11 +232,25 @@ class WithdrawReq(BaseModel):
     amount: float
 
 class PayoutAccountReq(BaseModel):
-    holder_name: str
+    # recipient
+    tax_id: str
+    holder_name: str  # full name
+    recipient_street: str
+    recipient_city: str
+    recipient_province: str
+    recipient_postal_code: str
+    country: str  # recipient country
+    recipient_email: str
+    # bank
+    iban: str  # account number / IBAN
+    swift: str
+    routing_number: Optional[str] = ""
     bank_name: str
-    iban: str
-    country: str
-    swift: Optional[str] = ""
+    bank_street: str
+    bank_city: str
+    bank_province: str
+    bank_postal_code: str
+    bank_country: str
     document_path: Optional[str] = None
 
 class AdminVerifyReq(BaseModel):
@@ -763,9 +777,13 @@ async def get_payout_account(user=Depends(get_current_user)):
 async def submit_payout_account(req: PayoutAccountReq, user=Depends(get_current_user)):
     iban = req.iban.replace(" ", "").upper()
     if len(iban) < 8: raise HTTPException(400, "Invalid account number")
+    data = {k: (v.strip() if isinstance(v, str) else v) for k, v in req.model_dump().items()}
+    required = [k for k in data if k not in ("routing_number", "document_path")]
+    missing = [k for k in required if not data[k]]
+    if missing: raise HTTPException(400, f"Missing: {', '.join(missing)}")
+    if "@" not in data["recipient_email"]: raise HTTPException(400, "Invalid recipient email")
     doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_name": user["name"], "user_email": user["email"],
-           "holder_name": req.holder_name.strip(), "bank_name": req.bank_name.strip(), "iban": iban, "country": req.country.strip(),
-           "swift": (req.swift or "").strip(), "document_path": req.document_path, "status": "pending", "reason": "",
+           **data, "iban": iban, "status": "pending", "reason": "",
            "submitted_at": datetime.now(timezone.utc).isoformat(), "verified_at": None}
     await db.payout_accounts.replace_one({"user_id": user["id"]}, doc, upsert=True)
     return {k: v for k, v in doc.items() if k != "_id"}
