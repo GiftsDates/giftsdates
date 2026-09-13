@@ -407,6 +407,7 @@ const T = {
   cancel_meeting: { ru: "Отменить встречу", en: "Cancel meeting" },
   cancel_recipient_note: { ru: "Отмена вернёт все монеты за бронирование и такси приглашающему", en: "Cancelling returns all booking + taxi coins to the inviter" },
   cancel_recipient_warning: { ru: "Отменить встречу? Все монеты за бронирование и такси (🪙 {total}) вернутся приглашающему.", en: "Cancel this meeting? All booking + taxi coins (🪙 {total}) will be refunded to the inviter." },
+  chat_safety_notice: { ru: "⚠️ Ради вашей безопасности общайтесь и договаривайтесь о встречах только через нашу платформу. Если вы устроите приватную встречу вне платформы, мы не гарантируем вашу безопасность, а ваш аккаунт может быть заблокирован за нарушение.", en: "⚠️ For your safety, keep all contact and meeting arrangements on our platform. If you arrange to meet privately off-platform, we can't guarantee your safety and your account may be blocked for violation." },
   cancel_full_note: { ru: "Отмена вернёт вам все монеты за такси и свидание (🪙 {total})", en: "Cancelling refunds all taxi + date coins (🪙 {total}) to you" },
   cancel_full_warning: { ru: "Отменить свидание? Все монеты за такси и свидание (🪙 {total}) вернутся вам.", en: "Cancel this date? All taxi + date coins (🪙 {total}) will be refunded to you." },
 };

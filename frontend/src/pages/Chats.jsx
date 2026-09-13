@@ -104,6 +104,9 @@ export default function Chats() {
             </div>
           )}
           <div className="flex-1 p-4 overflow-auto space-y-2 scrollbar-thin">
+            <div data-testid="chat-safety-notice" className="sticky top-0 z-10 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-snug text-amber-200 flex items-start gap-2">
+              <ShieldAlert size={13} className="mt-0.5 shrink-0" /> <span>{t("chat_safety_notice", lang)}</span>
+            </div>
             {msgs.map(m => (
               <div key={m.id} className={`flex items-end gap-2 ${m.from_id === user.id ? "justify-end" : "justify-start"}`}>
                 {m.from_id !== user.id && <Avatar u={partner} size="w-7 h-7" testid={`chat-msg-avatar-${m.id}`} onClick={() => nav(`/profile/${partner.id}`)} />}
