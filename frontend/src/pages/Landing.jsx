@@ -16,7 +16,7 @@ export default function Landing() {
       <div className="max-w-7xl mx-auto px-4 pt-20 pb-24 grid lg:grid-cols-2 gap-14 items-center relative">
         <div className="float-in">
           <span className="inline-flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-full bg-white/5 gold-hairline text-[#F3E5AB] text-xs font-semibold uppercase tracking-[0.2em]">
-            <img src="/logo.png" alt="" className="w-6 h-6 rounded-full object-cover" /> GiftsDates · Luxury Dating
+            <img src="/brand-logo.png" alt="" className="w-6 h-6 rounded-full object-cover" /> GiftsDates · Luxury Dating
           </span>
           <h1 className="mt-6 font-serif-luxe text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight">
             {t("hero_a", lang)}
