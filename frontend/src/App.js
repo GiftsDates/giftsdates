@@ -20,6 +20,7 @@ import Terms from "@/pages/Terms";
 import About from "@/pages/About";
 import TermsOfUse from "@/pages/TermsOfUse";
 import Help from "@/pages/Help";
+import FAQ from "@/pages/FAQ";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
 
 const Private = ({ children }) => {
@@ -48,6 +49,7 @@ const Shell = () => (
       <Route path="/about" element={<About />} />
       <Route path="/terms-of-use" element={<TermsOfUse />} />
       <Route path="/help" element={<Help />} />
+      <Route path="/faq" element={<FAQ />} />
       <Route path="/admin" element={<Private><Admin /></Private>} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />
