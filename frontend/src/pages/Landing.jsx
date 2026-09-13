@@ -68,7 +68,11 @@ export default function Landing() {
       </div>
       <footer className="max-w-7xl mx-auto px-4 py-8 mt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
         <span>© {new Date().getFullYear()} GiftsDates · Luxury Dating</span>
-        <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
+        <div className="flex gap-4">
+          <Link to="/about" data-testid="footer-about-link" className="hover:text-amber-300 transition-colors">About Us</Link>
+          <Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link>
+          <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
+        </div>
       </footer>
     </div>
   );
