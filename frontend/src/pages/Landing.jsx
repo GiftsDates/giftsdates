@@ -76,6 +76,7 @@ export default function Landing() {
           <Link to="/dmca" data-testid="footer-dmca-link" className="hover:text-amber-300 transition-colors">DMCA</Link>
           <Link to="/anti-trafficking" data-testid="footer-ats-link" className="hover:text-amber-300 transition-colors">Anti-Trafficking</Link>
           <Link to="/complaints" data-testid="footer-complaints-link" className="hover:text-amber-300 transition-colors">Complaints</Link>
+          <Link to="/appeals" data-testid="footer-appeals-link" className="hover:text-amber-300 transition-colors">Appeals</Link>
           <Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link>
           <Link to="/terms-of-use" data-testid="footer-use-link" className="hover:text-amber-300 transition-colors">Terms of Use</Link>
           <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
