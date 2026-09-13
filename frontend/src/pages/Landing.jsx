@@ -6,7 +6,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import SpinWheel from "../components/SpinWheel";
 
-const HERO = "https://images.unsplash.com/photo-1641128839860-e2d6057f99d2?crop=entropy&cs=srgb&fm=jpg&q=85";
+const HERO = "https://static.prod-images.emergentagent.com/jobs/1b96632b-1db8-432c-9240-70b2ff466433/images/0cc89b19d4dcce9b3fe044a65e1236d9cab101705cca62f5473507d2a1d963ec.jpeg";
 
 export default function Landing() {
   const { lang } = useApp();
