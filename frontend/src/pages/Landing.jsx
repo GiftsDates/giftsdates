@@ -70,6 +70,7 @@ export default function Landing() {
         <span>© {new Date().getFullYear()} GiftsDates · Luxury Dating</span>
         <div className="flex gap-4">
           <Link to="/about" data-testid="footer-about-link" className="hover:text-amber-300 transition-colors">About Us</Link>
+          <Link to="/help" data-testid="footer-help-link" className="hover:text-amber-300 transition-colors">Help</Link>
           <Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link>
           <Link to="/terms-of-use" data-testid="footer-use-link" className="hover:text-amber-300 transition-colors">Terms of Use</Link>
           <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
