@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets
+import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets, httpx
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -134,16 +134,56 @@ def is_premium(u: dict) -> bool:
     try: return datetime.fromisoformat(pu.replace("Z", "+00:00")) > datetime.now(timezone.utc)
     except Exception: return False
 
+EMAIL_BASE_URL = "https://integrations.emergentagent.com"
+EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "GiftsDates")
+
+def _email_safe(subject: str, html: str) -> bool:
+    low = f"{subject}\n{html}".lower()
+    if any(tag in low for tag in ("<form", "<input", "<textarea", "<select")): return False
+    import re as _re
+    for url in _re.findall(r'(?:href|src)\s*=\s*["\']([^"\']+)', html, _re.I):
+        u = url.strip().lower()
+        if u.startswith(("mailto:", "tel:", "cid:", "#")): continue
+        if not u.startswith("https://"): return False
+    return True
+
+async def send_email(*, to: str, subject: str, html: str) -> bool:
+    if not EMAIL_KEY or not _email_safe(subject, html): return False
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(f"{EMAIL_BASE_URL}/api/v1/email/send",
+                                   headers={"X-Email-Key": EMAIL_KEY},
+                                   json={"to": [to], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME})
+        r.raise_for_status()
+        return True
+    except Exception as e:
+        logging.error(f"Email send failed: {e}")
+        return False
+
+def _email_html(title: str, body: str) -> str:
+    from html import escape as _esc
+    return (f'<table role="presentation" width="100%" style="background:#0d0b12;padding:24px"><tr><td align="center">'
+            f'<table role="presentation" width="480" style="background:#161320;border-radius:16px;'
+            f'border:1px solid rgba(212,175,55,0.25);font-family:Arial,sans-serif;color:#f4f1f7">'
+            f'<tr><td style="padding:24px 28px">'
+            f'<div style="font-size:20px;font-weight:700;color:#f3e5ab;margin-bottom:6px">GiftsDates</div>'
+            f'<div style="font-size:17px;font-weight:600;margin:14px 0 6px">{_esc(title)}</div>'
+            f'<div style="font-size:14px;line-height:1.5;color:#c9c4d4">{_esc(body)}</div>'
+            f'<div style="font-size:11px;color:#8a8598;margin-top:22px;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">'
+            f'Sent by GiftsDates · Luxury Dating. We never ask for your password or card details by email.</div>'
+            f'</td></tr></table></td></tr></table>')
+
 async def notify(user_id: str, ntype: str, title: str, body: str, data: dict | None = None, email: bool = False):
     now = datetime.now(timezone.utc).isoformat()
     await db.notifications.insert_one({"id": str(uuid.uuid4()), "user_id": user_id, "type": ntype, "title": title,
                                        "body": body, "data": data or {}, "read": False, "created_at": now})
     if email:
         u = await db.users.find_one({"id": user_id}, {"email": 1})
-        if u:
-            # MOCKED email delivery: stored in outbox until a real provider (Resend/SendGrid) is connected
-            await db.email_outbox.insert_one({"id": str(uuid.uuid4()), "to": u["email"], "subject": title, "body": body, "status": "queued", "created_at": now})
-            logging.info(f"[EMAIL MOCK] to={u['email']} subject={title}")
+        if u and u.get("email"):
+            sent = await send_email(to=u["email"], subject=f"{title} · GiftsDates", html=_email_html(title, body))
+            await db.email_outbox.insert_one({"id": str(uuid.uuid4()), "to": u["email"], "subject": title, "body": body,
+                                              "status": "sent" if sent else "failed", "created_at": now})
 
 # ---------- Auth helpers ----------
 def hash_pwd(p: str) -> str:
@@ -664,6 +704,8 @@ async def like(req: LikeReq, user=Depends(get_current_user)):
             other = await db.users.find_one({"id": req.target_id}, {"name": 1})
             await notify(req.target_id, "match", "It's a match! 💘", f"You and {user['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": user["id"], "name": user["name"]}, email=True)
             await notify(user["id"], "match", "It's a match! 💘", f"You and {other['name']} liked each other. Say hello!", {"conversation_id": conv_id, "user_id": req.target_id, "name": other["name"]}, email=True)
+    elif not already:
+        await notify(req.target_id, "like", "Someone likes you ❤️", f"{user['name']} liked your profile. Like back to match!", {"user_id": user["id"], "name": user["name"]}, email=True)
     return {"liked": True, "matched": matched}
 
 @api.get("/likes/received")
@@ -787,6 +829,9 @@ async def send_message(req: MessageReq, user=Depends(get_current_user)):
     msg = {"id": str(uuid.uuid4()), "conversation_id": req.conversation_id, "from_id": user["id"], "text": req.text, "created_at": now, "type": "text"}
     await db.messages.insert_one(dict(msg))
     await db.conversations.update_one({"id": req.conversation_id}, {"$set": {"last_message": req.text, "last_at": now}})
+    other_id = [u for u in conv["users"] if u != user["id"]][0]
+    preview = (req.text[:60] + "…") if len(req.text) > 60 else req.text
+    await notify(other_id, "message", f"New message from {user['name']} 💬", preview, {"conversation_id": req.conversation_id, "user_id": user["id"], "name": user["name"]}, email=True)
     return msg
 
 # ---------- Gifts ----------

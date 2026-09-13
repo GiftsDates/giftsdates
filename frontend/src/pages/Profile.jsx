@@ -22,6 +22,7 @@ export default function Profile() {
   const [f, setF] = useState(() => ({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country,
     ...Object.fromEntries(DETAIL_KEYS.map(k => [k, user?.[k] ?? null])) }));
   const [busy, setBusy] = useState(false);
+  const [soundOn, setSoundOn] = useState(localStorage.getItem("gd_sound") !== "off");
 
   const cancelSubscription = async () => {
     if (!window.confirm(t("cancel_sub_confirm", lang))) return;
@@ -99,6 +100,10 @@ export default function Profile() {
 
         <div className="glass rounded-2xl p-6 mt-6 space-y-4">
           <h3 className="font-serif-luxe text-xl gold-text">{t("account", lang)}</h3>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-slate-300">🔔 {t("sound_notifications", lang)}</div>
+            <Button data-testid="profile-sound-toggle" variant="outline" onClick={() => { const next = !soundOn; localStorage.setItem("gd_sound", next ? "on" : "off"); setSoundOn(next); }} className="bg-white/5 border-white/10 text-slate-200 hover:bg-white/10">{soundOn ? `🔊 ${t("sound_on", lang)}` : `🔇 ${t("sound_off", lang)}`}</Button>
+          </div>
           {isPremium && user?.premium_auto_renew !== false && (
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-sm text-slate-300">👑 {t("premium_active", lang)} · {new Date(user.premium_until).toLocaleDateString()}</div>
