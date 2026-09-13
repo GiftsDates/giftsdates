@@ -11,11 +11,14 @@ import GiftModal from "../components/GiftModal";
 import { ReportModal } from "../components/ReportModal";
 import { Flag } from "lucide-react";
 import { presence, PresenceDot } from "../lib/presence";
-const FALLBACKS = ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
+const FALLBACKS = ["https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1601117830731-1a36c879f666?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
 
-const FALLBACK = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85";
+const FALLBACK_WOMAN = "https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
+const FALLBACK_MAN = "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
+const genderFallback = (g) => (String(g || "").toLowerCase().startsWith("m") ? FALLBACK_MAN : FALLBACK_WOMAN);
+const FALLBACK = FALLBACK_WOMAN;
 
 function Row({ label, value, testid }) {
   if (!value) return null;
@@ -50,7 +53,8 @@ export default function ProfileView() {
   };
 
   if (!p) return <div className="aurora-bg min-h-[calc(100vh-4rem)]" />;
-  const photos = p.photos?.length ? p.photos.map(fileUrl) : [FALLBACK];
+  const fb = genderFallback(p.gender);
+  const photos = p.photos?.length ? p.photos.map(fileUrl) : [fb];
   const langNames = (p.languages_spoken || []).map(c => LANGUAGES.find(l => l.code === c)?.name || c).join(", ");
 
   return (
@@ -60,7 +64,7 @@ export default function ProfileView() {
         <div className="grid lg:grid-cols-[minmax(0,420px)_1fr] gap-8">
           <div>
             <div className={`relative aspect-[3/4] rounded-3xl overflow-hidden border ${p.is_premium ? "border-amber-400/50" : "border-white/10"}`}>
-              <img data-testid="profile-view-main-photo" src={photos[Math.min(idx, photos.length - 1)]} alt={p.name} onError={(e) => { e.currentTarget.src = FALLBACK; }} className="w-full h-full object-cover" />
+              <img data-testid="profile-view-main-photo" src={photos[Math.min(idx, photos.length - 1)]} alt={p.name} onError={(e) => { e.currentTarget.src = fb; }} className="w-full h-full object-cover" />
               {p.is_premium && <span data-testid="profile-view-premium-badge" className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/90 text-black text-[10px] font-semibold uppercase"><Crown size={10} /> {t("premium", lang)}</span>}
             </div>
             {photos.length > 1 && (
