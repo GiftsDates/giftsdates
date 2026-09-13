@@ -1235,6 +1235,19 @@ async def set_auto_renew(req: AutoRenewReq, user=Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"premium_auto_renew": req.enabled}})
     return {"premium_auto_renew": req.enabled}
 
+@api.delete("/account")
+async def delete_account(user=Depends(get_current_user)):
+    uid = user["id"]
+    await db.likes.delete_many({"$or": [{"from_id": uid}, {"to_id": uid}]})
+    await db.matches.delete_many({"$or": [{"a_id": uid}, {"b_id": uid}, {"users": uid}]})
+    await db.notifications.delete_many({"user_id": uid})
+    await db.conversations.delete_many({"participants": uid})
+    await db.messages.delete_many({"$or": [{"from_id": uid}, {"to_id": uid}]})
+    await db.spins.delete_many({"used_by": uid})
+    await db.payout_accounts.delete_many({"user_id": uid})
+    await db.users.delete_one({"id": uid})
+    return {"deleted": True}
+
 @api.post("/payments/checkout")
 async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
     s = await get_settings()

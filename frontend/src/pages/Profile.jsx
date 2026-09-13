@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
@@ -16,11 +16,25 @@ import AvailabilityCalendar from "../components/AvailabilityCalendar";
 const DETAIL_KEYS = ["relationship_intent", "orientation", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "income_custom", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability", "availability_time", "availability_slots"];
 
 export default function Profile() {
-  const { user, refreshUser, lang, meta } = useApp();
+  const { user, refreshUser, lang, meta, logout } = useApp();
   const nav = useNavigate();
+  const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
   const [f, setF] = useState(() => ({ name: user?.name, age: user?.age, bio: user?.bio, city: user?.city, country: user?.country,
     ...Object.fromEntries(DETAIL_KEYS.map(k => [k, user?.[k] ?? null])) }));
   const [busy, setBusy] = useState(false);
+
+  const cancelSubscription = async () => {
+    if (!window.confirm(t("cancel_sub_confirm", lang))) return;
+    try { await api.post("/premium/auto-renew", { enabled: false }); await refreshUser(); toast.success(t("sub_cancelled_toast", lang).replace("{d}", new Date(user.premium_until).toLocaleDateString())); }
+    catch { toast.error(t("failed", lang)); }
+  };
+
+  const deleteAccount = async () => {
+    if (!window.confirm(t("delete_account_confirm", lang))) return;
+    if (!window.confirm(t("delete_account_confirm2", lang))) return;
+    try { await api.delete("/account"); toast.success(t("account_deleted_toast", lang)); logout(); nav("/"); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+  };
 
   const save = async () => {
     setBusy(true);
@@ -81,6 +95,24 @@ export default function Profile() {
           slots={f.availability_slots || {}} onSlots={(s) => setF({ ...f, availability_slots: s })} />
         <div className="sticky bottom-4">
           <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-12 w-full shadow-xl">{t("save", lang)}</Button>
+        </div>
+
+        <div className="glass rounded-2xl p-6 mt-6 space-y-4">
+          <h3 className="font-serif-luxe text-xl gold-text">{t("account", lang)}</h3>
+          {isPremium && user?.premium_auto_renew !== false && (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-sm text-slate-300">👑 {t("premium_active", lang)} · {new Date(user.premium_until).toLocaleDateString()}</div>
+              <Button data-testid="profile-cancel-subscription" variant="outline" onClick={cancelSubscription} className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">{t("cancel_subscription", lang)}</Button>
+            </div>
+          )}
+          {isPremium && user?.premium_auto_renew === false && (
+            <div className="text-xs text-amber-300/90" data-testid="profile-sub-cancelled-note">⛔ {t("premium_autorenew_off", lang).replace("{d}", new Date(user.premium_until).toLocaleDateString())}</div>
+          )}
+          <div className="border-t border-rose-500/20 pt-4">
+            <div className="text-sm font-semibold text-rose-300 mb-1 flex items-center gap-1.5"><Trash2 size={15}/> {t("danger_zone", lang)}</div>
+            <p className="text-xs text-slate-400 mb-3">{t("delete_account_note", lang)}</p>
+            <Button data-testid="profile-delete-account" variant="outline" onClick={deleteAccount} className="bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"><Trash2 size={14} className="me-1"/> {t("delete_account", lang)}</Button>
+          </div>
         </div>
       </div>
     </div>

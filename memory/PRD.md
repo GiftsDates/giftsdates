@@ -78,6 +78,8 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 
 - 2026-09-13: "Get 50% now (no photo)" now gated to 24h AFTER the date starts (release_half requires now >= scheduled_at+24h → 400 CLAIM_NOT_YET; was just >= scheduled_at). Rationale: inviter has the 24h post-start window to act (also the cancel-lock window); after 24h with no photo, recipient claims 50% and the platform keeps the other 50%. Frontend: confirm-photo enabled once date started; "Get 50% now" enabled only after 24h (disabled w/ claim_not_yet_24h tooltip); note updated. i18n no_photo_half_note (updated) + claim_not_yet_24h. Curl-verified: 2h→CLAIM_NOT_YET; 25h→released recipient150/platform150.
 
+- 2026-09-13: Account management on Profile page. (1) Cancel subscription: premium users see "Cancel subscription" → POST /api/premium/auto-renew {enabled:false} (access kept until premium_until, no renewal); cancelled state shows ⛔ expires {d}. (2) Delete account: DELETE /api/account cascades user + likes/matches/notifications/conversations/messages/spins/payout_accounts, then frontend logout + redirect to landing. Double-confirm dialogs, "Danger zone" section. i18n: account, cancel_subscription, cancel_sub_confirm, sub_cancelled_toast, danger_zone, delete_account(+note/confirm/confirm2), account_deleted_toast. Curl-verified: cancel→auto_renew false; delete→deleted:true, token 401, login 401.
+
 ## Backlog
 - P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock (waiting for user API key).
 - P2: Real WebRTC video calls; multi-currency payouts; "see who liked you" premium perk.
