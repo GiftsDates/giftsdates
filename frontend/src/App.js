@@ -27,6 +27,7 @@ import DMCA from "@/pages/DMCA";
 import AntiTrafficking from "@/pages/AntiTrafficking";
 import Complaints from "@/pages/Complaints";
 import Appeals from "@/pages/Appeals";
+import Fraud from "@/pages/Fraud";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
 
 const Private = ({ children }) => {
@@ -62,6 +63,7 @@ const Shell = () => (
       <Route path="/anti-trafficking" element={<AntiTrafficking />} />
       <Route path="/complaints" element={<Complaints />} />
       <Route path="/appeals" element={<Appeals />} />
+      <Route path="/fraud-prevention" element={<Fraud />} />
       <Route path="/admin" element={<Private><Admin /></Private>} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />
