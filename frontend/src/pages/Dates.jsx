@@ -5,7 +5,7 @@ import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { CalendarHeart, Camera, Clock, Check, X, Car, Info } from "lucide-react";
+import { CalendarHeart, Camera, Clock, Check, X, Car, Info, Coins } from "lucide-react";
 import { MapsLink } from "../components/AddressPicker";
 
 const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
@@ -42,6 +42,14 @@ export default function Dates() {
     setBusyId(id);
     try { await api.post(`/dates/respond/${id}?accept=${accept}`); await refreshUser(); await load(); toast.success(t(accept ? "date_accepted_toast" : "date_declined_toast", lang)); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
+  const releaseHalf = async (id) => {
+    if (!window.confirm(t("get_half_confirm", lang))) return;
+    setBusyId(id);
+    try { const { data } = await api.post(`/dates/release-half/${id}`); await refreshUser(); await load(); toast.success(t("half_released_toast", lang).replace("{n}", data.recipient)); }
+    catch (e) { toast.error(e.response?.data?.detail === "DATE_NOT_YET" ? t("date_not_yet", lang) : e.response?.data?.detail || t("failed", lang)); }
     finally { setBusyId(null); }
   };
 
@@ -140,9 +148,18 @@ export default function Dates() {
             <Button data-testid={`date-decline-btn-${b.id}`} disabled={busyId===b.id} onClick={() => respond(b.id, false)} variant="outline" className="bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"><X size={14} className="me-1"/> {t("decline", lang)}</Button>
           </>
         )}
-        {isIncoming && b.status === "accepted" && (
-          <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || new Date(b.scheduled_at) > new Date()} title={new Date(b.scheduled_at) > new Date() ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
-        )}
+        {isIncoming && (b.status === "accepted" || (b.status === "confirmed" && !b.photo_url)) && (() => {
+          const passed = new Date(b.scheduled_at) <= new Date();
+          return (
+            <div className="flex flex-col gap-1.5" data-testid={`date-confirm-block-${b.id}`}>
+              <div className="flex gap-2 flex-wrap">
+                <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || !passed} title={!passed ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
+                <Button data-testid={`date-release-half-btn-${b.id}`} disabled={busyId===b.id || !passed} title={!passed ? t("date_not_yet", lang) : ""} onClick={() => releaseHalf(b.id)} variant="outline" className="gold-btn"><Coins size={14} className="me-1"/> {t("get_half_now", lang)}</Button>
+              </div>
+              <span data-testid={`date-photo-note-${b.id}`} className="text-[11px] text-amber-300/85 flex items-start gap-1"><Info size={11} className="mt-0.5 shrink-0"/> {t("no_photo_half_note", lang)}</span>
+            </div>
+          );
+        })()}
         {!isIncoming && (b.status === "escrow" || b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (
           <div className="flex flex-col items-start gap-1">
             <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b, false)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>

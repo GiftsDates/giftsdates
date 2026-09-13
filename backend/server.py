@@ -948,8 +948,15 @@ async def list_dates(user=Depends(get_current_user)):
             try: ra = datetime.fromisoformat(b["release_at"].replace("Z", "+00:00"))
             except Exception: continue
             if ra <= now_dt:
-                await db.users.update_one({"id": user["id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": b["coins"]}})
-                await db.date_bookings.update_one({"id": b["id"]}, {"$set": {"status": "released"}})
+                coins = b["coins"]
+                if b.get("photo_url"):
+                    rec, cut = coins, 0
+                else:
+                    rec = int(round(coins * 0.5)); cut = coins - rec
+                await db.users.update_one({"id": user["id"]}, {"$inc": {"escrow": -coins, "withdrawable": rec}})
+                await db.date_bookings.update_one({"id": b["id"]}, {"$set": {"status": "released", "released_net": rec, "platform_cut": cut}})
+                if cut:
+                    await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "platform_fee_no_photo", "from_id": user["id"], "to_id": "platform", "cost": cut, "net": cut, "created_at": now_dt.isoformat()})
     outgoing = await db.date_bookings.find({"from_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     incoming = await db.date_bookings.find({"to_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return {"outgoing": outgoing, "incoming": incoming}
@@ -959,15 +966,40 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": req.booking_id})
     if not b: raise HTTPException(404, "Not found")
     if b["to_id"] != user["id"]: raise HTTPException(403, "Only recipient can confirm")
-    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot confirm")
+    if b["status"] not in ("escrow", "accepted") and not (b["status"] == "confirmed" and b.get("auto_confirmed") and not b.get("photo_url")):
+        raise HTTPException(400, "Cannot confirm")
     now_dt = datetime.now(timezone.utc)
     try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
     except Exception: sched = now_dt
     if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
     if now_dt < sched: raise HTTPException(400, "DATE_NOT_YET")
-    release_at = max(sched + timedelta(days=1), now_dt).isoformat()
-    await db.date_bookings.update_one({"id": req.booking_id}, {"$set": {"status": "confirmed", "photo_url": req.photo_url, "confirmed_at": datetime.now(timezone.utc).isoformat(), "release_at": release_at}})
-    return {"status": "confirmed", "release_at": release_at}
+    set_fields = {"photo_url": req.photo_url, "confirmed_at": datetime.now(timezone.utc).isoformat()}
+    if b["status"] in ("escrow", "accepted"):
+        set_fields["status"] = "confirmed"
+        set_fields["release_at"] = max(sched + timedelta(days=1), now_dt).isoformat()
+    await db.date_bookings.update_one({"id": req.booking_id}, {"$set": set_fields})
+    return {"status": "confirmed", "release_at": set_fields.get("release_at", b.get("release_at"))}
+
+@api.post("/dates/release-half/{bid}")
+async def release_half(bid: str, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["to_id"] != user["id"]: raise HTTPException(403, "Only the recipient can claim")
+    if b["status"] not in ("accepted", "confirmed"): raise HTTPException(400, "Cannot release")
+    if b.get("photo_url"): raise HTTPException(400, "Already photo-confirmed")
+    now_dt = datetime.now(timezone.utc)
+    try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
+    except Exception: sched = now_dt
+    if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
+    if now_dt < sched: raise HTTPException(400, "DATE_NOT_YET")
+    coins = b["coins"]
+    rec = int(round(coins * 0.5)); cut = coins - rec
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"escrow": -coins, "withdrawable": rec}})
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "released", "released_net": rec, "platform_cut": cut, "released_at": now_dt.isoformat()}})
+    if cut:
+        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "platform_fee_no_photo", "from_id": user["id"], "to_id": "platform", "cost": cut, "net": cut, "created_at": now_dt.isoformat()})
+    await notify(b["from_id"], "date_declined", "Date closed without photo", f"The date at {b['venue']} was closed without a photo. The recipient received 50% (🪙 {rec}); the platform kept 🪙 {cut}.", {"booking_id": bid})
+    return {"status": "released", "recipient": rec, "platform_cut": cut}
 
 @api.post("/dates/cancel/{bid}")
 async def cancel_date(bid: str, user=Depends(get_current_user)):
