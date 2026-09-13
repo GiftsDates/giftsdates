@@ -1,6 +1,6 @@
 """GiftsDates backend — dating, wallet, gifts, escrow dates, video calls, Stripe."""
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets, httpx
 
 ROOT_DIR = Path(__file__).parent
@@ -127,6 +128,72 @@ async def ensure_match(a_id: str, b_id: str, reason: str = "like") -> tuple[str,
 async def get_settings() -> dict:
     doc = await db.settings.find_one({"id": "pricing"}, {"_id": 0, "id": 0}) or {}
     return {**DEFAULT_SETTINGS, **doc}
+
+# ---------- Support / chatbot settings ----------
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+SUPPORT_DEFAULTS = {
+    "agent_enabled": True,
+    "timezone": "UTC",
+    "hours": [
+        {"day": 0, "enabled": True, "open": "09:00", "close": "18:00"},
+        {"day": 1, "enabled": True, "open": "09:00", "close": "18:00"},
+        {"day": 2, "enabled": True, "open": "09:00", "close": "18:00"},
+        {"day": 3, "enabled": True, "open": "09:00", "close": "18:00"},
+        {"day": 4, "enabled": True, "open": "09:00", "close": "18:00"},
+        {"day": 5, "enabled": False, "open": "10:00", "close": "16:00"},
+        {"day": 6, "enabled": False, "open": "10:00", "close": "16:00"},
+    ],
+    "offline_message": "Our support agents are offline right now. Leave a message and we'll reply by email, or ask me anything meanwhile.",
+    "welcome_message": "Hi! I'm the GiftsDates assistant 💛 Ask me anything about coins, dates, safety, Premium and more.",
+}
+
+async def get_support_settings() -> dict:
+    doc = await db.settings.find_one({"id": "support"}, {"_id": 0, "id": 0}) or {}
+    merged = {**SUPPORT_DEFAULTS, **doc}
+    if not merged.get("hours"):
+        merged["hours"] = SUPPORT_DEFAULTS["hours"]
+    return merged
+
+def _support_status(s: dict) -> dict:
+    try:
+        tz = ZoneInfo(s.get("timezone") or "UTC")
+    except Exception:
+        tz = ZoneInfo("UTC")
+    now = datetime.now(tz)
+    wd = now.weekday()
+    row = next((h for h in s.get("hours", []) if h.get("day") == wd), None)
+    is_open = False
+    if s.get("agent_enabled", True) and row and row.get("enabled"):
+        try:
+            oh, om = map(int, str(row["open"]).split(":"))
+            ch, cm = map(int, str(row["close"]).split(":"))
+            mins = now.hour * 60 + now.minute
+            is_open = (oh * 60 + om) <= mins < (ch * 60 + cm)
+        except Exception:
+            is_open = False
+    return {"is_open": is_open, "server_time": now.strftime("%a %H:%M"), "weekday": wd, "timezone": s.get("timezone") or "UTC"}
+
+SUPPORT_SYSTEM = (
+    "You are the GiftsDates support assistant for a luxury worldwide dating platform. "
+    "Answer only questions about GiftsDates. Be warm, concise (2-5 sentences), and helpful. Never invent policies. "
+    "If asked something unrelated or that needs an account action you cannot do, suggest using the app or contacting a human agent via the 'Contact an agent' button.\n\n"
+    "KEY FACTS:\n"
+    "- Users must be 18+ and verified. Registration is free.\n"
+    "- Coins (🪙) power the platform. Top-up packs: Small Talk 🪙100 ($9.99), Starter 🪙300+20 ($29.99), Popular Pack 🪙1000+100 ($99.99), Extra Pack 🪙2000+150 ($189), VIP Pack 🪙3000+300 ($295), or custom at $1=10🪙 +2% bonus.\n"
+    "- A gift of 100+ coins automatically opens a chat (instant match).\n"
+    "- Safety: keep contact & meeting plans on-platform; phone numbers and chat photos unlock only after a confirmed date; off-platform meetings aren't protected and can lead to a block.\n"
+    "- Withdrawals: after bank approval, minus 30% commission; 10 coins = $1; escrow unlocks after a confirmed date.\n"
+    "- Dates: invite someone, pick location, pay date price in coins (held in escrow). The invited side can request a taxi fee; if the inviter approves it, the date is auto-confirmed.\n"
+    "- Cancellations: if the inviter cancels, 50% of booking+taxi is refunded and 50% compensates the invited user; if the invited user cancels, all coins go back to the inviter.\n"
+    "- Photo proof: submit within 24h to get 100%; after 24h with no photo and no complaint, the invited user can claim 50% and the platform keeps 50%. The 'Get 50% now' button unlocks 24h after the date starts.\n"
+    "- Premium: unlimited likes, top placement, advanced filters, see who liked you, priority support; auto-renews monthly until cancelled from the profile page.\n"
+    "- Invite a friend: earn 🪙100 when a friend buys their first Popular Pack.\n"
+    "- Manage/delete account from the profile page. Support email: help@GiftsDates.com.\n"
+    "- Helpful pages: /faq, /help, /safety, /terms-of-use, /privacy, /fraud-prevention.\n"
+    "Do not ask for passwords, card numbers, or one-time codes."
+)
+
+_support_chats: dict = {}
 
 def is_premium(u: dict) -> bool:
     pu = u.get("premium_until")
@@ -404,6 +471,83 @@ async def meta():
         "gift_auto_match_coins": s.get("gift_auto_match_coins", 100),
         "max_photos": MAX_PHOTOS,
     }
+
+# ---------- Support chatbot / tickets ----------
+class SupportChatReq(BaseModel):
+    session_id: str
+    message: str
+
+class SupportTicketReq(BaseModel):
+    name: Optional[str] = ""
+    email: EmailStr
+    message: str
+
+@api.get("/support/config")
+async def support_config():
+    s = await get_support_settings()
+    st = _support_status(s)
+    return {
+        "welcome_message": s["welcome_message"],
+        "offline_message": s["offline_message"],
+        "agent_enabled": s.get("agent_enabled", True),
+        "hours": [{"day": h["day"], "day_name": DAY_NAMES[h["day"]], "enabled": h.get("enabled", False),
+                   "open": h.get("open"), "close": h.get("close")} for h in sorted(s["hours"], key=lambda x: x["day"])],
+        **st,
+    }
+
+@api.post("/support/chat")
+async def support_chat(req: SupportChatReq):
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(503, "Assistant unavailable")
+    text = (req.message or "").strip()[:1000]
+    if not text:
+        raise HTTPException(400, "Empty message")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+    if len(_support_chats) > 500:
+        _support_chats.clear()
+    chat = _support_chats.get(req.session_id)
+    if chat is None:
+        chat = LlmChat(api_key=key, session_id=req.session_id, system_message=SUPPORT_SYSTEM).with_model("gemini", "gemini-3-flash-preview")
+        _support_chats[req.session_id] = chat
+
+    async def gen():
+        try:
+            async for ev in chat.stream_message(UserMessage(text=text)):
+                if isinstance(ev, TextDelta):
+                    yield ev.content
+                elif isinstance(ev, StreamDone):
+                    break
+        except Exception as e:
+            logging.error(f"support chat error: {e}")
+            yield "Sorry, I had trouble answering just now. Please try again, or use 'Contact an agent'."
+
+    return StreamingResponse(gen(), media_type="text/plain",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+@api.post("/support/ticket")
+async def create_support_ticket(req: SupportTicketReq, authorization: Optional[str] = Header(None)):
+    msg = (req.message or "").strip()
+    if len(msg) < 5:
+        raise HTTPException(400, "MESSAGE_TOO_SHORT")
+    uid = None
+    try:
+        if authorization and authorization.startswith("Bearer "):
+            uid = jwt.decode(authorization.split(" ", 1)[1], JWT_SECRET, algorithms=[JWT_ALG]).get("sub")
+    except Exception:
+        uid = None
+    now = datetime.now(timezone.utc).isoformat()
+    st = _support_status(await get_support_settings())
+    doc = {"id": str(uuid.uuid4()), "name": (req.name or "").strip()[:120], "email": req.email,
+           "message": msg[:4000], "user_id": uid, "status": "open",
+           "created_while_open": st["is_open"], "created_at": now}
+    await db.support_tickets.insert_one(doc)
+    for a_email in ADMIN_EMAILS:
+        adm = await db.users.find_one({"email": a_email}, {"_id": 0, "id": 1})
+        if adm:
+            await notify(adm["id"], "support", "New support message 📨",
+                         f"{req.email}: {msg[:120]}", {"ticket_id": doc["id"]}, email=True)
+    return {"created": True, "is_open": st["is_open"]}
 
 # ---------- Spin-to-win (pre-registration promo) ----------
 SPIN_PRIZES = [
@@ -1343,6 +1487,49 @@ async def admin_withdrawal_action(wid: str, action: str, admin=Depends(get_admin
     await db.withdrawals.update_one({"id": wid}, {"$set": {"status": action, "processed_at": datetime.now(timezone.utc).isoformat()}})
     await notify(w["user_id"], "withdrawal", f"Withdrawal {action}", f"${w['usd']} → {w['destination']}", email=True)
     return {"status": action}
+
+# ---------- Admin: support ----------
+class SupportHoursRow(BaseModel):
+    day: int
+    enabled: bool = False
+    open: str = "09:00"
+    close: str = "18:00"
+
+class SupportSettingsReq(BaseModel):
+    agent_enabled: bool = True
+    timezone: str = "UTC"
+    hours: List[SupportHoursRow]
+    offline_message: str
+    welcome_message: str
+
+@api.get("/admin/support/settings")
+async def admin_get_support(admin=Depends(get_admin)):
+    return await get_support_settings()
+
+@api.put("/admin/support/settings")
+async def admin_put_support(req: SupportSettingsReq, admin=Depends(get_admin)):
+    try:
+        ZoneInfo(req.timezone)
+    except Exception:
+        raise HTTPException(400, "INVALID_TIMEZONE")
+    doc = {"id": "support", **req.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.settings.replace_one({"id": "support"}, doc, upsert=True)
+    return await get_support_settings()
+
+@api.get("/admin/support/tickets")
+async def admin_support_tickets(status: str = "open", admin=Depends(get_admin)):
+    q = {} if status == "all" else {"status": status}
+    return await db.support_tickets.find(q, {"_id": 0}).sort("created_at", -1).to_list(300)
+
+@api.post("/admin/support/tickets/{tid}/resolve")
+async def admin_resolve_ticket(tid: str, admin=Depends(get_admin)):
+    r = await db.support_tickets.find_one({"id": tid})
+    if not r:
+        raise HTTPException(404, "Not found")
+    await db.support_tickets.update_one({"id": tid}, {"$set": {"status": "resolved",
+                                        "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin["id"]}})
+    return {"status": "resolved"}
+
 
 # ---------- Stripe checkout ----------
 class AutoRenewReq(BaseModel):

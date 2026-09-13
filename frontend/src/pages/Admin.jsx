@@ -7,6 +7,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import AdminPrices from "../components/AdminPrices";
 import AdminVerifications from "../components/AdminVerifications";
+import AdminSupport from "../components/AdminSupport";
 
 export default function Admin() {
   const { lang } = useApp();
@@ -49,11 +50,11 @@ export default function Admin() {
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
         <h1 className="font-serif-luxe text-4xl flex items-center gap-3"><ShieldCheck /> {t("admin", lang)}</h1>
         <div className="flex gap-2" data-testid="admin-tabs">
-          {["payouts", "verifications", "reports", "prices"].map(k => (
-            <button key={k} data-testid={`admin-tab-${k}`} onClick={() => setTab(k)} className={`px-4 py-2 rounded-lg text-sm border transition-colors ${tab === k ? "bg-rose-500/15 text-rose-300 border-rose-500/30" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{t(k, lang) === k ? (k === "reports" ? "Reports" : k) : t(k, lang)}</button>
+          {["payouts", "verifications", "reports", "support", "prices"].map(k => (
+            <button key={k} data-testid={`admin-tab-${k}`} onClick={() => setTab(k)} className={`px-4 py-2 rounded-lg text-sm border transition-colors ${tab === k ? "bg-rose-500/15 text-rose-300 border-rose-500/30" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{t(k, lang) === k ? (k === "reports" ? "Reports" : k === "support" ? "Support" : k) : t(k, lang)}</button>
           ))}
         </div>
-        {tab === "prices" ? <AdminPrices /> : tab === "verifications" ? <AdminVerifications /> : tab === "reports" ? (
+        {tab === "prices" ? <AdminPrices /> : tab === "verifications" ? <AdminVerifications /> : tab === "support" ? <AdminSupport /> : tab === "reports" ? (
           <div className="glass rounded-2xl p-5" data-testid="admin-reports">
             <h3 className="font-serif-luxe text-xl mb-3">User reports ({reports.length})</h3>
             {reports.length === 0 ? <div className="text-sm text-slate-500 py-4 text-center">—</div> : reports.map(r => (

@@ -29,6 +29,7 @@ import Complaints from "@/pages/Complaints";
 import Appeals from "@/pages/Appeals";
 import Fraud from "@/pages/Fraud";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
+import SupportChat from "@/components/SupportChat";
 
 const Private = ({ children }) => {
   const { user, loading } = useApp();
@@ -69,6 +70,7 @@ const Shell = () => (
       <Route path="/payment/cancel" element={<PaymentCancel />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <SupportChat />
   </>
 );
 
