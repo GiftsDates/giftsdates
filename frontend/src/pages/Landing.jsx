@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
@@ -66,6 +66,10 @@ export default function Landing() {
           </div>
         </div>
       </div>
+      <footer className="max-w-7xl mx-auto px-4 py-8 mt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+        <span>© {new Date().getFullYear()} GiftsDates · Luxury Dating</span>
+        <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
+      </footer>
     </div>
   );
 }
