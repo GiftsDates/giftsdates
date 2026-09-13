@@ -5,7 +5,7 @@ import { t } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { CalendarHeart, Camera, Clock, Check, X, Car } from "lucide-react";
+import { CalendarHeart, Camera, Clock, Check, X, Car, Info } from "lucide-react";
 import { MapsLink } from "../components/AddressPicker";
 
 const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
@@ -24,8 +24,14 @@ export default function Dates() {
   useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, []);
 
   const cancel = async (b) => {
-    const r = Math.round(b.coins * pct / 100), k = b.coins - r;
-    if (!window.confirm(t("cancel_warning", lang).replace("{p}", pct).replace("{r}", r).replace("{k}", k))) return;
+    const fullRefund = b.status === "confirmed" && b.taxi?.status === "sent";
+    if (fullRefund) {
+      const total = b.coins + (b.taxi?.coins || 0);
+      if (!window.confirm(t("cancel_full_warning", lang).replace("{total}", total))) return;
+    } else {
+      const r = Math.round(b.coins * pct / 100), k = b.coins - r;
+      if (!window.confirm(t("cancel_warning", lang).replace("{p}", pct).replace("{r}", r).replace("{k}", k))) return;
+    }
     setBusyId(b.id);
     try { const { data } = await api.post(`/dates/cancel/${b.id}`); await refreshUser(); await load(); toast.success(t("date_cancelled_partial", lang).replace("{r}", data.refund)); }
     catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
@@ -93,7 +99,12 @@ export default function Dates() {
           const active = ["escrow", "accepted", "confirmed"].includes(b.status);
           if (isIncoming) {
             if (taxi?.status === "pending") return <div data-testid={`taxi-pending-${b.id}`} className="mt-2 text-xs text-amber-300 flex items-center gap-1"><Car size={12}/> {t("taxi_pending_recipient", lang)} · 🪙 {taxi.coins}</div>;
-            if (taxi?.status === "sent") return <div data-testid={`taxi-received-${b.id}`} className="mt-2 text-xs text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_received", lang)} · 🪙 {taxi.coins}</div>;
+            if (taxi?.status === "sent") return (
+              <div className="mt-2 text-xs" data-testid={`taxi-received-${b.id}`}>
+                <div className="text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_received", lang)} · 🪙 {taxi.coins}</div>
+                {b.auto_confirmed && <div className="text-violet-300 mt-1 flex items-start gap-1" data-testid={`taxi-auto-confirm-note-${b.id}`}><Info size={11} className="mt-0.5 shrink-0"/> {t("taxi_auto_confirm_note", lang)}</div>}
+              </div>
+            );
             if (active && taxiFor?.id === b.id) return (
               <div className="mt-2 flex items-center gap-2" data-testid={`taxi-form-${b.id}`}>
                 <Input data-testid={`taxi-coins-input-${b.id}`} type="number" min="1" value={taxiFor.coins} onChange={e => setTaxiFor({ ...taxiFor, coins: e.target.value })} placeholder={t("taxi_amount", lang)} className="bg-white/5 border-white/10 h-9 w-44" />
@@ -113,7 +124,12 @@ export default function Dates() {
               </div>
             </div>
           );
-          if (taxi?.status === "sent") return <div data-testid={`taxi-sent-${b.id}`} className="mt-2 text-xs text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_sent", lang)} · 🪙 {taxi.coins}</div>;
+          if (taxi?.status === "sent") return (
+            <div className="mt-2 text-xs" data-testid={`taxi-sent-${b.id}`}>
+              <div className="text-emerald-300 flex items-center gap-1"><Car size={12}/> {t("taxi_sent", lang)} · 🪙 {taxi.coins}</div>
+              {b.auto_confirmed && <div className="text-violet-300 mt-1 flex items-start gap-1" data-testid={`taxi-auto-confirm-note-booker-${b.id}`}><Info size={11} className="mt-0.5 shrink-0"/> {t("taxi_auto_confirm_note", lang)}</div>}
+            </div>
+          );
           return null;
         })()}
       </div>
@@ -131,6 +147,12 @@ export default function Dates() {
           <div className="flex flex-col items-start gap-1">
             <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
             <span data-testid={`date-cancel-note-${b.id}`} className="text-[11px] text-amber-300/80">⚠️ {t("cancel_note", lang).replace("{p}", pct)}</span>
+          </div>
+        )}
+        {!isIncoming && b.status === "confirmed" && b.taxi?.status === "sent" && (
+          <div className="flex flex-col items-start gap-1">
+            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
+            <span data-testid={`date-cancel-full-note-${b.id}`} className="text-[11px] text-violet-300/90">↩️ {t("cancel_full_note", lang).replace("{total}", b.coins + (b.taxi?.coins || 0))}</span>
           </div>
         )}
       </div>

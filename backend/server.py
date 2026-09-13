@@ -974,11 +974,24 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": bid})
     if not b: raise HTTPException(404, "Not found")
     if b["from_id"] != user["id"]: raise HTTPException(403, "Only booker can cancel")
+    now = datetime.now(timezone.utc).isoformat()
+    taxi = b.get("taxi") or {}
+    taxi_sent = taxi.get("status") == "sent"
+    tcoins = int(taxi.get("coins", 0)) if taxi_sent else 0
+    if b["status"] == "confirmed":
+        if not taxi_sent: raise HTTPException(400, "Cannot cancel")
+        total = b["coins"] + tcoins
+        await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": total}})
+        await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": -tcoins}})
+        await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": total, "compensation": 0, "cancelled_at": now, "taxi.status": "refunded"}})
+        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_taxi_refund", "from_id": b["to_id"], "to_id": user["id"], "cost": total, "net": total, "created_at": now})
+        for uid in (user["id"], b["to_id"]):
+            await notify(uid, "date_cancelled", "Date cancelled", f"The date at {b['venue']} was cancelled. All taxi + date coins (🪙 {total}) were refunded to {user['name']}.", {"booking_id": bid}, email=True)
+        return {"status": "cancelled", "refund": total, "compensation": 0}
     if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot cancel")
     pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
     refund = int(round(b["coins"] * pct))
     kept = b["coins"] - refund
-    now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": refund}})
     await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept}})
     await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now}})
@@ -1021,9 +1034,22 @@ async def send_taxi(bid: str, user=Depends(get_current_user)):
     await db.users.update_one({"id": b["to_id"]}, {"$inc": {"withdrawable": coins}})
     await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "gift", "from_id": user["id"], "to_id": b["to_id"],
                                       "gift_id": "taxi", "gift_icon": "🚕", "cost": coins, "commission": commission, "net": coins, "message": "Taxi", "created_at": now})
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"taxi.status": "sent", "taxi.sent_at": now}})
-    await notify(b["to_id"], "date_taxi", "🚕 Taxi received", f"{user['name']} sent you 🪙 {coins} for a taxi to your date at {b['venue']}.", {"booking_id": bid, "coins": coins}, email=True)
-    return {"ok": True, "coins": coins}
+    set_fields = {"taxi.status": "sent", "taxi.sent_at": now}
+    auto_confirmed = False
+    if b["status"] in ("escrow", "accepted"):
+        try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
+        except Exception: sched = datetime.now(timezone.utc)
+        if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
+        release_at = max(sched + timedelta(days=1), datetime.now(timezone.utc)).isoformat()
+        set_fields.update({"status": "confirmed", "confirmed_at": now, "release_at": release_at, "auto_confirmed": True})
+        auto_confirmed = True
+    await db.date_bookings.update_one({"id": bid}, {"$set": set_fields})
+    recv_msg = f"{user['name']} sent you 🪙 {coins} for a taxi to your date at {b['venue']}."
+    if auto_confirmed: recv_msg += " The date is now confirmed."
+    await notify(b["to_id"], "date_taxi", "🚕 Taxi received", recv_msg, {"booking_id": bid, "coins": coins}, email=True)
+    if auto_confirmed:
+        await notify(user["id"], "date_taxi", "Date confirmed ✅", f"Your taxi auto-confirmed the date at {b['venue']}. If you cancel, all taxi + date coins are refunded to you.", {"booking_id": bid}, email=True)
+    return {"ok": True, "coins": coins, "auto_confirmed": auto_confirmed}
 
 @api.post("/dates/taxi/decline/{bid}")
 async def decline_taxi(bid: str, user=Depends(get_current_user)):

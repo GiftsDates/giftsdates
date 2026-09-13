@@ -403,6 +403,9 @@ const T = {
   spin_banner: { ru: "Вы выиграли {p} — завершите регистрацию, чтобы получить бонус", en: "You won {p} — finish signup to claim your bonus" },
   spin_bonus_applied: { ru: "Бонус зачислен: {p}", en: "Bonus credited: {p}" },
   online_now: { ru: "Сейчас онлайн", en: "Online right now" },
+  taxi_auto_confirm_note: { ru: "Такси автоматически подтвердило свидание. При отмене все монеты за такси и свидание возвращаются отправителю.", en: "The taxi auto-confirmed the date. If it's cancelled, all taxi + date coins go back to the sender." },
+  cancel_full_note: { ru: "Отмена вернёт вам все монеты за такси и свидание (🪙 {total})", en: "Cancelling refunds all taxi + date coins (🪙 {total}) to you" },
+  cancel_full_warning: { ru: "Отменить свидание? Все монеты за такси и свидание (🪙 {total}) вернутся вам.", en: "Cancel this date? All taxi + date coins (🪙 {total}) will be refunded to you." },
 };
 
 export function t(key, lang) {

@@ -66,6 +66,7 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 
 - 2026-09-12: Added "Online right now" advanced (premium) filter. Backend /api/profiles online_now:bool → last_seen within 5 min (matches presence.jsx online window); gated like other advanced filters (403 PREMIUM_REQUIRED for non-premium). Frontend Browse.jsx toggle 🟢 + EXTRA_DEFAULT online_now + i18n online_now. Curl-verified.
 - 2026-09-12: Chat header — the whole person block (avatar+name+status) is now one clickable button opening /profile/{id} (larger tap target, hover highlight). (Chats.jsx)
+- 2026-09-13: Taxi-send now AUTO-CONFIRMS the date. send_taxi: if status escrow/accepted → sets status=confirmed + release_at (sched+1d) + auto_confirmed=true, notifies both. cancel_date: booker may now cancel a confirmed date IF taxi was sent → FULL refund to booker (date coins + taxi coins back; recipient escrow & withdrawable reversed; compensation 0; taxi.status=refunded). Normal escrow/accepted cancel keeps the 50% split. Frontend Dates.jsx: violet note under taxi-sent (both parties) "taxi auto-confirmed; cancel refunds all to sender"; booker cancel button + full-refund note shown for confirmed+taxi-sent; cancel() uses cancel_full_warning for that case. i18n: taxi_auto_confirm_note, cancel_full_note, cancel_full_warning. Curl-verified: 5000→4550 on send, →5000 on cancel (refund 450); recipient escrow/withdrawable→0.
 
 ## Backlog
 - P1: Real email provider (Resend/SendGrid) for notifications — replace email_outbox mock (waiting for user API key).
