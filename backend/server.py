@@ -1221,6 +1221,14 @@ async def admin_withdrawal_action(wid: str, action: str, admin=Depends(get_admin
     return {"status": action}
 
 # ---------- Stripe checkout ----------
+class AutoRenewReq(BaseModel):
+    enabled: bool
+
+@api.post("/premium/auto-renew")
+async def set_auto_renew(req: AutoRenewReq, user=Depends(get_current_user)):
+    await db.users.update_one({"id": user["id"]}, {"$set": {"premium_auto_renew": req.enabled}})
+    return {"premium_auto_renew": req.enabled}
+
 @api.post("/payments/checkout")
 async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
     s = await get_settings()
@@ -1284,7 +1292,7 @@ async def _fulfill(session_id: str, meta: dict):
                 if cur_dt > start: start = cur_dt
             except Exception: pass
         new_until = (start + timedelta(days=30)).isoformat()
-        await db.users.update_one({"id": user_id}, {"$set": {"premium_until": new_until}})
+        await db.users.update_one({"id": user_id}, {"$set": {"premium_until": new_until, "premium_auto_renew": True}})
     await db.payment_transactions.update_one({"session_id": session_id}, {"$set": {"fulfilled": True}})
 
 @api.get("/payments/status/{session_id}")

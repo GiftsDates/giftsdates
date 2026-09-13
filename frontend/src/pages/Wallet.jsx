@@ -35,6 +35,10 @@ export default function Wallet() {
       window.location.href = data.checkout_url;
     } catch (e) { toast.error(e.response?.data?.detail || t("payment_init_failed", lang)); }
   };
+  const toggleAutoRenew = async (enabled) => {
+    try { await api.post("/premium/auto-renew", { enabled }); await refreshUser(); toast.success(enabled ? t("autorenew_on_toast", lang) : t("autorenew_off_toast", lang)); }
+    catch { toast.error(t("failed", lang)); }
+  };
   const verified = wallet.payout_account?.status === "verified";
   const fee = Math.round(wdForm.amount * wallet.withdraw_commission * 100) / 100;
   const net = Math.round((wdForm.amount - fee) * 100) / 100;
@@ -77,11 +81,17 @@ export default function Wallet() {
               <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center"><Crown className="text-amber-300"/></div>
               <div>
                 <div className="font-serif-luxe text-xl">{t("premium", lang)}</div>
-                {isPremium ? <div className="text-xs text-emerald-300">{t("premium_active", lang)} · {new Date(user.premium_until).toLocaleDateString()}</div>
-                  : <div className="text-xs text-slate-400">${meta?.premium?.amount}{t("per_month", lang)} · {t("premium_perks_short", lang)}</div>}
+                {isPremium ? <>
+                  <div className="text-xs text-emerald-300">{t("premium_active", lang)} · {new Date(user.premium_until).toLocaleDateString()}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5" data-testid="premium-autorenew-status">{user.premium_auto_renew === false ? `⛔ ${t("premium_autorenew_off", lang).replace("{d}", new Date(user.premium_until).toLocaleDateString())}` : `🔁 ${t("premium_autorenew_on", lang)}`}</div>
+                </> : <div className="text-xs text-slate-400">${meta?.premium?.amount}{t("per_month", lang)} · {t("premium_perks_short", lang)}</div>}
               </div>
             </div>
-            {!isPremium && <Button data-testid="wallet-buy-premium-button" onClick={() => setPremOpen(true)} className="rose-btn text-white border-0">{t("buy_premium", lang)}</Button>}
+            {!isPremium
+              ? <Button data-testid="wallet-buy-premium-button" onClick={() => setPremOpen(true)} className="rose-btn text-white border-0">{t("buy_premium", lang)}</Button>
+              : (user.premium_auto_renew === false
+                  ? <Button data-testid="premium-enable-autorenew" onClick={() => toggleAutoRenew(true)} variant="outline" className="gold-btn">{t("enable_autorenew", lang)}</Button>
+                  : <Button data-testid="premium-cancel-autorenew" onClick={() => toggleAutoRenew(false)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">{t("cancel_autorenew", lang)}</Button>)}
           </div>
         </div>
 
@@ -153,6 +163,7 @@ export default function Wallet() {
               <li>✓ {t("perk_unlimited_likes", lang)}</li><li>✓ {t("perk_top_placement", lang)}</li><li>✓ {t("perk_advanced_filters", lang)}</li><li>✓ {t("perk_see_likes", lang)}</li><li>✓ {t("perk_priority_support", lang)}</li>
             </ul>
             <Button data-testid="premium-subscribe-confirm" onClick={() => buy("premium_monthly")} className="rose-btn text-white border-0 w-full h-11">{t("buy_premium", lang)}</Button>
+            <p data-testid="premium-autorenew-note" className="text-[11px] text-slate-400 leading-snug">{t("premium_autorenew_note", lang)}</p>
           </div>
         </DialogContent>
       </Dialog>
