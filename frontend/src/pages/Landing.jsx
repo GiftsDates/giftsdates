@@ -1,12 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
+import { ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import SpinWheel from "../components/SpinWheel";
 
-const HERO = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85";
+const HERO = "https://images.unsplash.com/photo-1641128839860-e2d6057f99d2?crop=entropy&cs=srgb&fm=jpg&q=85";
 
 export default function Landing() {
   const { lang } = useApp();
@@ -15,8 +15,8 @@ export default function Landing() {
     <div className="aurora-bg min-h-[calc(100vh-4rem)] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 pt-20 pb-24 grid lg:grid-cols-2 gap-14 items-center relative">
         <div className="float-in">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono uppercase tracking-widest">
-            <Sparkles size={12} /> GiftsDates
+          <span className="inline-flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-full bg-white/5 gold-hairline text-[#F3E5AB] text-xs font-semibold uppercase tracking-[0.2em]">
+            <img src="/logo.png" alt="" className="w-6 h-6 rounded-full object-cover" /> GiftsDates · Luxury Dating
           </span>
           <h1 className="mt-6 font-serif-luxe text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight">
             {t("hero_a", lang)}
@@ -26,7 +26,7 @@ export default function Landing() {
             <Button data-testid="landing-cta-primary" onClick={() => nav("/auth?register=1")} className="rose-btn text-white border-0 h-12 px-6 text-base">
               {t("hero_cta", lang)} <ArrowRight size={16} className="ms-2" />
             </Button>
-            <Button data-testid="landing-cta-secondary" onClick={() => nav("/auth")} variant="outline" className="h-12 px-6 text-base bg-white/5 border-white/10 hover:bg-white/10 text-white">
+            <Button data-testid="landing-cta-secondary" onClick={() => nav("/auth")} variant="outline" className="gold-btn h-12 px-6 text-base">
               {t("login", lang)}
             </Button>
             <SpinWheel onClaim={() => nav("/auth?register=1")} />

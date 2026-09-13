@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "sonner";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
-import { Heart } from "lucide-react";
 import SpinWheel from "../components/SpinWheel";
 
 export default function Auth() {
@@ -49,10 +48,10 @@ export default function Auth() {
     <div className="aurora-bg min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md glass rounded-3xl p-8 float-in">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <div className="w-14 h-14 rounded-2xl rose-btn flex items-center justify-center">
-            <Heart className="fill-white text-white" size={26} />
+          <div className="w-20 h-20 rounded-2xl overflow-hidden gold-hairline bg-[#1A0A14] logo-glow">
+            <img src="/logo.png" alt="GiftsDates" className="w-full h-full object-cover" />
           </div>
-          <h2 className="font-serif-luxe text-3xl">{mode === "login" ? t("login", lang) : t("register", lang)}</h2>
+          <h2 className="font-serif-luxe text-3xl gold-text">{mode === "login" ? t("login", lang) : t("register", lang)}</h2>
         </div>
 
         {mode === "register" && pendingSpin && (

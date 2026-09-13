@@ -1,164 +1,161 @@
 {
-  "project_title": "GiftsDates - International Dating, Gifts & Escrow Date Booking Platform",
-  "app_type": "hybrid_fullstack",
-  "theme": "Dark Luxury & Romantic Velvet (Deep Obsidian #0D0B12, Rose Velvet #E11D48, Warm Gold #F59E0B, Crimson Amethyst #8B5CF6)",
-  "emotional_archetype": "LUXURY & ROMANTIC DEPTH (Archetype 5) - Expensive, cinematic, warm, tactile with soft glass accents and gold coin highlights",
-  "typography": {
-    "heading_font": "Playfair Display / Cormorant Garamond / Cabinet Grotesk (Serif & High-End Display for titles & badges)",
-    "body_font": "Plus Jakarta Sans / Inter / Figtree (Clean Sans for crisp readability across 8 languages)",
-    "mono_font": "JetBrains Mono (For coin balances, transaction IDs, escrow countdown timers, withdrawal calculations)",
-    "scale": {
-      "h1": "text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight leading-tight",
-      "h2": "text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight",
-      "h3": "text-xl sm:text-2xl font-sans font-semibold",
-      "h4": "text-lg sm:text-xl font-sans font-medium",
-      "body": "text-base sm:text-sm leading-relaxed text-slate-300",
-      "small_caption": "text-xs font-mono uppercase tracking-[0.2em] text-rose-400/90"
-    }
-  },
-  "color_palette": {
-    "background_main": "#0D0B12",
-    "background_card": "#161320",
-    "background_card_hover": "#1F1A2E",
-    "border_subtle": "rgba(255, 255, 255, 0.08)",
-    "border_active": "rgba(225, 29, 72, 0.4)",
-    "primary_rose": "#E11D48",
-    "primary_rose_hover": "#F43F5E",
-    "accent_gold": "#F59E0B",
-    "accent_gold_glow": "rgba(245, 158, 11, 0.2)",
-    "accent_violet": "#8B5CF6",
-    "success_emerald": "#10B981",
-    "warning_amber": "#F59E0B",
-    "danger_crimson": "#EF4444",
-    "text_primary": "#F8FAFC",
-    "text_secondary": "#94A3B8",
-    "text_muted": "#64748B"
-  },
-  "languages_supported": [
-    { "code": "ru", "name": "Русский", "flag": "🇷🇺", "dir": "ltr" },
-    { "code": "en", "name": "English", "flag": "🇺🇸", "dir": "ltr" },
-    { "code": "es", "name": "Español", "flag": "🇪🇸", "dir": "ltr" },
-    { "code": "fr", "name": "Français", "flag": "🇫🇷", "dir": "ltr" },
-    { "code": "de", "name": "Deutsch", "flag": "🇩🇪", "dir": "ltr" },
-    { "code": "pt", "name": "Português", "flag": "🇵🇹", "dir": "ltr" },
-    { "code": "zh", "name": "中文", "flag": "🇨🇳", "dir": "ltr" },
-    { "code": "ar", "name": "العربية", "flag": "🇸🇦", "dir": "rtl" }
-  ],
-  "key_features_design_rules": {
-    "location_search_and_profiles": {
-      "grid_mode": "Tetris / Bento Grid (Asymmetric profile cards with distance badges, city tags, online indicators)",
-      "filter_bar": "Sticky top bar with city/country selector, age range slider, verified photo toggle, premium-only filter",
-      "like_match_action": "Floating glass action dock with Heart (Like), Gift (Send Virtual Item), Video Call, Book Date buttons"
-    },
-    "virtual_gifts_and_commission": {
-      "commission_rate": "30% platform commission auto-deducted on gifts (Receiver gets 70% in withdrawable balance)",
-      "gift_catalog": "Tiered visual catalog (Roses 50 coins, Champagne 250 coins, Luxury Watch 1000 coins, Diamond Ring 5000 coins)",
-      "gift_modal": "Includes custom message box, coin balance check, instant Stripe coin top-up shortcut if low balance"
-    },
-    "date_booking_and_escrow": {
-      "escrow_rules": "Funds held in 24-hour escrow after scheduled date. Requires photo proof upload from date venue to release payment.",
-      "withdrawal_eligibility": "Withdrawable funds come from received gifts (70% net) and completed photo-confirmed dates.",
-      "ui_step_flow": "1. Select Venue/City -> 2. Propose Date & Time -> 3. Lock Coins in Escrow -> 4. Attend Date & Upload Verification Photo -> 5. 24h Countdown Timer -> 6. Payout Available for Withdrawal"
-    },
-    "coin_wallet_and_stripe": {
-      "topup_packages": "100 coins ($9.99), 500 coins ($44.99 + 50 bonus), 2000 coins ($149.99 + 300 bonus), Monthly VIP Pass ($29.99/mo)",
-      "stripe_integration": "Modal payment form with simulated or live Stripe elements, transaction history table with status badges (Held, Released, Withdrawn)",
-      "payout_withdrawal": "Withdrawal request form (Bank / Crypto / Card) with minimum threshold check and fee breakdown"
-    },
-    "video_calls": {
-      "rate_per_min": "10 coins / minute",
-      "call_interface": "Full-screen luxury dark glass video frame with camera toggle, mic mute, animated coin drop meter per minute, gift drop overlay"
-    }
-  },
-  "component_architecture": {
-    "header_nav": "Fixed crystal glass banner (`backdrop-blur-xl bg-[#0D0B12]/80 border-b border-white/10 z-50`). Contains Logo, Language Switcher Dropdown (8 flags), Wallet Coin Chip, Notification Bell, Profile Avatar, and CTA",
-    "profile_card": "Vertical visual hero card with gradient dark scrim overlay, subtle hover lift (`hover:-translate-y-1.5 transition-all duration-300`), age & location badge, verification mark, online pulsing dot",
-    "language_switcher": "Dropdown menu with 8 language flags, label, LTR/RTL dynamic layout support (Arabic handles `dir='rtl'` seamlessly)",
-    "wallet_dashboard": "Grid of 3 summary cards (Coin Balance, Escrow Pending, Withdrawable Balance) + Transaction Table + Withdrawal Request Drawer + Coin Top-Up Modal",
-    "chat_messaging": "Split view with active conversation list, message bubbles, inline gift attachment preview, 'Book Date' shortcut button",
-    "toast_notifications": "Sonner toast with customized dark rose styling (`bg-[#161320] border border-rose-500/30 text-white`)"
-  },
-  "image_urls": {
-    "profiles": [
-      {
-        "url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Elena, 26 - Moscow / Dubai - Verified Profile",
-        "name": "Elena"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Sophia, 24 - Paris / London - Verified Profile",
-        "name": "Sophia"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Isabella, 28 - Madrid / Barcelona - Verified Profile",
-        "name": "Isabella"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1539125530496-3ca408f9c2d9?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Alexander, 29 - Berlin / Zurich - Verified Profile",
-        "name": "Alexander"
-      }
-    ],
-    "dates_and_venues": [
-      {
-        "url": "https://images.unsplash.com/photo-1775471256651-e654fc5b5d84?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Fine Dining Restaurant Date Venue"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1762100715669-1e3ed377ade3?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Rooftop Evening Cocktail Date"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1760081794914-5566b63e62f7?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "European City Walk Date"
-      }
-    ],
-    "luxury_gifts": [
-      {
-        "url": "https://images.unsplash.com/photo-1642991946115-9afea1d7d3d3?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Luxury Black Box with Red Roses"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1571990306521-cf96e6858f2a?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Beige Royal Rose Bouquet"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1602927846637-c3270a127413?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "description": "Premium Velvet Gift Box with Champagne"
-      }
+  "project_name": "GiftsDates Luxury Dating Blueprint",
+  "identity_and_archetype": {
+    "archetype": "ARCHETYPE 5: LUXURY (Cinematic, Exclusive, Velvet & Wine, Champagne Gold)",
+    "emotional_tone": "High-end, intimate, sensual, prestigious, velvet night club & private member lounge aesthetic",
+    "design_principles": [
+      "Fusion over Imitation: Combine high-end concierge aesthetic, Swiss grid precision, and dark velvet warm gradients.",
+      "Restrained Opulence: Gold and magenta are surgical triggers for CTA and status, never flat ocean gradients.",
+      "Tactile Depth: Multi-layered radial velvet auroras, 1px champagne hairlines, and optical glassmorphism (backdrop-saturate + blur).",
+      "No Pure Black or Pure Whites: Tint all dark backgrounds with deep burgundy/violet undertones (#0D0B12, #140F1A) and body text with warm alabaster (#F8FAFC, #F1EFEE)."
     ]
   },
-  "testing_and_attributes": {
-    "data_testid_rules": "All interactive elements MUST have explicit kebab-case data-testid attributes.",
-    "required_test_ids": [
-      "nav-language-switcher-select",
-      "nav-wallet-coins-badge",
-      "nav-premium-subscribe-button",
-      "profile-search-input",
-      "profile-location-filter-select",
-      "profile-card-like-button",
-      "profile-card-gift-button",
-      "profile-card-date-button",
-      "profile-card-videocall-button",
-      "gift-modal-send-button",
-      "date-booking-submit-button",
-      "photo-verification-upload-input",
-      "wallet-topup-stripe-button",
-      "wallet-withdraw-submit-button",
-      "chat-message-send-button",
-      "videocall-start-button",
-      "videocall-end-button"
+  "logo_integration": {
+    "logo_asset_url": "https://customer-assets-cm19k8pv.emergentagent.net/job_gifts-meet/artifacts/ufi6kx23_ChatGPT%20Image%20Sep%2012%2C%202026%2C%2007_48_52%20PM.png",
+    "visual_description": "Glossy magenta/pink outlined HEART enclosing a white gift box tied with a red ribbon/bow, on a deep wine/maroon background.",
+    "top_nav_lockup": {
+      "icon_container": "w-10 h-10 rounded-xl overflow-hidden border border-[#D4AF37]/30 shadow-[0_0_15px_rgba(225,29,72,0.25)] relative group cursor-pointer bg-[#1A0A14]",
+      "image_class": "w-full h-full object-cover transition-transform duration-300 group-hover:scale-105",
+      "wordmark_text": "GiftsDates",
+      "wordmark_class": "font-serif-luxe text-2xl font-bold tracking-tight bg-gradient-to-r from-[#FFF5EA] via-[#F3E5AB] to-[#D4AF37] bg-clip-text text-transparent flex items-center gap-2",
+      "tagline": "LUXURY DATING",
+      "tagline_class": "text-[9px] font-semibold tracking-[0.25em] text-[#D4AF37]/80 uppercase block -mt-1"
+    },
+    "auth_screen_lockup": {
+      "icon_size": "w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-[#D4AF37]/40 shadow-[0_0_35px_rgba(225,29,72,0.4)] p-1 bg-gradient-to-b from-[#2A1020] to-[#120810]",
+      "layout": "Flex column center with floating animated glow ring (`animate-pulse` soft magenta-gold blur behind icon)."
+    },
+    "favicon_and_badge": "Use logo asset URL in header nav, mobile bar, splash screen, and favicon links."
+  },
+  "typography": {
+    "heading_font": "Cormorant Garamond (class: .font-serif-luxe)",
+    "body_font": "Plus Jakarta Sans (class: font-sans)",
+    "mono_font": "JetBrains Mono (class: .font-mono-num)",
+    "scale": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] font-serif-luxe",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight font-serif-luxe",
+      "h3_card_header": "text-xl sm:text-2xl font-medium tracking-tight font-serif-luxe",
+      "h4_widget_header": "text-lg sm:text-xl font-medium tracking-tight font-serif-luxe",
+      "body_base": "text-base leading-relaxed text-[#D0C9D6]",
+      "body_sm": "text-sm leading-normal text-[#A59CB0]",
+      "overline_label": "text-xs font-semibold tracking-[0.2em] text-[#D4AF37] uppercase font-mono-num"
+    },
+    "forbidden_fonts": [
+      "Space Grotesk (Banned for dashboards)",
+      "Inter for Main Headings (Banned for luxury)"
+    ]
+  },
+  "colors_and_materials": {
+    "background_base": "#0D0B12 (Velvet Obsidian)",
+    "background_card_surface": "rgba(22, 16, 28, 0.75) with backdrop-blur-xl",
+    "background_card_solid": "#16101C",
+    "primary_gradient": "linear-gradient(135deg, #E11D48 0%, #BE123C 50%, #881337 100%)",
+    "primary_rose": "#E11D48",
+    "deep_wine_accent": "#580A20",
+    "gold_champagne_accent": "#D4AF37",
+    "gold_champagne_light": "#F3E5AB",
+    "coin_gold_amber": "#F59E0B",
+    "borders": {
+      "subtle_hairline": "border border-white/10",
+      "gold_hairline": "border border-[#D4AF37]/25 hover:border-[#D4AF37]/50 transition-colors",
+      "rose_glow_border": "border border-[#E11D48]/30 hover:border-[#E11D48]/60"
+    },
+    "shadows": {
+      "ambient_dark": "0 20px 50px -10px rgba(0,0,0,0.7)",
+      "rose_glow": "0 8px 30px -8px rgba(225,29,72,0.55)",
+      "gold_glow": "0 8px 30px -8px rgba(212,175,55,0.35)",
+      "card_hover": "0 16px 40px -10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(225,29,72,0.2)"
+    }
+  },
+  "surface_strategies": {
+    "aurora_bg": "background: radial-gradient(1200px 600px at 10% -20%, rgba(225,29,72,0.22), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(139,92,246,0.18), transparent 60%), radial-gradient(700px 500px at 50% 100%, rgba(212,175,55,0.14), transparent 60%), #0D0B12;",
+    "glass_card": "background: rgba(22, 16, 28, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(212,175,55,0.15);",
+    "glass_strong": "background: rgba(26, 18, 34, 0.88); backdrop-filter: blur(28px); border: 1px solid rgba(255, 255, 255, 0.12);",
+    "coin_chip": "background: linear-gradient(135deg, rgba(245,158,11,0.22), rgba(212,175,55,0.08)); border: 1px solid rgba(245,158,11,0.4); color: #FCD34D;"
+  },
+  "key_surfaces_guidance": {
+    "top_navigation": {
+      "height": "h-20",
+      "background": "bg-[#0D0B12]/80 backdrop-blur-2xl border-b border-[#D4AF37]/15 sticky top-0 z-50",
+      "elements": [
+        "Brand Logo Lockup with glossy heart-gift icon + Cormorant Garamond title + Gold subtitle label",
+        "Coin Balance chip with gold gradient pill, animated subtle shimmer & `+ Buy` CTA",
+        "Notifications Bell with red dot & glass dropdown overlay",
+        "Language Switcher with customized Shadcn Dropdown menu (no raw transparent select)",
+        "Profile Menu Avatar with gold hairline ring & Online status indicator"
+      ]
+    },
+    "landing_hero": {
+      "layout": "Asymmetric Bento Grid (col-span-12 lg:col-span-7 for text/CTAs + col-span-12 lg:col-span-5 for hero interactive element)",
+      "hero_image_overlay": "Gradient overlay bg-gradient-to-r from-[#0D0B12] via-[#0D0B12]/75 to-transparent (never flat heavy dark box)",
+      "cta_buttons": [
+        "Primary: 'Explore Members' (rose-btn gradient with gold hairline accent)",
+        "Secondary: 'Spin-to-Win Daily Coins' (gold champagne outlined button with coin icon)"
+      ]
+    },
+    "profile_browse_cards": {
+      "grid": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8",
+      "card_style": "glass-card rounded-2xl overflow-hidden relative group border border-[#D4AF37]/20 hover:border-[#E11D48]/50 transition-all duration-300 card-lift",
+      "image_aspect": "aspect-[3/4] object-cover w-full group-hover:scale-105 transition-transform duration-500",
+      "badge_overlays": "Verified check mark badge, Premium crown icon, Distance/Location tag",
+      "hover_actions": "Quick Like, Send Virtual Gift, View Full Profile buttons on glass overlay"
+    },
+    "chat_surface": {
+      "layout": "Full height split pane (contacts left, chat messages right)",
+      "bubbles": {
+        "sent": "bg-gradient-to-r from-[#E11D48] to-[#BE123C] text-white rounded-2xl rounded-tr-xs p-4 shadow-lg",
+        "received": "bg-[#1F1728] border border-white/10 text-[#F8FAFC] rounded-2xl rounded-tl-xs p-4",
+        "gift_bubble": "bg-gradient-to-r from-[#2B1704] to-[#422006] border border-[#F59E0B]/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.25)] flex items-center gap-4"
+      }
+    },
+    "dates_and_escrow": {
+      "theme": "VIP Concierge & Real-life Date Booking",
+      "cards": "Dark velvet containers with gold foil headers, status pills (Pending, Escrow Held, Taxi Gift Requested, Completed)",
+      "cta": "Gold button with lock/shield icon representing safe coin escrow"
+    },
+    "wallet_surface": {
+      "balance_card": "Luxurious metallic dark gradient card with embossed gold coins count & JetBrains Mono typography",
+      "topup_tiers": "Bento cards displaying coin packages (+ bonus badge, Stripe payment integration styling)"
+    }
+  },
+  "buttons_and_cta": {
+    "primary_rose_btn": "rose-btn px-6 py-3 rounded-xl font-medium text-white text-sm sm:text-base cursor-pointer inline-flex items-center justify-center gap-2 shadow-lg",
+    "secondary_gold_btn": "bg-transparent border border-[#D4AF37]/60 text-[#F3E5AB] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37] px-6 py-3 rounded-xl font-medium text-sm sm:text-base transition-all inline-flex items-center justify-center gap-2",
+    "ghost_btn": "text-[#A59CB0] hover:text-white hover:bg-white/5 px-4 py-2 rounded-lg text-sm transition-colors"
+  },
+  "motion_and_microinteractions": {
+    "lenis_smooth_scroll": "Recommended for landing scrollytelling",
+    "framer_motion_stagger": "Stagger child profiles entrance by 0.05s",
+    "hover_lift": "card-lift translate-y-[-4px]",
+    "reduced_motion": "Respect `@media (prefers-reduced-motion: reduce)`"
+  },
+  "image_urls": {
+    "romantic_hero_couples": [
+      {
+        "url": "https://images.unsplash.com/photo-1641128839860-e2d6057f99d2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByb21hbnRpYyUyMGNvdXBsZSUyMGVsZWdhbnQlMjBuaWdodCUyMGJsYWNrJTIwdGllfGVufDB8fHx8MTc8OTI2NDMzMnww&ixlib=rb-4.1.0&q=85",
+        "description": "Elegant couple in luxury night attire holding champagne glasses",
+        "recommended_section": "Hero landing banner or Premium membership highlight"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1711677371447-98a4f3759175?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjByb21hbnRpYyUyMGNvdXBsZSUyMGVsZWdhbnQlMjBuaWdodCUyMGJsYWNrJTIwdGllfGVufDB8fHx8MTc8OTI2NDMzMnww&ixlib=rb-4.1.0&q=85",
+        "description": "Sophisticated couple in romantic lighting",
+        "recommended_section": "Dates booking showcase"
+      }
+    ],
+    "luxury_champagne_lifestyle": [
+      {
+        "url": "https://images.unsplash.com/flagged/photo-1571046423953-30c053888852?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjaGFtcGFnbmUlMjBjb2NrdGFpbCUyMGdvbGQlMjBjbHViJTIwbmlnaHR8ZW58MHx8fHwxNzg5MjY0MzM4fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Gold goblet champagne bottle",
+        "recommended_section": "Virtual gifts and dates section background"
+      }
     ]
   },
   "instructions_to_main_agent": [
-    "Follow dark luxury dating & escrow theme with deep obsidian (#0D0B12) background, rose accent (#E11D48) and gold accents (#F59E0B).",
-    "Ensure all 8 languages (RU, EN, ES, FR, DE, PT, ZH, AR) are selectable from top nav with instant UI text updates and RTL support for Arabic.",
-    "Display wallet balances clearly: Coins, Escrow (1-day hold after date photo confirmation), and Withdrawable Earnings (Gifts after 30% fee + Escrow payouts).",
-    "Include demo photo verification step for dates to release escrow funds after 24h.",
-    "Include full interactive video call simulation with coin timer and gift sending during calls.",
-    "Add complete Stripe coin package purchase modal with instant coin credit.",
-    "Apply data-testid to every button, filter, input, modal action, and navigation link."
+    "Ensure all interactive components (buttons, inputs, cards, dropdowns, tabs) include `data-testid` attributes (kebab-case).",
+    "Replace all default drop-down selects with Shadcn styled select/dropdown-menu to prevent raw browser popovers.",
+    "Implement the provided logo image URL (https://customer-assets-cm19k8pv.emergentagent.net/job_gifts-meet/artifacts/ufi6kx23_ChatGPT%20Image%20Sep%2012%2C%202026%2C%2007_48_52%20PM.png) inside header nav logo, auth card header, and mobile bar.",
+    "Maintain the dark velvet background #0D0B12 with champagne gold borders (#D4AF37) and rose crimson (#E11D48) accents.",
+    "Use `.font-serif-luxe` (Cormorant Garamond) for primary headings to deliver an editorial luxury magazine feel.",
+    "Apply `.glass-strong` or `.glass` backdrops with explicit border colors to prevent content overlapping background bleed."
   ]
 }

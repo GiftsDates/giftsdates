@@ -20,13 +20,16 @@ export default function Nav() {
   );
 
   return (
-    <header className="sticky top-0 z-50 glass-strong border-b border-white/10">
+    <header className="sticky top-0 z-50 glass-strong border-b border-[#D4AF37]/15">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-        <Link to={user ? "/browse" : "/"} className="flex items-center gap-2" data-testid="nav-logo">
-          <div className="w-9 h-9 rounded-xl rose-btn flex items-center justify-center">
-            <Heart size={18} className="fill-white text-white" />
+        <Link to={user ? "/browse" : "/"} className="flex items-center gap-2.5 group" data-testid="nav-logo">
+          <div className="w-10 h-10 rounded-xl overflow-hidden gold-hairline bg-[#1A0A14] logo-glow">
+            <img src="/logo.png" alt="GiftsDates" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
           </div>
-          <span className="font-serif-luxe text-2xl tracking-tight">GiftsDates</span>
+          <div className="leading-none">
+            <span className="font-serif-luxe text-2xl font-bold tracking-tight gold-text">GiftsDates</span>
+            <span className="hidden sm:block text-[9px] font-semibold tracking-[0.25em] text-[#D4AF37]/80 uppercase mt-0.5">Luxury Dating</span>
+          </div>
         </Link>
 
         {user && (

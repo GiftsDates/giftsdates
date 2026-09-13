@@ -54,15 +54,15 @@ body {
     background:
       radial-gradient(1200px 600px at 10% -20%, rgba(225,29,72,0.20), transparent 60%),
       radial-gradient(900px 500px at 90% 10%, rgba(139,92,246,0.18), transparent 60%),
-      radial-gradient(700px 500px at 50% 100%, rgba(245,158,11,0.12), transparent 60%),
+      radial-gradient(700px 500px at 50% 100%, rgba(212,175,55,0.16), transparent 60%),
       #0D0B12;
 }
 
 .glass {
-    background: rgba(22,19,32,0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(22,16,28,0.62);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    border: 1px solid rgba(212,175,55,0.14);
 }
 .glass-strong {
     background: rgba(22,19,32,0.85);
@@ -109,3 +109,20 @@ body {
         display: contents !important;
     }
 }
+
+/* Luxury champagne-gold system */
+.gold-text {
+    background: linear-gradient(90deg, #FFF5EA, #F3E5AB 45%, #D4AF37);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gold-hairline { border: 1px solid rgba(212,175,55,0.30); }
+.gold-btn {
+    background: linear-gradient(135deg, rgba(212,175,55,0.16), rgba(212,175,55,0.05)) !important;
+    border: 1px solid rgba(212,175,55,0.55) !important;
+    color: #F3E5AB !important;
+    transition: background .25s ease, border-color .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.gold-btn:hover { background: rgba(212,175,55,0.18) !important; border-color: #D4AF37 !important; transform: translateY(-1px); box-shadow: 0 10px 30px -10px rgba(212,175,55,0.45); }
+@keyframes logo-glow { 0%,100% { box-shadow: 0 0 22px rgba(225,29,72,0.35), 0 0 40px rgba(212,175,55,0.14); } 50% { box-shadow: 0 0 30px rgba(225,29,72,0.5), 0 0 62px rgba(212,175,55,0.24); } }
+.logo-glow { animation: logo-glow 3.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .logo-glow, .float-in, .pulse-dot { animation: none; } }
