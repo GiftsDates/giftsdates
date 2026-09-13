@@ -75,6 +75,7 @@ export default function Landing() {
           <Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link>
           <Link to="/terms-of-use" data-testid="footer-use-link" className="hover:text-amber-300 transition-colors">Terms of Use</Link>
           <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
+          <Link to="/cookies" data-testid="footer-cookies-link" className="hover:text-amber-300 transition-colors">Cookie Notice</Link>
         </div>
       </footer>
     </div>
