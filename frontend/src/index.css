@@ -125,4 +125,6 @@ body {
 .gold-btn:hover { background: rgba(212,175,55,0.18) !important; border-color: #D4AF37 !important; transform: translateY(-1px); box-shadow: 0 10px 30px -10px rgba(212,175,55,0.45); }
 @keyframes logo-glow { 0%,100% { box-shadow: 0 0 22px rgba(225,29,72,0.35), 0 0 40px rgba(212,175,55,0.14); } 50% { box-shadow: 0 0 30px rgba(225,29,72,0.5), 0 0 62px rgba(212,175,55,0.24); } }
 .logo-glow { animation: logo-glow 3.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .logo-glow, .float-in, .pulse-dot { animation: none; } }
+@keyframes logo-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+.logo-pulse { animation: logo-pulse 1.6s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .logo-glow, .float-in, .pulse-dot, .logo-pulse { animation: none; } }

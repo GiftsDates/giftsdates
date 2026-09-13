@@ -87,7 +87,7 @@ export default function SupportChat() {
         <div data-testid="support-panel" className="fixed bottom-5 right-5 z-[60] w-[92vw] max-w-[380px] h-[70vh] max-h-[560px] rounded-2xl overflow-hidden shadow-2xl gold-hairline bg-[#120810] flex flex-col">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-[#1A0A14]">
-            <img src="/brand-logo.png" alt="" className="w-8 h-8 rounded-full object-cover" />
+            <img src="/brand-logo.png" alt="" className="w-8 h-8 object-contain" />
             <div className="flex-1">
               <div className="font-serif-luxe text-lg gold-text leading-none">GiftsDates Help</div>
               <div className="text-[11px] mt-1 flex items-center gap-1.5 text-slate-400">

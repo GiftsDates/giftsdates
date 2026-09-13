@@ -16,7 +16,7 @@ export default function Landing() {
       <div className="max-w-7xl mx-auto px-4 pt-20 pb-24 grid lg:grid-cols-2 gap-14 items-center relative">
         <div className="float-in">
           <span className="inline-flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-full bg-white/5 gold-hairline text-[#F3E5AB] text-xs font-semibold uppercase tracking-[0.2em]">
-            <img src="/brand-logo.png" alt="" className="w-6 h-6 rounded-full object-cover" /> GiftsDates · Luxury Dating
+            <img src="/brand-logo.png" alt="" className="w-6 h-6 object-contain logo-pulse" /> GiftsDates · Luxury Dating
           </span>
           <h1 className="mt-6 font-serif-luxe text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight">
             {t("hero_a", lang)}
@@ -70,7 +70,7 @@ export default function Landing() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2">
-              <img src="/brand-logo.png" alt="" className="w-8 h-8 rounded-full object-cover" />
+              <img src="/brand-logo.png" alt="" className="w-8 h-8 object-contain" />
               <span className="font-serif-luxe text-lg gold-text">GiftsDates</span>
             </div>
             <p className="mt-3 leading-relaxed">Luxury worldwide dating — gifts, dates &amp; protected funds.</p>
