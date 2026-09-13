@@ -66,23 +66,45 @@ export default function Landing() {
           </div>
         </div>
       </div>
-      <footer className="max-w-7xl mx-auto px-4 py-8 mt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-        <span>© {new Date().getFullYear()} GiftsDates · Luxury Dating</span>
-        <div className="flex gap-4">
-          <Link to="/about" data-testid="footer-about-link" className="hover:text-amber-300 transition-colors">About Us</Link>
-          <Link to="/help" data-testid="footer-help-link" className="hover:text-amber-300 transition-colors">Help</Link>
-          <Link to="/faq" data-testid="footer-faq-link" className="hover:text-amber-300 transition-colors">FAQ</Link>
-          <Link to="/safety" data-testid="footer-safety-link" className="hover:text-amber-300 transition-colors">Safety &amp; Transparency</Link>
-          <Link to="/dmca" data-testid="footer-dmca-link" className="hover:text-amber-300 transition-colors">DMCA</Link>
-          <Link to="/anti-trafficking" data-testid="footer-ats-link" className="hover:text-amber-300 transition-colors">Anti-Trafficking</Link>
-          <Link to="/complaints" data-testid="footer-complaints-link" className="hover:text-amber-300 transition-colors">Complaints</Link>
-          <Link to="/appeals" data-testid="footer-appeals-link" className="hover:text-amber-300 transition-colors">Appeals</Link>
-          <Link to="/fraud-prevention" data-testid="footer-fraud-link" className="hover:text-amber-300 transition-colors">Fraud &amp; Scam Prevention</Link>
-          <Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link>
-          <Link to="/terms-of-use" data-testid="footer-use-link" className="hover:text-amber-300 transition-colors">Terms of Use</Link>
-          <Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link>
-          <Link to="/cookies" data-testid="footer-cookies-link" className="hover:text-amber-300 transition-colors">Cookie Notice</Link>
+      <footer className="max-w-7xl mx-auto px-4 py-10 mt-6 border-t border-white/10 text-xs text-slate-500" data-testid="landing-footer">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2">
+              <img src="/brand-logo.png" alt="" className="w-8 h-8 rounded-full object-cover" />
+              <span className="font-serif-luxe text-lg gold-text">GiftsDates</span>
+            </div>
+            <p className="mt-3 leading-relaxed">Luxury worldwide dating — gifts, dates &amp; protected funds.</p>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400 mb-3">{t("footer_company", lang)}</div>
+            <ul className="space-y-2">
+              <li><Link to="/about" data-testid="footer-about-link" className="hover:text-amber-300 transition-colors">About Us</Link></li>
+              <li><Link to="/help" data-testid="footer-help-link" className="hover:text-amber-300 transition-colors">Help</Link></li>
+              <li><Link to="/faq" data-testid="footer-faq-link" className="hover:text-amber-300 transition-colors">FAQ</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400 mb-3">{t("footer_legal", lang)}</div>
+            <ul className="space-y-2">
+              <li><Link to="/terms" data-testid="footer-terms-link" className="hover:text-amber-300 transition-colors">Terms of Service</Link></li>
+              <li><Link to="/terms-of-use" data-testid="footer-use-link" className="hover:text-amber-300 transition-colors">Terms of Use</Link></li>
+              <li><Link to="/privacy" data-testid="footer-privacy-link" className="hover:text-amber-300 transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/cookies" data-testid="footer-cookies-link" className="hover:text-amber-300 transition-colors">Cookie Notice</Link></li>
+              <li><Link to="/dmca" data-testid="footer-dmca-link" className="hover:text-amber-300 transition-colors">DMCA</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400 mb-3">{t("footer_safety_col", lang)}</div>
+            <ul className="space-y-2">
+              <li><Link to="/safety" data-testid="footer-safety-link" className="hover:text-amber-300 transition-colors">Safety &amp; Transparency</Link></li>
+              <li><Link to="/fraud-prevention" data-testid="footer-fraud-link" className="hover:text-amber-300 transition-colors">Fraud &amp; Scam Prevention</Link></li>
+              <li><Link to="/anti-trafficking" data-testid="footer-ats-link" className="hover:text-amber-300 transition-colors">Anti-Trafficking</Link></li>
+              <li><Link to="/complaints" data-testid="footer-complaints-link" className="hover:text-amber-300 transition-colors">Complaints</Link></li>
+              <li><Link to="/appeals" data-testid="footer-appeals-link" className="hover:text-amber-300 transition-colors">Appeals</Link></li>
+            </ul>
+          </div>
         </div>
+        <div className="mt-8 pt-6 border-t border-white/10">© {new Date().getFullYear()} GiftsDates · Luxury Dating. All rights reserved.</div>
       </footer>
     </div>
   );

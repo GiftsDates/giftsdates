@@ -476,6 +476,10 @@ async def meta():
 class SupportChatReq(BaseModel):
     session_id: str
     message: str
+    lang: Optional[str] = "en"
+
+LANG_NAMES = {"ru": "Russian", "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+              "pt": "Portuguese", "zh": "Chinese", "hi": "Hindi", "bn": "Bengali", "ur": "Urdu", "ar": "Arabic"}
 
 class SupportTicketReq(BaseModel):
     name: Optional[str] = ""
@@ -506,10 +510,13 @@ async def support_chat(req: SupportChatReq):
     from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
     if len(_support_chats) > 500:
         _support_chats.clear()
-    chat = _support_chats.get(req.session_id)
+    lang_name = LANG_NAMES.get((req.lang or "en").lower(), "English")
+    cached = _support_chats.get(req.session_id)
+    chat = cached[0] if cached and cached[1] == lang_name else None
     if chat is None:
-        chat = LlmChat(api_key=key, session_id=req.session_id, system_message=SUPPORT_SYSTEM).with_model("gemini", "gemini-3-flash-preview")
-        _support_chats[req.session_id] = chat
+        sys_msg = SUPPORT_SYSTEM + f"\n\nAlways reply in {lang_name}, regardless of the language of the question."
+        chat = LlmChat(api_key=key, session_id=req.session_id, system_message=sys_msg).with_model("gemini", "gemini-3-flash-preview")
+        _support_chats[req.session_id] = (chat, lang_name)
 
     async def gen():
         try:
@@ -809,7 +816,17 @@ async def admin_block_from_report(rid: str, admin=Depends(get_admin)):
     r = await db.reports.find_one({"id": rid})
     if not r:
         raise HTTPException(404, "Not found")
-    until = (datetime.now(timezone.utc) + timedelta(days=BLOCK_DAYS)).isoformat()
+    new_until = datetime.now(timezone.utc) + timedelta(days=BLOCK_DAYS)
+    target = await db.users.find_one({"id": r["target_id"]}, {"_id": 0, "blocked_until": 1})
+    existing = target.get("blocked_until") if target else None
+    if existing:
+        try:
+            ex = datetime.fromisoformat(existing.replace("Z", "+00:00"))
+            if ex > new_until:
+                new_until = ex
+        except Exception:
+            pass
+    until = new_until.isoformat()
     await db.users.update_one({"id": r["target_id"]}, {"$set": {"blocked_until": until}})
     await db.reports.update_one({"id": rid}, {"$set": {"status": "resolved", "action": "blocked",
                                 "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin["id"]}})

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Headset, Clock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { api, API } from "../lib/api";
+import { useApp } from "../context/AppContext";
 
 const SESSION_KEY = "gd_support_session";
 const getSession = () => {
@@ -11,6 +12,7 @@ const getSession = () => {
 };
 
 export default function SupportChat() {
+  const { lang } = useApp();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("chat"); // chat | agent
   const [cfg, setCfg] = useState(null);
@@ -38,7 +40,7 @@ export default function SupportChat() {
       const res = await fetch(`${API}/support/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionRef.current, message: text }),
+        body: JSON.stringify({ session_id: sessionRef.current, message: text, lang }),
       });
       if (!res.ok || !res.body) throw new Error("stream failed");
       const reader = res.body.getReader();

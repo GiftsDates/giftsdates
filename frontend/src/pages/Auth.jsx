@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -18,12 +18,15 @@ export default function Auth() {
   const [mode, setMode] = useState(sp.get("register") ? "register" : "login");
   const [f, setF] = useState({ email: "", password: "", name: "", age: 25, gender: "female", interested_in: "male", orientation: "straight", city: "", country: "", bio: "", referral_code: sp.get("ref") || "" });
   const [busy, setBusy] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [pendingSpin] = useState(() => {
     try { const p = JSON.parse(localStorage.getItem("gd_spin_prize") || "null"); return p && localStorage.getItem("gd_spin_token") ? p : null; } catch { return null; }
   });
 
   const submit = async (e) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault();
+    if (mode === "register" && !agreed) { toast.error(t("consent_required", lang)); return; }
+    setBusy(true);
     try {
       if (mode === "login") { await login(f.email, f.password); toast.success(t("welcome_back", lang)); }
       else {
@@ -116,10 +119,20 @@ export default function Auth() {
                 <Textarea data-testid="auth-bio-input" rows={2} value={f.bio} onChange={e => setF({ ...f, bio: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
               <div><Label className="text-xs text-slate-400">{t("referral_optional", lang)}</Label>
                 <Input data-testid="auth-referral-input" value={f.referral_code} onChange={e => setF({ ...f, referral_code: e.target.value.toUpperCase() })} className="bg-white/5 border-white/10 mt-1 font-mono" /></div>
+              <label className="flex items-start gap-2.5 pt-1 cursor-pointer" data-testid="auth-consent-label">
+                <input data-testid="auth-consent-checkbox" type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-rose-500 shrink-0" />
+                <span className="text-xs text-slate-400 leading-relaxed">
+                  {t("consent_intro", lang)}{" "}
+                  <Link to="/terms" target="_blank" className="text-amber-300 hover:underline">{t("consent_terms", lang)}</Link>,{" "}
+                  <Link to="/terms-of-use" target="_blank" className="text-amber-300 hover:underline">{t("consent_use", lang)}</Link>,{" "}
+                  <Link to="/privacy" target="_blank" className="text-amber-300 hover:underline">{t("consent_privacy", lang)}</Link> {t("consent_and", lang)}{" "}
+                  <Link to="/cookies" target="_blank" className="text-amber-300 hover:underline">{t("consent_cookies", lang)}</Link>.
+                </span>
+              </label>
             </>
           )}
 
-          <Button data-testid="auth-submit-button" disabled={busy} type="submit" className="w-full rose-btn text-white border-0 h-11 mt-2">
+          <Button data-testid="auth-submit-button" disabled={busy || (mode === "register" && !agreed)} type="submit" className="w-full rose-btn text-white border-0 h-11 mt-2">
             {busy ? "…" : (mode === "login" ? t("login", lang) : t("register", lang))}
           </Button>
         </form>

@@ -436,6 +436,16 @@ const T = {
   chat_safety_notice: { ru: "⚠️ Ради вашей безопасности общайтесь и договаривайтесь о встречах только через нашу платформу. Если вы устроите приватную встречу вне платформы, мы не гарантируем вашу безопасность, а ваш аккаунт может быть заблокирован за нарушение.", en: "⚠️ For your safety, keep all contact and meeting arrangements on our platform. If you arrange to meet privately off-platform, we can't guarantee your safety and your account may be blocked for violation." },
   cancel_full_note: { ru: "Отмена вернёт вам все монеты за такси и свидание (🪙 {total})", en: "Cancelling refunds all taxi + date coins (🪙 {total}) to you" },
   cancel_full_warning: { ru: "Отменить свидание? Все монеты за такси и свидание (🪙 {total}) вернутся вам.", en: "Cancel this date? All taxi + date coins (🪙 {total}) will be refunded to you." },
+  consent_intro: { ru: "Мне есть 18 лет, и я принимаю", en: "I confirm I am 18+ and I agree to the" },
+  consent_and: { ru: "и", en: "and" },
+  consent_terms: { ru: "Условия обслуживания", en: "Terms of Service" },
+  consent_use: { ru: "Правила пользования", en: "Terms of Use" },
+  consent_privacy: { ru: "Политику конфиденциальности", en: "Privacy Policy" },
+  consent_cookies: { ru: "Уведомление о cookie", en: "Cookie Notice" },
+  consent_required: { ru: "Пожалуйста, примите Условия, Правила пользования, Политику конфиденциальности и Уведомление о cookie, чтобы продолжить.", en: "Please agree to the Terms, Terms of Use, Privacy Policy and Cookie Notice to continue." },
+  footer_company: { ru: "Компания", en: "Company" },
+  footer_legal: { ru: "Правовая информация", en: "Legal" },
+  footer_safety_col: { ru: "Безопасность", en: "Safety" },
 };
 
 export function t(key, lang) {

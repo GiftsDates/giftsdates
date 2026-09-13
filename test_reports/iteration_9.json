@@ -1,0 +1,27 @@
+{
+  "summary": "Iter9 full backend+frontend regression on new consent/footer/support-chatbot/report features. Backend: 16/16 pytest cases pass covering reports (auth, invalid reason, self, 404, dup 409, admin resolve/block, admin-only gating), support config, chat streaming (EN + RU cyrillic), ticket create/list/resolve, admin support settings PUT with invalid TZ 400. Frontend: All 13 legal routes render, landing footer groups (Company/Legal/Safety) present, /auth register submit is disabled until consent checkbox is checked, login mode has NO consent checkbox and submit is enabled, consent label contains links to /terms /terms-of-use /privacy /cookies, register with consent redirects to /verify. Support launcher opens panel, chat streams a relevant coins answer; language switcher to Russian causes chat to reply in Cyrillic to an English question; contact-agent form submits and shows 'Message received!' toast. Report flow: reporter opens /profile/{id}, sees profile-view-report-button, ReportModal opens, reason=spam + details submits successfully; second submit shows 'You've already reported this user' toast (409). Admin /admin exposes admin-tab-reports and admin-tab-support; Support tab shows hours-of-operation table, support-timezone input, welcome/offline fields, support-save button and tickets list.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter9.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend server.py support_chat (line 511): unbounded per-session cache with a coarse 'if len > 500: clear()' wipe throws away ALL active sessions when the 501st arrives, disrupting in-progress conversations. Use an LRU (functools with maxsize or OrderedDict.move_to_end) instead.",
+    "backend server.py support_chat (line 528-530): when the LLM stream raises mid-response, only a plain text apology is yielded but the exception is not surfaced to observability beyond a single logging.error; consider incrementing a metric and returning a distinct trailing sentinel so the FE can render a retry CTA rather than treating fallback text as a normal answer.",
+    "backend server.py create_support_ticket (line 535): endpoint is completely unauthenticated except for optional bearer parsing — no rate limit. A bot can flood support_tickets and notification collection. Add IP-based throttle or captcha.",
+    "backend server.py create_report (line 782): duplicate check uses only status:'open', so once resolved a reporter can spam the same target again immediately. Add a rolling 24h cooldown per (reporter,target).",
+    "backend server.py admin_block_from_report (line 814): silently overwrites any longer existing blocked_until with 7 days — a repeated offender's longer block can be shortened by a fresh report resolution. Use max(existing, new).",
+    "frontend SupportChat.jsx: session_id lives in component state; on page reload it changes so the per-session LLM context on backend is lost even though user perceives same chat. Persist in localStorage.",
+    "frontend Landing.jsx footer + legal pages: the many <Link>s in the footer are all rendered even for anonymous users; consider prefetching bundle-split legal pages to keep bundle size small."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter9.py"],
+  "success_rate": {"backend": "16/16 (100%)", "frontend": "all critical flows pass (consent gate, legal pages, report create/duplicate, support EN+RU stream, ticket submit, admin tabs)"},
+  "test_credentials": "admin@giftsdates.com / TestPass123!; UI creates ephemeral testreport*@example.com and testtarget*@example.com per run.",
+  "seed_data_creation": "Per-run TEST_iter9_* users registered via /api/auth/register; UI reporter/target pair created for report flow; support_settings PUT round-tripped with existing timezone to avoid drift.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend token key is 'gd_token' in localStorage (NOT 'token'). /api/auth/me returns user object with id at top-level. For creating a target profile use /api/auth/register directly then navigate the reporter to /profile/{that_id}. Chatbot uses gemini-3-flash-preview via EMERGENT_LLM_KEY and honors the 'lang' payload; Russian reply verified with Cyrillic-range heuristic. Duplicate-report enforcement is only against status='open' so admin resolve unlocks repeat reports — flagged as review comment.",
+  "rca of the issue": null
+}
