@@ -34,7 +34,7 @@ export default function Dates() {
     }
     setBusyId(b.id);
     try { const { data } = await api.post(`/dates/cancel/${b.id}`); await refreshUser(); await load(); toast.success(t("date_cancelled_partial", lang).replace("{r}", data.refund)); }
-    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    catch (e) { const d = e.response?.data?.detail; toast.error(d === "CANCEL_LOCKED_24H" ? t("cancel_locked_24h", lang) : d || t("failed", lang)); }
     finally { setBusyId(null); }
   };
 
@@ -49,7 +49,7 @@ export default function Dates() {
     if (!window.confirm(t("get_half_confirm", lang))) return;
     setBusyId(id);
     try { const { data } = await api.post(`/dates/release-half/${id}`); await refreshUser(); await load(); toast.success(t("half_released_toast", lang).replace("{n}", data.recipient)); }
-    catch (e) { toast.error(e.response?.data?.detail === "DATE_NOT_YET" ? t("date_not_yet", lang) : e.response?.data?.detail || t("failed", lang)); }
+    catch (e) { const d = e.response?.data?.detail; toast.error(d === "CLAIM_NOT_YET" ? t("claim_not_yet_24h", lang) : d === "DATE_NOT_YET" ? t("date_not_yet", lang) : d || t("failed", lang)); }
     finally { setBusyId(null); }
   };
 
@@ -149,23 +149,29 @@ export default function Dates() {
           </>
         )}
         {isIncoming && (b.status === "accepted" || (b.status === "confirmed" && !b.photo_url)) && (() => {
-          const passed = new Date(b.scheduled_at) <= new Date();
+          const sched = new Date(b.scheduled_at), nowD = new Date();
+          const metStarted = nowD >= sched;
+          const after24 = nowD >= new Date(sched.getTime() + 24 * 3600 * 1000);
           return (
             <div className="flex flex-col gap-1.5" data-testid={`date-confirm-block-${b.id}`}>
               <div className="flex gap-2 flex-wrap">
-                <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || !passed} title={!passed ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
-                <Button data-testid={`date-release-half-btn-${b.id}`} disabled={busyId===b.id || !passed} title={!passed ? t("date_not_yet", lang) : ""} onClick={() => releaseHalf(b.id)} variant="outline" className="gold-btn"><Coins size={14} className="me-1"/> {t("get_half_now", lang)}</Button>
+                <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || !metStarted} title={!metStarted ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
+                <Button data-testid={`date-release-half-btn-${b.id}`} disabled={busyId===b.id || !after24} title={!after24 ? t("claim_not_yet_24h", lang) : ""} onClick={() => releaseHalf(b.id)} variant="outline" className="gold-btn disabled:opacity-50"><Coins size={14} className="me-1"/> {t("get_half_now", lang)}</Button>
               </div>
               <span data-testid={`date-photo-note-${b.id}`} className="text-[11px] text-amber-300/85 flex items-start gap-1"><Info size={11} className="mt-0.5 shrink-0"/> {t("no_photo_half_note", lang)}</span>
             </div>
           );
         })()}
-        {!isIncoming && (b.status === "escrow" || b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (
-          <div className="flex flex-col items-start gap-1">
-            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b, false)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
-            <span data-testid={`date-cancel-note-${b.id}`} className="text-[11px] text-amber-300/80">⚠️ {t("cancel_note", lang).replace("{p}", pct)}</span>
-          </div>
-        )}
+        {!isIncoming && (b.status === "escrow" || b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (() => {
+          const sched = new Date(b.scheduled_at), lockEnd = new Date(sched.getTime() + 24 * 3600 * 1000), nowD = new Date();
+          const locked = nowD >= sched && nowD < lockEnd;
+          return (
+            <div className="flex flex-col items-start gap-1">
+              <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id || locked} title={locked ? t("cancel_locked_24h", lang) : ""} onClick={() => cancel(b, false)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 disabled:opacity-50">{t("cancel", lang)}</Button>
+              <span data-testid={`date-cancel-note-${b.id}`} className={`text-[11px] ${locked ? "text-rose-300/90" : "text-amber-300/80"}`}>{locked ? `🔒 ${t("cancel_locked_24h", lang)}` : `⚠️ ${t("cancel_note", lang).replace("{p}", pct)}`}</span>
+            </div>
+          );
+        })()}
         {isIncoming && (b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (
           <div className="flex flex-col items-start gap-1">
             <Button data-testid={`date-recipient-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b, true)} variant="outline" className="bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"><X size={14} className="me-1"/> {t("cancel_meeting", lang)}</Button>

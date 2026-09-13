@@ -991,7 +991,7 @@ async def release_half(bid: str, user=Depends(get_current_user)):
     try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
     except Exception: sched = now_dt
     if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
-    if now_dt < sched: raise HTTPException(400, "DATE_NOT_YET")
+    if now_dt < sched + timedelta(hours=24): raise HTTPException(400, "CLAIM_NOT_YET")
     coins = b["coins"]
     rec = int(round(coins * 0.5)); cut = coins - rec
     await db.users.update_one({"id": user["id"]}, {"$inc": {"escrow": -coins, "withdrawable": rec}})
@@ -1015,6 +1015,12 @@ async def cancel_date(bid: str, user=Depends(get_current_user)):
     base = b["coins"] + tcoins
     taxi_set = {"taxi.status": "refunded"} if taxi_sent else {}
     if user["id"] == b["from_id"]:
+        # inviter cannot cancel during the 24h window after the date has started
+        try: sched = datetime.fromisoformat(b["scheduled_at"].replace("Z", "+00:00"))
+        except Exception: sched = datetime.now(timezone.utc)
+        if sched.tzinfo is None: sched = sched.replace(tzinfo=timezone.utc)
+        now_dt = datetime.now(timezone.utc)
+        if sched <= now_dt < sched + timedelta(hours=24): raise HTTPException(400, "CANCEL_LOCKED_24H")
         # inviter cancels -> 50% of (booking + taxi) back to inviter, the rest compensates the invited person
         pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
         refund = int(round(base * pct)); kept = base - refund
