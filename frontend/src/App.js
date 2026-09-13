@@ -23,6 +23,9 @@ import Help from "@/pages/Help";
 import FAQ from "@/pages/FAQ";
 import Cookies from "@/pages/Cookies";
 import Safety from "@/pages/Safety";
+import DMCA from "@/pages/DMCA";
+import AntiTrafficking from "@/pages/AntiTrafficking";
+import Complaints from "@/pages/Complaints";
 import { PaymentSuccess, PaymentCancel } from "@/pages/PaymentResult";
 
 const Private = ({ children }) => {
@@ -54,6 +57,9 @@ const Shell = () => (
       <Route path="/faq" element={<FAQ />} />
       <Route path="/cookies" element={<Cookies />} />
       <Route path="/safety" element={<Safety />} />
+      <Route path="/dmca" element={<DMCA />} />
+      <Route path="/anti-trafficking" element={<AntiTrafficking />} />
+      <Route path="/complaints" element={<Complaints />} />
       <Route path="/admin" element={<Private><Admin /></Private>} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
       <Route path="/payment/cancel" element={<PaymentCancel />} />

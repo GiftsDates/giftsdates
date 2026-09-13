@@ -8,6 +8,8 @@ import { useApp } from "../context/AppContext";
 import { LANGUAGES, t } from "../lib/i18n";
 import { optLabel } from "../components/ProfileDetailsForm";
 import GiftModal from "../components/GiftModal";
+import { ReportModal } from "../components/ReportModal";
+import { Flag } from "lucide-react";
 import { presence, PresenceDot } from "../lib/presence";
 const FALLBACKS = ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
 import VideoCallModal from "../components/VideoCallModal";
@@ -74,6 +76,10 @@ export default function ProfileView() {
               <p className="text-slate-400 flex items-center gap-1 mt-1"><MapPin size={14} /> {p.city}, {p.country} {p.last_seen && <span className="ms-2 inline-flex items-center gap-1.5 text-xs" data-testid="profile-view-presence"><PresenceDot u={p} lang={lang} />{presence(p, lang).label}</span>}</p>
               {p.relationship_intent && <span className="inline-block mt-3 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-sm text-rose-200" data-testid="profile-view-intent">{optLabel("relationship_intent", p.relationship_intent, lang)}</span>}
             </div>
+
+            <button data-testid="profile-view-report-button" onClick={() => setModal("report")} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 transition-colors">
+              <Flag size={13} /> Report this user
+            </button>
 
             <div className="flex flex-wrap gap-2">
               <Button data-testid="profile-view-like-button" onClick={like} disabled={p.liked_by_me} className="rose-btn text-white border-0 h-11"><Heart size={16} className="me-1 fill-white" /> {p.liked_by_me ? t("liked", lang) : t("like", lang)}</Button>
@@ -149,6 +155,7 @@ export default function ProfileView() {
       <GiftModal open={modal === "gift"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <VideoCallModal open={modal === "video"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <DateBookingModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <ReportModal open={modal === "report"} onOpenChange={(v) => !v && setModal(null)} target={p} />
     </div>
   );
 }

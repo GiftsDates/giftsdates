@@ -338,6 +338,24 @@ class AdminVerifyReq(BaseModel):
     approve: bool
     reason: Optional[str] = ""
 
+REPORT_REASONS = {
+    "underage": "Underage user",
+    "illegal": "Illegal activity",
+    "harassment": "Abuse or harassment",
+    "hate": "Hate speech",
+    "nonconsensual": "Non-consensual / intimate images",
+    "impersonation": "Fake profile / impersonation",
+    "scam": "Scam or fraud",
+    "spam": "Spam or advertising",
+    "offplatform": "Pushing off-platform contact",
+    "other": "Other violation",
+}
+
+class ReportReq(BaseModel):
+    target_id: str
+    reason: str
+    details: Optional[str] = ""
+
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 def is_admin(u: dict) -> bool:
     return u.get("is_admin") is True or u["email"].lower() in ADMIN_EMAILS
@@ -599,6 +617,61 @@ async def admin_verify_identity(user_id: str, req: AdminVerifyReq, admin=Depends
     await notify(user_id, "identity", "Identity verified ✅" if req.approve else "Identity verification rejected",
                  "Your profile now has the verified badge." if req.approve else (req.reason or "Please upload clearer photos of your ID and selfie."), email=True)
     return {"status": status}
+
+@api.post("/reports")
+async def create_report(req: ReportReq, user=Depends(get_current_user)):
+    if req.reason not in REPORT_REASONS:
+        raise HTTPException(400, "INVALID_REASON")
+    if req.target_id == user["id"]:
+        raise HTTPException(400, "CANNOT_REPORT_SELF")
+    target = await db.users.find_one({"id": req.target_id}, {"_id": 0, "id": 1, "name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    now = datetime.now(timezone.utc).isoformat()
+    existing = await db.reports.find_one({"reporter_id": user["id"], "target_id": req.target_id, "status": "open"})
+    if existing:
+        raise HTTPException(409, "ALREADY_REPORTED")
+    await db.reports.insert_one({
+        "id": str(uuid.uuid4()), "reporter_id": user["id"], "reporter_name": user.get("name"),
+        "target_id": req.target_id, "target_name": target.get("name"),
+        "reason": req.reason, "reason_label": REPORT_REASONS[req.reason],
+        "details": (req.details or "").strip()[:2000], "status": "open", "created_at": now,
+    })
+    for a_email in ADMIN_EMAILS:
+        adm = await db.users.find_one({"email": a_email}, {"_id": 0, "id": 1})
+        if adm:
+            await notify(adm["id"], "report", "New user report 🚩",
+                         f"{user.get('name')} reported {target.get('name')} · {REPORT_REASONS[req.reason]}",
+                         {"target_id": req.target_id})
+    return {"reported": True}
+
+@api.get("/admin/reports")
+async def admin_reports(status: str = "open", admin=Depends(get_admin)):
+    q = {} if status == "all" else {"status": status}
+    reports = await db.reports.find(q, {"_id": 0}).sort("created_at", -1).to_list(300)
+    return reports
+
+@api.post("/admin/reports/{rid}/resolve")
+async def admin_resolve_report(rid: str, admin=Depends(get_admin)):
+    r = await db.reports.find_one({"id": rid})
+    if not r:
+        raise HTTPException(404, "Not found")
+    await db.reports.update_one({"id": rid}, {"$set": {"status": "resolved",
+                                "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin["id"]}})
+    return {"status": "resolved"}
+
+@api.post("/admin/reports/{rid}/block")
+async def admin_block_from_report(rid: str, admin=Depends(get_admin)):
+    r = await db.reports.find_one({"id": rid})
+    if not r:
+        raise HTTPException(404, "Not found")
+    until = (datetime.now(timezone.utc) + timedelta(days=BLOCK_DAYS)).isoformat()
+    await db.users.update_one({"id": r["target_id"]}, {"$set": {"blocked_until": until}})
+    await db.reports.update_one({"id": rid}, {"$set": {"status": "resolved", "action": "blocked",
+                                "resolved_at": datetime.now(timezone.utc).isoformat(), "resolved_by": admin["id"]}})
+    await notify(r["target_id"], "blocked", "Account blocked 🚫",
+                 f"Your account was blocked for {BLOCK_DAYS} days following a policy violation report.", {"until": until}, email=True)
+    return {"status": "resolved", "action": "blocked", "until": until}
 
 @api.get("/files/{path:path}")
 async def download(path: str, authorization: Optional[str] = Header(None), auth: Optional[str] = None):
