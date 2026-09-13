@@ -23,13 +23,13 @@ export default function Dates() {
   const load = () => api.get("/dates").then(r => setData(r.data));
   useEffect(() => { load(); const iv = setInterval(load, 15000); return () => clearInterval(iv); }, []);
 
-  const cancel = async (b) => {
-    const fullRefund = b.status === "confirmed" && b.taxi?.status === "sent";
-    if (fullRefund) {
-      const total = b.coins + (b.taxi?.coins || 0);
-      if (!window.confirm(t("cancel_full_warning", lang).replace("{total}", total))) return;
+  const cancel = async (b, isRecipient) => {
+    const tcoins = b.taxi?.status === "sent" ? (b.taxi?.coins || 0) : 0;
+    const base = b.coins + tcoins;
+    if (isRecipient) {
+      if (!window.confirm(t("cancel_recipient_warning", lang).replace("{total}", base))) return;
     } else {
-      const r = Math.round(b.coins * pct / 100), k = b.coins - r;
+      const r = Math.round(base * pct / 100), k = base - r;
       if (!window.confirm(t("cancel_warning", lang).replace("{p}", pct).replace("{r}", r).replace("{k}", k))) return;
     }
     setBusyId(b.id);
@@ -143,16 +143,16 @@ export default function Dates() {
         {isIncoming && b.status === "accepted" && (
           <Button data-testid={`date-confirm-btn-${b.id}`} disabled={busyId===b.id || new Date(b.scheduled_at) > new Date()} title={new Date(b.scheduled_at) > new Date() ? t("date_not_yet", lang) : ""} onClick={() => startUpload(b.id)} className="rose-btn text-white border-0"><Camera size={14} className="me-1"/> {t("confirm_photo", lang)}</Button>
         )}
-        {!isIncoming && (b.status === "escrow" || b.status === "accepted") && (
+        {!isIncoming && (b.status === "escrow" || b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (
           <div className="flex flex-col items-start gap-1">
-            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
+            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b, false)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
             <span data-testid={`date-cancel-note-${b.id}`} className="text-[11px] text-amber-300/80">⚠️ {t("cancel_note", lang).replace("{p}", pct)}</span>
           </div>
         )}
-        {!isIncoming && b.status === "confirmed" && b.taxi?.status === "sent" && (
+        {isIncoming && (b.status === "accepted" || (b.status === "confirmed" && b.auto_confirmed)) && (
           <div className="flex flex-col items-start gap-1">
-            <Button data-testid={`date-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("cancel", lang)}</Button>
-            <span data-testid={`date-cancel-full-note-${b.id}`} className="text-[11px] text-violet-300/90">↩️ {t("cancel_full_note", lang).replace("{total}", b.coins + (b.taxi?.coins || 0))}</span>
+            <Button data-testid={`date-recipient-cancel-btn-${b.id}`} disabled={busyId===b.id} onClick={() => cancel(b, true)} variant="outline" className="bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"><X size={14} className="me-1"/> {t("cancel_meeting", lang)}</Button>
+            <span data-testid={`date-recipient-cancel-note-${b.id}`} className="text-[11px] text-violet-300/90">↩️ {t("cancel_recipient_note", lang)}</span>
           </div>
         )}
       </div>

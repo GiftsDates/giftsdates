@@ -973,32 +973,35 @@ async def confirm_date(req: DateConfirmReq, user=Depends(get_current_user)):
 async def cancel_date(bid: str, user=Depends(get_current_user)):
     b = await db.date_bookings.find_one({"id": bid})
     if not b: raise HTTPException(404, "Not found")
-    if b["from_id"] != user["id"]: raise HTTPException(403, "Only booker can cancel")
+    if user["id"] not in (b["from_id"], b["to_id"]): raise HTTPException(403, "No access")
+    if b["status"] not in ("escrow", "accepted") and not (b["status"] == "confirmed" and b.get("auto_confirmed")):
+        raise HTTPException(400, "Cannot cancel")
     now = datetime.now(timezone.utc).isoformat()
     taxi = b.get("taxi") or {}
     taxi_sent = taxi.get("status") == "sent"
     tcoins = int(taxi.get("coins", 0)) if taxi_sent else 0
-    if b["status"] == "confirmed":
-        if not taxi_sent: raise HTTPException(400, "Cannot cancel")
-        total = b["coins"] + tcoins
-        await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": total}})
-        await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": -tcoins}})
-        await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": total, "compensation": 0, "cancelled_at": now, "taxi.status": "refunded"}})
-        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_taxi_refund", "from_id": b["to_id"], "to_id": user["id"], "cost": total, "net": total, "created_at": now})
-        for uid in (user["id"], b["to_id"]):
-            await notify(uid, "date_cancelled", "Date cancelled", f"The date at {b['venue']} was cancelled. All taxi + date coins (🪙 {total}) were refunded to {user['name']}.", {"booking_id": bid}, email=True)
-        return {"status": "cancelled", "refund": total, "compensation": 0}
-    if b["status"] not in ("escrow", "accepted"): raise HTTPException(400, "Cannot cancel")
-    pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
-    refund = int(round(b["coins"] * pct))
-    kept = b["coins"] - refund
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": refund}})
-    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept}})
-    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now}})
-    if kept:
-        await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_fee", "from_id": user["id"], "to_id": b["to_id"], "cost": kept, "net": kept, "created_at": now})
-        await notify(b["to_id"], "date_cancelled", "Date cancelled", f"{user['name']} cancelled the date at {b['venue']}. You received 🪙 {kept} as compensation.", {"booking_id": bid}, email=True)
-    return {"status": "cancelled", "refund": refund, "compensation": kept}
+    base = b["coins"] + tcoins
+    taxi_set = {"taxi.status": "refunded"} if taxi_sent else {}
+    if user["id"] == b["from_id"]:
+        # inviter cancels -> 50% of (booking + taxi) back to inviter, the rest compensates the invited person
+        pct = (await get_settings()).get("cancel_refund_pct", CANCEL_REFUND_PCT)
+        refund = int(round(base * pct)); kept = base - refund
+        await db.users.update_one({"id": b["from_id"]}, {"$inc": {"coins": refund}})
+        await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": kept - tcoins}})
+        await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": refund, "compensation": kept, "cancelled_at": now, "cancelled_by": "inviter", **taxi_set}})
+        if kept:
+            await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_fee", "from_id": b["from_id"], "to_id": b["to_id"], "cost": kept, "net": kept, "created_at": now})
+        for uid in (b["from_id"], b["to_id"]):
+            await notify(uid, "date_cancelled", "Date cancelled", f"The date at {b['venue']} was cancelled by the inviter. 50% (🪙 {refund}) refunded to the inviter; 🪙 {kept} kept by the invited person.", {"booking_id": bid}, email=True)
+        return {"status": "cancelled", "refund": refund, "compensation": kept}
+    # invited person cancels -> full refund to the inviter
+    await db.users.update_one({"id": b["from_id"]}, {"$inc": {"coins": base}})
+    await db.users.update_one({"id": b["to_id"]}, {"$inc": {"escrow": -b["coins"], "withdrawable": -tcoins}})
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"status": "cancelled", "refund": base, "compensation": 0, "cancelled_at": now, "cancelled_by": "invited", **taxi_set}})
+    await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "date_cancel_refund", "from_id": b["to_id"], "to_id": b["from_id"], "cost": base, "net": base, "created_at": now})
+    for uid in (b["from_id"], b["to_id"]):
+        await notify(uid, "date_cancelled", "Date cancelled", f"The date at {b['venue']} was cancelled by the invited person. All coins (🪙 {base}) were refunded to the inviter.", {"booking_id": bid}, email=True)
+    return {"status": "cancelled", "refund": base, "compensation": 0}
 
 # ---------- Taxi gift for a date ----------
 class TaxiRequestReq(BaseModel):
