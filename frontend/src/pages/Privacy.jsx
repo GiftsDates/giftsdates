@@ -28,7 +28,7 @@ export default function Privacy() {
         </S>
 
         <S id="controller" title="2. Data controller & contact">
-          <p>GiftsDates is the controller of your personal data. For any privacy request, question, or complaint, contact our Data Protection Officer at <span className="text-amber-300">privacy@giftsdates.com</span>. EU/UK users may also lodge a complaint with their local supervisory authority.</p>
+          <p>GiftsDates is the controller of your personal data. For any privacy request, question, or complaint, contact our Data Protection Officer at <span className="text-amber-300">help@GiftsDates.com</span>. EU/UK users may also lodge a complaint with their local supervisory authority.</p>
         </S>
 
         <S id="collect" title="3. Information we collect">
@@ -61,7 +61,7 @@ export default function Privacy() {
 
         <S id="rights" title="8. Your privacy rights">
           <p>Depending on where you live, you may have the right to: access your data; correct it; delete it; restrict or object to processing; port your data; withdraw consent at any time; and not be discriminated against for exercising these rights. California residents have rights to know, delete, correct and opt out under the CCPA/CPRA.</p>
-          <p>You can exercise many rights directly in the app (edit your profile, manage notification sound, cancel your subscription, or permanently delete your account under Profile → Account). For other requests, email <span className="text-amber-300">privacy@giftsdates.com</span>; we respond within the timeframes required by law (generally 30 days).</p>
+          <p>You can exercise many rights directly in the app (edit your profile, manage notification sound, cancel your subscription, or permanently delete your account under Profile → Account). For other requests, email <span className="text-amber-300">help@GiftsDates.com</span>; we respond within the timeframes required by law (generally 30 days).</p>
         </S>
 
         <S id="security" title="9. Security">
@@ -85,7 +85,7 @@ export default function Privacy() {
         </S>
 
         <S id="contact" title="14. Contact us">
-          <p>Questions or requests? Email <span className="text-amber-300">privacy@giftsdates.com</span>. We are committed to resolving concerns and honouring your rights under applicable law worldwide.</p>
+          <p>Questions or requests? Email <span className="text-amber-300">help@GiftsDates.com</span>. We are committed to resolving concerns and honouring your rights under applicable law worldwide.</p>
         </S>
 
         <div className="mt-12 pt-6 border-t border-white/10 text-xs text-slate-500">© {new Date().getFullYear()} GiftsDates · Luxury Dating. All rights reserved.</div>
