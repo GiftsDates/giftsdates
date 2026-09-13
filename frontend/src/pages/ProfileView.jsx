@@ -26,7 +26,7 @@ function Row({ label, value, testid }) {
 
 export default function ProfileView() {
   const { id } = useParams();
-  const { lang, user } = useApp();
+  const { lang, user, meta } = useApp();
   const nav = useNavigate();
   const [p, setP] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -82,6 +82,13 @@ export default function ProfileView() {
               <Button data-testid="profile-view-video-button" onClick={() => setModal("video")} variant="outline" className="h-11 bg-violet-500/10 border-violet-500/40 text-violet-300"><Video size={16} className="me-1" /> {t("video_call", lang)}{p.video_rate ? <span className="ms-2 font-mono-num" data-testid="profile-view-video-rate">🪙 {p.video_rate}/{t("minutes", lang)}</span> : null}</Button>
               <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> {t("book_date", lang)}{p.date_price ? <span className="ms-2 font-mono-num text-amber-300" data-testid="profile-view-date-price">🪙 {p.date_price}</span> : null}</Button>
             </div>
+
+            {meta?.gift_auto_match_coins && (
+              <div data-testid="profile-view-auto-match-note" className="flex items-start gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3 text-xs text-violet-200">
+                <Gift size={14} className="mt-0.5 shrink-0 text-violet-300" />
+                <span>{t("gift_auto_match_hint", lang).replace("{n}", meta.gift_auto_match_coins)}</span>
+              </div>
+            )}
 
             {p.bio && <div className="glass rounded-2xl p-5"><h3 className="font-serif-luxe text-xl mb-2">{t("about_me", lang)}</h3><p className="text-sm text-slate-300 whitespace-pre-line" data-testid="profile-view-bio">{p.bio}</p></div>}
 
