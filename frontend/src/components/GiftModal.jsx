@@ -70,7 +70,6 @@ export default function GiftModal({ open, onOpenChange, target, onSent, conversa
         <Textarea data-testid="gift-message-input" placeholder={t("personal_message", lang)} value={msg} onChange={e => setMsg(e.target.value)} className="bg-white/5 border-white/10 mt-2" rows={2} />
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span>{t("balance", lang)}: <span className="font-mono-num text-amber-300">🪙 {user?.coins}</span></span>
-          <span>{t("commission_to_recipient", lang)}</span>
         </div>
         {meta?.gift_auto_match_coins && <div data-testid="gift-auto-match-hint" className="text-[11px] text-violet-300">{t("gift_auto_match_hint", lang).replace("{n}", meta.gift_auto_match_coins)}</div>}
         <Button data-testid="gift-modal-send-button" disabled={!selected || busy} onClick={send} className="rose-btn text-white border-0 h-11">
