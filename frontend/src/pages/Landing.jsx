@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ShieldCheck, Video, Gift, ArrowRight } from "lucide-react";
+import { ShieldCheck, Video, Gift, ArrowRight, Info } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
@@ -13,6 +13,14 @@ export default function Landing() {
   const nav = useNavigate();
   return (
     <div className="aurora-bg min-h-[calc(100vh-4rem)] relative overflow-hidden">
+      <div className="sticky top-16 z-40" data-testid="landing-disclaimer">
+        <div className="bg-[#1A0A14]/95 backdrop-blur border-b border-[#D4AF37]/25">
+          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-start gap-2.5 text-[11px] sm:text-xs text-amber-100/90 leading-relaxed">
+            <Info size={15} className="text-amber-300 shrink-0 mt-0.5" />
+            <p>{t("landing_disclaimer", lang)}</p>
+          </div>
+        </div>
+      </div>
       <div className="max-w-7xl mx-auto px-4 pt-20 pb-24 grid lg:grid-cols-2 gap-14 items-center relative">
         <div className="float-in">
           <span className="inline-flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-full bg-white/5 gold-hairline text-[#F3E5AB] text-xs font-semibold uppercase tracking-[0.2em]">

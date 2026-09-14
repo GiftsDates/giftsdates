@@ -446,6 +446,7 @@ const T = {
   footer_company: { ru: "Компания", en: "Company" },
   footer_legal: { ru: "Правовая информация", en: "Legal" },
   footer_safety_col: { ru: "Безопасность", en: "Safety" },
+  landing_disclaimer: { ru: "Сайт предоставляет площадку для размещения рекламы и ответственности за её содержимое не несёт. В свою очередь, все посетители сайта, а также лица, связанные с этим видом деятельности, подтверждают, что достигли 18-летнего возраста.", en: "The site provides a platform for placing advertisements and bears no responsibility for their content. In turn, all visitors to the site, as well as persons involved in this activity, confirm that they are at least 18 years of age." },
 };
 
 export function t(key, lang) {
