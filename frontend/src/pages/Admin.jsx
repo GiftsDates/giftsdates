@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
-import { api } from "../lib/api";
+import { api, fileUrl } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import AdminPrices from "../components/AdminPrices";
@@ -15,15 +15,25 @@ export default function Admin() {
   const [accounts, setAccounts] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [reports, setReports] = useState([]);
+  const [dates, setDates] = useState([]);
   const [err, setErr] = useState(null);
 
   const load = async () => {
     try {
-      const [a, w, r] = await Promise.all([api.get("/admin/payout-accounts"), api.get("/admin/withdrawals"), api.get("/admin/reports")]);
-      setAccounts(a.data); setWithdrawals(w.data); setReports(r.data);
+      const [a, w, r, d] = await Promise.all([api.get("/admin/payout-accounts"), api.get("/admin/withdrawals"), api.get("/admin/reports"), api.get("/admin/dates")]);
+      setAccounts(a.data); setWithdrawals(w.data); setReports(r.data); setDates(d.data.dates || []);
     } catch (e) { setErr(e.response?.data?.detail || "Error"); }
   };
   useEffect(() => { load(); }, []);
+
+  const adVerify = async (id, approve) => {
+    try { await api.post(`/admin/dates/${id}/verify?approve=${approve}`); toast.success(approve ? "Approved" : "Rejected"); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+  };
+  const adResolve = async (id, action) => {
+    try { await api.post(`/admin/dates/${id}/resolve?action=${action}`); toast.success(action); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+  };
 
   const resolveReport = async (id, block) => {
     try {
@@ -50,7 +60,7 @@ export default function Admin() {
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
         <h1 className="font-serif-luxe text-4xl flex items-center gap-3"><ShieldCheck /> {t("admin", lang)}</h1>
         <div className="flex gap-2" data-testid="admin-tabs">
-          {["payouts", "verifications", "reports", "support", "prices"].map(k => (
+          {["payouts", "verifications", "reports", "dates", "support", "prices"].map(k => (
             <button key={k} data-testid={`admin-tab-${k}`} onClick={() => setTab(k)} className={`px-4 py-2 rounded-lg text-sm border transition-colors ${tab === k ? "bg-rose-500/15 text-rose-300 border-rose-500/30" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{t(k, lang) === k ? (k === "reports" ? "Reports" : k === "support" ? "Support" : k) : t(k, lang)}</button>
           ))}
         </div>
@@ -73,6 +83,30 @@ export default function Admin() {
             ))}
           </div>
         ) : <></>}
+        {tab === "dates" && (
+          <div className="glass rounded-2xl p-5" data-testid="admin-dates">
+            <h3 className="font-serif-luxe text-xl mb-3">Dates ({dates.length})</h3>
+            {dates.length === 0 ? <div className="text-sm text-slate-500 py-4 text-center">—</div> : dates.map(d => (
+              <div key={d.id} data-testid={`admin-date-${d.id}`} className="py-3 border-t border-white/5 flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[260px]">
+                  <div className="text-sm"><b>{d.inviter?.name}</b> → <b>{d.recipient?.name}</b> · <span className="uppercase text-rose-300">{d.status}</span></div>
+                  <div className="text-xs text-slate-400">{(d.chosen_idea || {}).name || "—"} · 🪙{d.total_hold || d.coins} · {(d.location || {}).venue || ""}</div>
+                  {d.report && <div className="text-xs text-rose-300 mt-1" data-testid={`admin-date-report-${d.id}`}>REPORT: {(d.report.reasons || []).join(", ")} — "{d.report.details}"{d.report.evidence ? ` · evidence: ${d.report.evidence}` : ""}</div>}
+                  {d.verification?.photo && <a href={fileUrl(d.verification.photo)} target="_blank" rel="noreferrer" className="text-xs text-emerald-300 underline" data-testid={`admin-date-photo-${d.id}`}>View verification photo ({d.verification.status})</a>}
+                </div>
+                {d.verification?.status === "pending" && <>
+                  <Button data-testid={`admin-date-approve-${d.id}`} size="sm" onClick={() => adVerify(d.id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0">Approve photo</Button>
+                  <Button data-testid={`admin-date-reject-${d.id}`} size="sm" variant="outline" onClick={() => adVerify(d.id, false)} className="bg-rose-500/10 border-rose-500/40 text-rose-300">Reject</Button>
+                </>}
+                {!["COMPLETED", "COMPLETED_AUTO", "REFUNDED", "CANCELLED", "CANCELLED_TRANSPORTATION"].includes(d.status) && <>
+                  <Button data-testid={`admin-date-payout-${d.id}`} size="sm" onClick={() => adResolve(d.id, "payout_recipient")} variant="outline" className="bg-white/5 border-white/15">Payout recipient</Button>
+                  <Button data-testid={`admin-date-refund-${d.id}`} size="sm" onClick={() => adResolve(d.id, "refund_inviter")} variant="outline" className="bg-white/5 border-white/15">Refund inviter</Button>
+                  <Button data-testid={`admin-date-split-${d.id}`} size="sm" onClick={() => adResolve(d.id, "split")} variant="outline" className="bg-white/5 border-white/15">50/25/25</Button>
+                </>}
+              </div>
+            ))}
+          </div>
+        )}
         {tab === "payouts" && <>
 
         <div className="glass rounded-2xl p-5" data-testid="admin-payout-accounts">
