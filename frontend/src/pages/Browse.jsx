@@ -10,6 +10,7 @@ import ProfileCard from "../components/ProfileCard";
 import GiftModal from "../components/GiftModal";
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
+import FeedBar from "../components/FeedBar";
 import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, GENDERS, ORIENTATIONS, optLabel } from "../components/ProfileDetailsForm";
@@ -97,6 +98,7 @@ export default function Browse() {
   return (
     <div className="aurora-bg min-h-[calc(100vh-4rem)]">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <FeedBar />
         <div className="glass rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[220px]">
             <label className="text-xs text-slate-400 flex items-center gap-1"><Search size={12}/> {t("search_placeholder", lang)}</label>

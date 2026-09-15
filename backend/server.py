@@ -1,5 +1,5 @@
 """GiftsDates backend — dating, wallet, gifts, escrow dates, video calls, Stripe."""
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File, Request, Form
 from fastapi.responses import Response, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -710,6 +710,67 @@ async def add_photo(file: UploadFile = File(...), user=Depends(get_current_user)
     photos.append(result["path"])
     await db.users.update_one({"id": user["id"]}, {"$set": {"photos": photos}})
     return {"photos": photos}
+
+# ---------- News feed (stories) ----------
+FEED_TEXT_COINS = 100
+FEED_VIDEO_COINS = 150
+FEED_MAX = 50
+FEED_VIDEO_MAX_BYTES = 40 * 1024 * 1024
+
+@api.get("/feed")
+async def get_feed(user=Depends(get_current_user)):
+    return await db.feed.find({}, {"_id": 0}).sort("created_at", -1).to_list(FEED_MAX)
+
+@api.post("/feed")
+async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(None), user=Depends(get_current_user)):
+    text = (text or "").strip()[:100]
+    has_video = video is not None
+    if not text and not has_video:
+        raise HTTPException(400, "EMPTY_POST")
+    cost = (FEED_TEXT_COINS if text else 0) + (FEED_VIDEO_COINS if has_video else 0)
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "coins": 1, "photos": 1, "name": 1})
+    if (fresh.get("coins") or 0) < cost:
+        raise HTTPException(400, "INSUFFICIENT_COINS")
+    video_path = None
+    if has_video:
+        data = await video.read()
+        if len(data) > FEED_VIDEO_MAX_BYTES:
+            raise HTTPException(400, "VIDEO_TOO_LARGE")
+        ct = video.content_type or "video/mp4"
+        if not ct.startswith("video/"):
+            raise HTTPException(400, "NOT_VIDEO")
+        ext = (video.filename.split(".")[-1] if video.filename and "." in video.filename else "mp4").lower()
+        path = f"{APP_NAME}/feed/{user['id']}/{uuid.uuid4()}.{ext}"
+        result = put_object(path, data, ct)
+        video_path = result["path"]
+        await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": video_path, "user_id": user["id"],
+                                   "content_type": ct, "size": result["size"], "is_deleted": False, "private": False,
+                                   "created_at": datetime.now(timezone.utc).isoformat()})
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -cost}})
+    now = datetime.now(timezone.utc).isoformat()
+    photos = fresh.get("photos") or []
+    doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_name": fresh.get("name"),
+           "user_avatar": photos[0] if photos else None, "text": text or None,
+           "video_path": video_path, "has_video": has_video, "created_at": now}
+    await db.feed.insert_one({**doc})
+    await db.transactions.insert_one({"id": str(uuid.uuid4()), "user_id": user["id"], "type": "feed_post",
+                                      "coins": -cost, "created_at": now})
+    extras = await db.feed.find({}, {"_id": 0, "id": 1}).sort("created_at", -1).skip(FEED_MAX).to_list(1000)
+    if extras:
+        await db.feed.delete_many({"id": {"$in": [e["id"] for e in extras]}})
+    return {"posted": True, "cost": cost, "item": doc}
+
+@api.delete("/feed/{fid}")
+async def delete_feed(fid: str, user=Depends(get_current_user)):
+    it = await db.feed.find_one({"id": fid})
+    if not it:
+        raise HTTPException(404, "Not found")
+    if it["user_id"] != user["id"] and not is_admin(user):
+        raise HTTPException(403, "Forbidden")
+    await db.feed.delete_one({"id": fid})
+    if it.get("video_path"):
+        await db.files.update_one({"storage_path": it["video_path"]}, {"$set": {"is_deleted": True}})
+    return {"deleted": True}
 
 class PhotoReq(BaseModel):
     path: str
