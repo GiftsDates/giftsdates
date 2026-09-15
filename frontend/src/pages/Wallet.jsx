@@ -19,7 +19,7 @@ export default function Wallet() {
   const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3, coins_per_usd: 10, min_withdraw_usd: 50 });
   const [topOpen, setTopOpen] = useState(false);
   const [wdOpen, setWdOpen] = useState(false);
-  const [premOpen, setPremOpen] = useState(sp.get("premium") === "1");
+  const [premOpen, setPremOpen] = useState(sp.get("premium") === "1" || sp.get("vip") === "1");
   const [wdForm, setWdForm] = useState({ amount: 100 });
   const [customUsd, setCustomUsd] = useState(20);
   const cc = meta?.custom_coins || { per_usd: 10, bonus_pct: 2, min_usd: 1 };
@@ -164,6 +164,17 @@ export default function Wallet() {
             </ul>
             <Button data-testid="premium-subscribe-confirm" onClick={() => buy("premium_monthly")} className="rose-btn text-white border-0 w-full h-11">{t("buy_premium", lang)}</Button>
             <p data-testid="premium-autorenew-note" className="text-[11px] text-slate-400 leading-snug">{t("premium_autorenew_note", lang)}</p>
+          </div>
+          <div className="glass rounded-xl p-5 text-center space-y-3 border border-rose-500/40 mt-3" data-testid="vip-purchase-card">
+            <Crown size={40} className="mx-auto text-rose-400"/>
+            <div className="font-serif-luxe text-2xl gold-text">VIP · ${meta?.vip?.amount || 49.99}<span className="text-sm text-slate-400"> {t("per_month", lang)}</span></div>
+            <ul className="text-sm text-slate-300 text-left space-y-1">
+              <li>✓ Все возможности Premium</li>
+              <li>✓ Приватный VIP-раздел услуг</li>
+              <li>✓ Цены, места и календарь бронирования</li>
+            </ul>
+            <Button data-testid="vip-subscribe-confirm" onClick={() => buy("vip_monthly")} className="rose-btn text-white border-0 w-full h-11">Оформить VIP · ${meta?.vip?.amount || 49.99}</Button>
+            <p className="text-[11px] text-slate-400 leading-snug">Автопродление ежемесячно до отмены.</p>
           </div>
         </DialogContent>
       </Dialog>

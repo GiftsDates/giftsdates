@@ -9,6 +9,7 @@ import { LANGUAGES, t } from "../lib/i18n";
 import { optLabel } from "../components/ProfileDetailsForm";
 import GiftModal from "../components/GiftModal";
 import { ReportModal } from "../components/ReportModal";
+import VipSection from "../components/VipSection";
 import { Flag } from "lucide-react";
 import { presence, PresenceDot } from "../lib/presence";
 const FALLBACKS = ["https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1601117830731-1a36c879f666?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
@@ -160,6 +161,7 @@ export default function ProfileView() {
       <VideoCallModal open={modal === "video"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <DateBookingModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <ReportModal open={modal === "report"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <div className="max-w-5xl mx-auto px-4"><VipSection userId={p.id} name={p.name} /></div>
     </div>
   );
 }

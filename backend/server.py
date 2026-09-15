@@ -73,6 +73,17 @@ COINS_PER_USD = 10  # payout rate: 10 coins = $1
 MIN_WITHDRAW_USD = 50.0
 CANCEL_REFUND_PCT = 0.5  # booker gets 50% back when cancelling a date; the rest compensates the recipient
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
+VIP_PACKAGE = {"lookup": "vip_monthly", "amount": 49.99, "name": "GiftsDates VIP Monthly"}
+VIP_SERVICES = {
+    "basic": ["Минет в презервативе", "Поцелуи с языком", "Секс анальный", "Секс вагинальный", "Секс групповой", "Секс лесбийский"],
+    "extra": ["Куннилингус", "Минет без резинки", "Минет глубокий", "Окончание в рот", "Окончание на грудь", "Окончание на лицо", "Работаю с девственниками", "Ролевые игры", "Секс игрушки", "Секс по телефону", "Услуги семейной паре", "Фейсситтинг", "Фото/видео съемка", "Эскорт"],
+    "massage": ["Массаж Ветка сакуры", "Массаж классический", "Массаж профессиональный", "Массаж расслабляющий", "Массаж тайский", "Массаж точечный", "Массаж урологический", "Массаж эротический"],
+    "striptease": ["Лесби откровенное", "Лесби-шоу легкое", "Стриптиз не профи", "Стриптиз профи"],
+    "bdsm": ["Бандаж", "Госпожа", "Легкая доминация", "Порка", "Рабыня", "Трамплинг", "Фетиш", "Эротические игры"],
+    "extreme": ["Анилингус делаю", "Золотой дождь выдача", "Золотой дождь прием", "Копро выдача", "Страпон", "Фистинг анальный", "Фистинг вагинальный"],
+}
+VIP_SERVICE_SET = {s for arr in VIP_SERVICES.values() for s in arr}
+VIP_PLACES = ["own", "your", "other"]
 GIFT_CATALOG = [
     {"id": "rose",       "name_key": "gift_rose",       "icon": "🌹", "cost": 50},
     {"id": "chocolate",  "name_key": "gift_chocolate",  "icon": "🍫", "cost": 100},
@@ -199,6 +210,12 @@ def is_premium(u: dict) -> bool:
     pu = u.get("premium_until")
     if not pu: return False
     try: return datetime.fromisoformat(pu.replace("Z", "+00:00")) > datetime.now(timezone.utc)
+    except Exception: return False
+
+def is_vip(u: dict) -> bool:
+    vu = u.get("vip_until")
+    if not vu: return False
+    try: return datetime.fromisoformat(vu.replace("Z", "+00:00")) > datetime.now(timezone.utc)
     except Exception: return False
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
@@ -459,6 +476,7 @@ async def meta():
         "gifts": s["gifts"],
         "coin_packages": s["coin_packages"],
         "premium": {**PREMIUM_PACKAGE, "amount": s["premium_amount"]},
+        "vip": {**VIP_PACKAGE},
         "video_rate": s["video_rate"],
         "gift_commission": s["commission"],
         "date_min_coins": s["date_min_coins"],
@@ -654,6 +672,8 @@ async def login(req: LoginReq):
 
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
+    user["is_premium"] = is_premium(user)
+    user["is_vip"] = is_vip(user)
     return user
 
 @api.patch("/auth/me")
@@ -1615,6 +1635,69 @@ async def admin_resolve_ticket(tid: str, admin=Depends(get_admin)):
 
 
 # ---------- Stripe checkout ----------
+class VipProfileReq(BaseModel):
+    services: List[str] = []
+    price_hour: int = 0
+    price_2h: int = 0
+    price_3h: int = 0
+    price_night: int = 0
+    places: List[str] = []
+    client_wants: str = ""
+    availability: List[dict] = []
+
+@api.get("/vip/catalog")
+async def vip_catalog(user=Depends(get_current_user)):
+    return {"services": VIP_SERVICES, "places": VIP_PLACES}
+
+@api.put("/vip/profile")
+async def put_vip_profile(req: VipProfileReq, user=Depends(get_current_user)):
+    if not is_vip(user):
+        raise HTTPException(403, "VIP_REQUIRED")
+    services = [s for s in req.services if s in VIP_SERVICE_SET][:80]
+    places = [p for p in req.places if p in VIP_PLACES]
+    slots = []
+    for a in (req.availability or [])[:300]:
+        d = str(a.get("date", ""))[:10]; f = str(a.get("from", "")); tt = str(a.get("to", ""))
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) and re.fullmatch(r"\d{2}:\d{2}", f) and re.fullmatch(r"\d{2}:\d{2}", tt) and f < tt:
+            slots.append({"date": d, "from": f, "to": tt})
+    slots.sort(key=lambda x: (x["date"], x["from"]))
+    vip = {"services": services,
+           "prices": {"hour": max(0, req.price_hour), "h2": max(0, req.price_2h), "h3": max(0, req.price_3h), "night": max(0, req.price_night)},
+           "places": places, "client_wants": (req.client_wants or "").strip()[:1000],
+           "availability": slots, "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.users.update_one({"id": user["id"]}, {"$set": {"vip": vip}})
+    return {"saved": True, "vip": vip}
+
+@api.get("/vip/profile/{uid}")
+async def get_vip_profile(uid: str, user=Depends(get_current_user)):
+    owner = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "name": 1, "city": 1, "vip": 1})
+    if not owner or not owner.get("vip"):
+        raise HTTPException(404, "No VIP profile")
+    if uid == user["id"] or is_premium(user):
+        return {"locked": False, "user_id": uid, "name": owner.get("name"), "city": owner.get("city"), "vip": owner["vip"], "is_owner": uid == user["id"]}
+    return {"locked": True}
+
+@api.post("/vip/book")
+async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
+    if req.coins <= 0:
+        raise HTTPException(400, "Invalid amount")
+    if user["coins"] < req.coins:
+        raise HTTPException(400, "Insufficient coins")
+    target = await db.users.find_one({"id": req.target_id})
+    if not target:
+        raise HTTPException(404, "Recipient not found")
+    now = datetime.now(timezone.utc).isoformat()
+    bid = str(uuid.uuid4())
+    doc = {"id": bid, "from_id": user["id"], "to_id": req.target_id, "venue": req.venue or "VIP", "city": req.city or "-",
+           "address": (req.address or "").strip(), "country": (req.country or "").strip(), "scheduled_at": req.scheduled_at,
+           "coins": req.coins, "status": "escrow", "photo_url": None, "release_at": None, "vip": True, "created_at": now}
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -req.coins}})
+    await db.users.update_one({"id": req.target_id}, {"$inc": {"escrow": req.coins}})
+    await db.date_bookings.insert_one(doc)
+    await notify(req.target_id, "date_request", "New VIP booking 📅", f"{user['name']} booked you · 🪙 {req.coins}. Manage in Dates.", {"booking_id": bid}, email=True)
+    return {"booking_id": bid, "status": "escrow"}
+
+# ---------- Stripe checkout ----------
 class AutoRenewReq(BaseModel):
     enabled: bool
 
@@ -1642,6 +1725,9 @@ async def create_checkout(req: CheckoutReq, user=Depends(get_current_user)):
     if req.package_id == "premium_monthly":
         pkg_name = PREMIUM_PACKAGE["name"]; amount = int(round(s["premium_amount"] * 100)); mode = "payment"
         metadata = {"user_id": user["id"], "package_id": "premium_monthly", "type": "premium"}
+    elif req.package_id == "vip_monthly":
+        pkg_name = VIP_PACKAGE["name"]; amount = int(round(VIP_PACKAGE["amount"] * 100)); mode = "payment"
+        metadata = {"user_id": user["id"], "package_id": "vip_monthly", "type": "vip"}
     elif req.package_id == "custom":
         usd = round(float(req.usd_amount or 0), 2)
         if usd < s["custom_min_usd"]: raise HTTPException(400, f"Minimum ${s['custom_min_usd']}")
@@ -1700,6 +1786,18 @@ async def _fulfill(session_id: str, meta: dict):
             except Exception: pass
         new_until = (start + timedelta(days=30)).isoformat()
         await db.users.update_one({"id": user_id}, {"$set": {"premium_until": new_until, "premium_auto_renew": True}})
+    elif meta.get("type") == "vip":
+        u = await db.users.find_one({"id": user_id})
+        def _ext(cur):
+            s0 = datetime.now(timezone.utc)
+            if cur:
+                try:
+                    c = datetime.fromisoformat(cur.replace("Z", "+00:00"))
+                    if c > s0: s0 = c
+                except Exception: pass
+            return (s0 + timedelta(days=30)).isoformat()
+        await db.users.update_one({"id": user_id}, {"$set": {
+            "premium_until": _ext(u.get("premium_until")), "vip_until": _ext(u.get("vip_until")), "premium_auto_renew": True}})
     await db.payment_transactions.update_one({"session_id": session_id}, {"$set": {"fulfilled": True}})
 
 @api.get("/payments/status/{session_id}")

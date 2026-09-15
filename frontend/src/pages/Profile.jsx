@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import PhotoGrid from "../components/PhotoGrid";
 import ProfileDetailsForm from "../components/ProfileDetailsForm";
 import AvailabilityCalendar from "../components/AvailabilityCalendar";
+import VipEditor from "../components/VipEditor";
 
 const DETAIL_KEYS = ["relationship_intent", "orientation", "hobbies", "height", "weight", "languages_spoken", "job_title", "income", "income_custom", "kids", "smoking", "drinking", "religion", "bust_size", "penis_size", "date_price", "video_rate", "availability", "availability_time", "availability_slots"];
 
@@ -97,6 +98,8 @@ export default function Profile() {
         <div className="sticky bottom-4">
           <Button data-testid="profile-save-button" disabled={busy} onClick={save} className="rose-btn text-white border-0 h-12 w-full shadow-xl">{t("save", lang)}</Button>
         </div>
+
+        <VipEditor />
 
         <div className="glass rounded-2xl p-6 mt-6 space-y-4">
           <h3 className="font-serif-luxe text-xl gold-text">{t("account", lang)}</h3>
