@@ -718,17 +718,20 @@ FEED_MAX = 50
 FEED_VIDEO_MAX_BYTES = 120 * 1024 * 1024
 
 @api.get("/feed")
-async def get_feed(user=Depends(get_current_user)):
-    return await db.feed.find({}, {"_id": 0}).sort("created_at", -1).to_list(FEED_MAX)
+async def get_feed(country: Optional[str] = None, city: Optional[str] = None, user=Depends(get_current_user)):
+    q = {}
+    if country: q["user_country"] = {"$regex": country, "$options": "i"}
+    if city: q["user_city"] = {"$regex": city, "$options": "i"}
+    return await db.feed.find(q, {"_id": 0}).sort("created_at", -1).to_list(FEED_MAX)
 
 @api.post("/feed")
 async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(None), user=Depends(get_current_user)):
-    text = (text or "").strip()[:50]
+    text = (text or "").strip()[:80]
     has_video = video is not None
     if not text and not has_video:
         raise HTTPException(400, "EMPTY_POST")
     cost = (FEED_TEXT_COINS if text else 0) + (FEED_VIDEO_COINS if has_video else 0)
-    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "coins": 1, "photos": 1, "name": 1})
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "coins": 1, "photos": 1, "name": 1, "age": 1, "city": 1, "country": 1, "gender": 1})
     if (fresh.get("coins") or 0) < cost:
         raise HTTPException(400, "INSUFFICIENT_COINS")
     video_path = None
@@ -751,6 +754,8 @@ async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(N
     photos = fresh.get("photos") or []
     doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_name": fresh.get("name"),
            "user_avatar": photos[0] if photos else None, "text": text or None,
+           "user_age": fresh.get("age"), "user_city": fresh.get("city"), "user_country": fresh.get("country"),
+           "gender": fresh.get("gender"),
            "video_path": video_path, "has_video": has_video, "created_at": now}
     await db.feed.insert_one({**doc})
     await db.transactions.insert_one({"id": str(uuid.uuid4()), "user_id": user["id"], "type": "feed_post",

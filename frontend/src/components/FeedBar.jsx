@@ -9,7 +9,7 @@ import { api, fileUrl } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
-const MAX_CHARS = 50;
+const MAX_CHARS = 80;
 const MAX_SECONDS = 60;
 const FB_W = "https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=200";
 const FB_M = "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=200";
@@ -26,7 +26,8 @@ const Circle = ({ it, onClick }) => (
         {it.has_video && <span className="absolute bottom-0 right-0 bg-red-600 rounded-full p-0.5"><Play size={9} className="text-white fill-white" /></span>}
       </div>
     </div>
-    <span className="text-[10px] text-slate-400 truncate w-full text-center">{it.user_name}</span>
+    <span className="text-[10px] text-slate-400 truncate w-full text-center">{it.user_name}{it.user_age ? `, ${it.user_age}` : ""}</span>
+    {(it.user_city || it.user_country) && <span className="text-[9px] text-slate-500 truncate w-full text-center">{[it.user_city, it.user_country].filter(Boolean).join(", ")}</span>}
   </button>
 );
 
@@ -40,6 +41,8 @@ export default function FeedBar() {
   const [videoFile, setVideoFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
+  const [fCountry, setFCountry] = useState("");
+  const [fCity, setFCity] = useState("");
   // recorder
   const [recOpen, setRecOpen] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -50,8 +53,13 @@ export default function FeedBar() {
   const previewRef = useRef(null);
   const timerRef = useRef(null);
 
-  const load = () => api.get("/feed").then((r) => setItems(r.data)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    const params = {};
+    if (fCountry.trim()) params.country = fCountry.trim();
+    if (fCity.trim()) params.city = fCity.trim();
+    return api.get("/feed", { params }).then((r) => setItems(r.data)).catch(() => {});
+  };
+  useEffect(() => { const id = setTimeout(load, 300); return () => clearTimeout(id); }, [fCountry, fCity]); // eslint-disable-line
   useEffect(() => () => closeRecorder(), []); // eslint-disable-line
 
   const cost = (text.trim() ? 100 : 0) + (videoFile ? 150 : 0);
@@ -148,9 +156,13 @@ export default function FeedBar() {
 
   return (
     <div className="glass rounded-2xl p-4 mb-6" data-testid="feed-bar">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 className="font-serif-luxe text-lg gold-text">{t("feed_title", lang)}</h2>
-        <span className="text-[11px] text-slate-500">{t("feed_hint", lang)}</span>
+        <div className="flex items-center gap-2">
+          <input data-testid="feed-filter-country" value={fCountry} onChange={(e) => setFCountry(e.target.value)} placeholder={t("feed_filter_country", lang)} className="w-28 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-amber-400/40" />
+          <input data-testid="feed-filter-city" value={fCity} onChange={(e) => setFCity(e.target.value)} placeholder={t("feed_filter_city", lang)} className="w-28 bg-white/5 border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-amber-400/40" />
+          {(fCountry || fCity) && <button data-testid="feed-filter-clear" onClick={() => { setFCountry(""); setFCity(""); }} className="text-[11px] text-slate-400 hover:text-amber-300">{t("feed_filter_clear", lang)}</button>}
+        </div>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1">
         <button data-testid="feed-add-button" onClick={() => setCompose(true)} className="flex flex-col items-center gap-1.5 shrink-0 w-[92px]">
