@@ -9,6 +9,7 @@ from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from date_ideas_catalog import build_catalog
 import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets, httpx
 
 ROOT_DIR = Path(__file__).parent
@@ -232,6 +233,17 @@ async def spend_coins(uid: str, amount: int):
     from_coins = min(coins, amount)
     from_wd = amount - from_coins
     await db.users.update_one({"id": uid}, {"$inc": {"coins": -from_coins, "withdrawable": -from_wd}})
+
+async def record_txn(user_id: str, ttype: str, amount: int, date_id: str | None = None, description: str = "", status: str = "completed"):
+    """Append a coin ledger entry. amount is signed (negative=debit). balance = spendable (coins+withdrawable)."""
+    u = await db.users.find_one({"id": user_id}, {"_id": 0, "coins": 1, "withdrawable": 1})
+    before = int((u.get("coins") or 0) + (u.get("withdrawable") or 0)) if u else 0
+    after = before + int(amount)
+    doc = {"id": str(uuid.uuid4()), "user_id": user_id, "date_id": date_id, "type": ttype,
+           "amount": int(amount), "balance_before": before, "balance_after": after,
+           "status": status, "description": description, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.coin_transactions.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
 
 def extend_until(cur, days=30):
     s = datetime.now(timezone.utc)
@@ -491,6 +503,10 @@ async def _startup():
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.spins.create_index("token", unique=True)
     await db.spins.create_index([("ip", 1), ("used", 1)])
+    await db.date_ideas.create_index("id", unique=True)
+    await db.coin_transactions.create_index([("user_id", 1), ("created_at", -1)])
+    for idea in build_catalog():
+        await db.date_ideas.update_one({"id": idea["id"]}, {"$setOnInsert": idea}, upsert=True)
     logging.info("GiftsDates backend ready")
 
 # ---------- Meta ----------
@@ -659,6 +675,38 @@ async def spin(request: Request):
                                "used": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {**_spin_public(p), "token": token, "locked": False}
 
+# ---------- Date idea catalog & coin ledger ----------
+@api.get("/date-ideas")
+async def list_date_ideas(search: Optional[str] = None, category: Optional[str] = None,
+    budget: Optional[str] = None, duration: Optional[str] = None, environment: Optional[str] = None,
+    indoor: bool = False, outdoor: bool = False, casual: bool = False, romantic: bool = False,
+    creative: bool = False, active: bool = False, food: bool = False, conversation: bool = False,
+    entertainment: bool = False, free: bool = False, limit: int = 600, user=Depends(get_current_user)):
+    conds = [{"active": True}]
+    if search: conds.append({"name": {"$regex": re.escape(search.strip()), "$options": "i"}})
+    if category: conds.append({"$or": [{"category": category}, {"all_categories": category}]})
+    if budget: conds.append({"budget_level": budget})
+    if duration: conds.append({"duration": duration})
+    if environment: conds.append({"environment": {"$in": [environment, "both"]}})
+    if indoor: conds.append({"indoor": True})
+    if outdoor: conds.append({"outdoor": True})
+    for field, val in [("casual", casual), ("romantic", romantic), ("creative", creative), ("style_active", active),
+                       ("food", food), ("conversation", conversation), ("entertainment", entertainment), ("free", free)]:
+        if val: conds.append({field: True})
+    items = await db.date_ideas.find({"$and": conds}, {"_id": 0}).sort("name", 1).to_list(limit)
+    cat_docs = await db.date_ideas.find({"active": True}, {"_id": 0, "category": 1, "category_label": 1}).to_list(1000)
+    seen, categories = set(), []
+    for c in cat_docs:
+        if c["category"] not in seen:
+            seen.add(c["category"]); categories.append({"key": c["category"], "label": c["category_label"]})
+    categories.sort(key=lambda x: x["label"])
+    return {"items": items, "total": len(items), "categories": categories}
+
+@api.get("/coins/ledger")
+async def coin_ledger(user=Depends(get_current_user)):
+    txns = await db.coin_transactions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    return {"transactions": txns}
+
 # ---------- Auth ----------
 @api.post("/auth/register")
 async def register(req: RegisterReq):
@@ -673,7 +721,7 @@ async def register(req: RegisterReq):
         "name": req.name, "age": req.age, "gender": req.gender,
         "interested_in": req.interested_in, "orientation": req.orientation or "straight", "city": req.city, "country": req.country,
         "bio": req.bio or "", "interests": [], "photos": [], "language": "en",
-        "coins": 100,  # welcome bonus
+        "coins": 0,  # no welcome bonus (Spin & Win only)
         "escrow": 0.0, "withdrawable": 0.0,
         "premium_until": None, "verified": False,
         "referral_code": uid[:8].upper(), "referred_by": referrer["id"] if referrer else None,
