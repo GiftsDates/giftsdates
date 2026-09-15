@@ -13,6 +13,13 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Frontend: React 19, Tailwind, shadcn/ui, sonner toasts. All UI strings in `src/lib/i18n.js`.
 
 ## Delivered
+### 2026-06 (Invite-on-a-Date polish)
+- **Invite UI fully localized into all 11 languages** (ru,en,es,fr,de,pt,zh,hi,bn,ur,ar): InviteDateModal, InviteDates (tabs, incoming/outgoing, status labels, role-specific next-step guidance, action buttons, report & verify forms, reasons), SpinPage, Admin Dates tab, and admin tab labels. New i18n keys: iv_*, budget_*, dur_*, flag_*, id_*, reason_*, ds_* (status labels), dni_/dnr_/dn_ (next-step by role), sp_*, ad_*, payouts/verifications/reports/support/prices. Date-idea catalog stays English by design.
+- **Admin confirmation dialogs** (shadcn AlertDialog, testid admin-date-confirm-dialog) before irreversible Payout recipient / Refund inviter / 50-25-25 actions; description shows held coin amount and outcome; Cancel/Confirm.
+- **Spin nav/wallet gating**: AppContext fetches GET /api/spin/status → spinEligible + refreshSpin(); Nav shows nav-link-spin and Wallet shows wallet-spin-cta only when eligible; both disappear after claim.
+- **Invite catalog lazy render**: modal renders 30 idea cards at a time with invite-show-more (+remaining count); search/filter resets slice; 3-item selection cap preserved.
+- Verified: iteration_11.json — backend 20/20 pytest, frontend 5/5 flows, no regression in core invite flow.
+
 ### 2026-02-12 (v1)
 - Auth, profiles search, likes/matches, chat, gifts, demo video calls, date escrow (confirm w/ photo → +24h release), wallet, Stripe checkout, i18n + RTL.
 

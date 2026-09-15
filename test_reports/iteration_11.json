@@ -1,0 +1,36 @@
+{
+  "summary": "Iter11 focused testing of the 4 new invite-system enhancements: (1) 11-language localization of invite UI, (2) admin confirmation dialogs, (3) Spin nav/wallet gating, (4) invite modal lazy-render. Backend regression via existing pytest suite (iter10) = 20/20 PASS (date-ideas catalog 261+, invite validations, full flow, taxi/pickup/refuse/cancel splits, coin ledger balance fields, report/verify windows, spin status/claim, admin gating, cron auth). Frontend Playwright with premv3 & admin verified: nav-link-spin renders when eligible (premv3 currently eligible=true), wallet-spin-cta renders on /wallet, Language switch (nav-language-switcher-select) to Russian localizes /spin (h1='Ежемесячная рулетка'), /dates ('Входящие свидания', 'Исходящие свидания', tab 'Приглашения') and the whole nav (Обзор/Пары/Чаты/Свидания/Рулетка/Кошелёк) — no raw i18n keys (sp_*, id_*, ds_*, dni_*) leak to the DOM. Invite modal opens from Browse→profile→invite-date-modal; only 30 idea buttons render initially, invite-show-more shows 'Показать ещё (231)' and clicking loads +30 (=60), selection is capped at 3 (invite-selected-count='[Выбрано 3/3]' after clicking 4 ideas), and typing 'coffee' in invite-search resets slice (9 items rendered). Admin > Dates tab: admin-date-payout/refund/split buttons each open admin-date-confirm-dialog with a localized description containing the held coin amount (🪙300/🪙400 etc.) — 'Удержанные монеты (🪙300) будут выплачены получателю. Это необратимо.' / '...будут полностью возвращены пригласившему...' / '...50% пригласившему, 25% получателю, 25% платформе...'. admin-date-confirm-cancel closes without acting. admin-date-confirm-ok wiring verified in code (calls adResolve and refreshes list). 2 assertions in the automation reported false-fail: (a) nav-link-spin visible check right after login timed-out at 6s but the element does render (visible in final admin screenshot as 'Рулетка' and header testids list includes 'nav-link-spin' — /spin/status is a second round-trip so needed a longer wait), (b) RU spin-page title check compared 'Рулетка' (capital Р) against actual 'Ежемесячная рулетка' (lowercase) — value is correctly Russian.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Reports/Support tabs", "issues": ["Reports/Support/prices tab labels fall back to raw key ('Reports','Support', 'prices') because their t() keys resolve to the key itself; low priority visual inconsistency vs other tabs. Consider adding t('reports'), t('support'), t('prices') translations."]},
+      {"screen": "InviteDates /dates card", "issues": ["Location & time inputs still use browser-native <Input type='date'/type='time'> (noted in iter10 too); consistency with shadcn calendar remains outstanding."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter10.py",
+    "/app/test_reports/pytest/iter11_regression.xml"
+  ],
+  "action_items": [
+    "(nit) Add localized labels for admin tabs 'reports', 'support', 'prices' in i18n.js so admin-tab-* labels don't fall back to raw keys.",
+    "(nit) In AppContext refreshSpin runs after refreshUser resolves; nav-link-spin can briefly not render on first paint after login. Consider setting spinEligible optimistically or awaiting the call before hiding the loading spinner."
+  ],
+  "critical_code_review_comments": [
+    "InviteDateModal.jsx: PAGE=30 lazy render works, but there is no debounce on `load` triggered by dependent state changes other than the 250ms timer in useEffect — combined with instantaneous setSearch this is fine; note that flags/category/budget/duration trigger load without a debounce which is acceptable given the request is fast.",
+    "Admin.jsx confirm dialog closes on cancel via onOpenChange but uses `setConfirm(null); if (c) adResolve(...)` at OK — this is correct and prevents double-fire. However, buttons remain enabled while adResolve is in-flight; a brief disabled state would prevent accidental double-confirm.",
+    "SpinPage.jsx refreshSpin() is called after wheel animation ends (4.3s). If the user navigates away during the animation, spinEligible in nav/wallet remains true until next refreshUser. Not critical.",
+    "AppContext.jsx setLanguage patches /auth/me on every switch — fire-and-forget with .catch(()=>{}) is OK. Consider not sending PATCH when user is null (already guarded).",
+    "Nav.jsx: `sp_nav` translation for zh is '转盘赢奖' (5 chars) while `dates`/`wallet` labels are 2-3 chars — cosmetic width difference at md breakpoint.",
+    "Admin.jsx dates action buttons still lack a client-side disabled state while confirm dialog is being processed (the dialog itself closes immediately on OK); low risk with modal UX but consider a spinner."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "20/20 pytest (100%)", "frontend": "5/5 critical UI checks verified (nav-link-spin renders when eligible, wallet-spin-cta, RU localization of /spin & /dates & admin confirm descriptions with no raw keys, invite lazy render 30->60 + search reset + 3-cap, admin confirm dialogs for payout/refund/split with coin amount)"},
+  "test_credentials": "premv3@example.com / TestPass123! (eligible=true this month, has coins for invites); admin@giftsdates.com / TestPass123!; lockv3@example.com / TestPass123!.",
+  "seed_data_creation": "None (no new invites/dates/users created in iter11 beyond what iter10 regression suite auto-generates via existing pytest run).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) LanguageSwitcher testid is 'nav-language-switcher-select' (a shadcn Select). To switch, click it (force=True) and click the option text (e.g. 'Русский', 'English'). 2) The nav link for Spin only renders when spinEligible=true which is fetched via GET /api/spin/status AFTER refreshUser resolves; give the frontend ~2-3s after login before asserting nav-link-spin. 3) On the login page the top-right nav has a 'Log in' button that duplicates the form submit — use `form button[type=submit]` selector to submit login. 4) Iter11 spec items (11-lang i18n / admin confirm dialog / spin gating / invite lazy render) are all verified passing. 5) No backend changes were needed in iter11 (all changes are frontend). 6) Admin > Dates confirm dialog contains coin amount 🪙{n} using ad_payout_desc/ad_refund_desc/ad_split_desc keys — verified localized in Russian. 7) 261 date ideas confirmed still returned by /api/date-ideas.",
+  "rca of the issue": null
+}
