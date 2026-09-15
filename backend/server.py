@@ -74,6 +74,8 @@ MIN_WITHDRAW_USD = 50.0
 CANCEL_REFUND_PCT = 0.5  # booker gets 50% back when cancelling a date; the rest compensates the recipient
 PREMIUM_PACKAGE = {"lookup": "premium_monthly", "amount": 29.99, "name": "GiftsDates Premium Monthly"}
 VIP_PACKAGE = {"lookup": "vip_monthly", "amount": 49.99, "name": "GiftsDates VIP Monthly"}
+PREMIUM_COINS = 300
+VIP_COINS = 500
 VIP_SERVICES = {
     "basic": ["Минет в презервативе", "Поцелуи с языком", "Секс анальный", "Секс вагинальный", "Секс групповой", "Секс лесбийский"],
     "extra": ["Куннилингус", "Минет без резинки", "Минет глубокий", "Окончание в рот", "Окончание на грудь", "Окончание на лицо", "Работаю с девственниками", "Ролевые игры", "Секс игрушки", "Секс по телефону", "Услуги семейной паре", "Фейсситтинг", "Фото/видео съемка", "Эскорт"],
@@ -230,6 +232,15 @@ async def spend_coins(uid: str, amount: int):
     from_coins = min(coins, amount)
     from_wd = amount - from_coins
     await db.users.update_one({"id": uid}, {"$inc": {"coins": -from_coins, "withdrawable": -from_wd}})
+
+def extend_until(cur, days=30):
+    s = datetime.now(timezone.utc)
+    if cur:
+        try:
+            c = datetime.fromisoformat(cur.replace("Z", "+00:00"))
+            if c > s: s = c
+        except Exception: pass
+    return (s + timedelta(days=days)).isoformat()
 
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
@@ -1709,6 +1720,47 @@ async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
     await db.date_bookings.insert_one(doc)
     await notify(req.target_id, "date_request", "New VIP booking 📅", f"{user['name']} booked you · 🪙 {req.coins}. Manage in Dates.", {"booking_id": bid}, email=True)
     return {"booking_id": bid, "status": "escrow"}
+
+class CoinPremiumReq(BaseModel):
+    tier: str = "premium"
+
+class GiftPremiumReq(BaseModel):
+    target_id: str
+    tier: str = "premium"
+
+@api.get("/premium/coin-prices")
+async def premium_coin_prices(user=Depends(get_current_user)):
+    return {"premium": PREMIUM_COINS, "vip": VIP_COINS}
+
+@api.post("/premium/buy-with-coins")
+async def buy_premium_coins(req: CoinPremiumReq, user=Depends(get_current_user)):
+    tier = req.tier if req.tier in ("premium", "vip") else "premium"
+    cost = VIP_COINS if tier == "vip" else PREMIUM_COINS
+    await spend_coins(user["id"], cost)
+    u = await db.users.find_one({"id": user["id"]})
+    upd = {"premium_until": extend_until(u.get("premium_until"))}
+    if tier == "vip":
+        upd["vip_until"] = extend_until(u.get("vip_until"))
+    await db.users.update_one({"id": user["id"]}, {"$set": upd})
+    return {"ok": True, "tier": tier, **upd}
+
+@api.post("/premium/gift")
+async def gift_premium(req: GiftPremiumReq, user=Depends(get_current_user)):
+    if req.target_id == user["id"]:
+        raise HTTPException(400, "CANNOT_GIFT_SELF")
+    tier = req.tier if req.tier in ("premium", "vip") else "premium"
+    cost = VIP_COINS if tier == "vip" else PREMIUM_COINS
+    target = await db.users.find_one({"id": req.target_id}, {"_id": 0, "id": 1, "name": 1, "premium_until": 1, "vip_until": 1})
+    if not target:
+        raise HTTPException(404, "Recipient not found")
+    await spend_coins(user["id"], cost)
+    upd = {"premium_until": extend_until(target.get("premium_until"))}
+    if tier == "vip":
+        upd["vip_until"] = extend_until(target.get("vip_until"))
+    await db.users.update_one({"id": req.target_id}, {"$set": upd})
+    label = "VIP Premium" if tier == "vip" else "Premium"
+    await notify(req.target_id, "premium_gift", f"You received {label}! 👑", f"{user['name']} gifted you 30 days of {label}.", {}, email=True)
+    return {"ok": True, "tier": tier}
 
 # ---------- Stripe checkout ----------
 class AutoRenewReq(BaseModel):

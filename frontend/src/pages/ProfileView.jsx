@@ -10,6 +10,8 @@ import { optLabel } from "../components/ProfileDetailsForm";
 import GiftModal from "../components/GiftModal";
 import { ReportModal } from "../components/ReportModal";
 import VipSection from "../components/VipSection";
+import { GiftPremiumModal } from "../components/GiftPremiumModal";
+import { Crown as CrownGift } from "lucide-react";
 import { Flag } from "lucide-react";
 import { presence, PresenceDot } from "../lib/presence";
 const FALLBACKS = ["https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1601117830731-1a36c879f666?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
@@ -84,6 +86,9 @@ export default function ProfileView() {
 
             <button data-testid="profile-view-report-button" onClick={() => setModal("report")} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-300 transition-colors">
               <Flag size={13} /> Report this user
+            </button>
+            <button data-testid="profile-view-gift-premium-button" onClick={() => setModal("giftpremium")} className="ms-4 inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 transition-colors">
+              <CrownGift size={13} /> Подарить премиум
             </button>
 
             <div className="flex flex-wrap gap-2">
@@ -161,6 +166,7 @@ export default function ProfileView() {
       <VideoCallModal open={modal === "video"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <DateBookingModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <ReportModal open={modal === "report"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <GiftPremiumModal open={modal === "giftpremium"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <div className="max-w-5xl mx-auto px-4"><VipSection userId={p.id} name={p.name} /></div>
     </div>
   );

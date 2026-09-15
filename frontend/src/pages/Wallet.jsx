@@ -35,6 +35,10 @@ export default function Wallet() {
       window.location.href = data.checkout_url;
     } catch (e) { toast.error(e.response?.data?.detail || t("payment_init_failed", lang)); }
   };
+  const buyCoins = async (tier) => {
+    try { await api.post("/premium/buy-with-coins", { tier }); await refreshUser(); toast.success(tier === "vip" ? "VIP Premium активирован на 30 дней" : "Premium активирован на 30 дней"); }
+    catch (e) { toast.error(e.response?.data?.detail === "Insufficient coins" ? "Недостаточно монет" : (e.response?.data?.detail || t("failed", lang))); }
+  };
   const toggleAutoRenew = async (enabled) => {
     try { await api.post("/premium/auto-renew", { enabled }); await refreshUser(); toast.success(enabled ? t("autorenew_on_toast", lang) : t("autorenew_off_toast", lang)); }
     catch { toast.error(t("failed", lang)); }
@@ -164,6 +168,7 @@ export default function Wallet() {
               <li>✓ {t("perk_unlimited_likes", lang)}</li><li>✓ {t("perk_top_placement", lang)}</li><li>✓ {t("perk_advanced_filters", lang)}</li><li>✓ {t("perk_see_likes", lang)}</li><li>✓ {t("perk_priority_support", lang)}</li>
             </ul>
             <Button data-testid="premium-subscribe-confirm" onClick={() => buy("premium_monthly")} className="rose-btn text-white border-0 w-full h-11">{t("buy_premium", lang)}</Button>
+            <Button data-testid="premium-buy-coins" onClick={() => buyCoins("premium")} variant="outline" className="w-full bg-amber-500/10 border-amber-500/40 text-amber-200 h-10">Купить за 🪙 300</Button>
             <p data-testid="premium-autorenew-note" className="text-[11px] text-slate-400 leading-snug">{t("premium_autorenew_note", lang)}</p>
           </div>
           <div className="glass rounded-xl p-5 text-center space-y-3 border border-rose-500/40 mt-3" data-testid="vip-purchase-card">
@@ -175,6 +180,7 @@ export default function Wallet() {
               <li>✓ Цены, места и календарь бронирования</li>
             </ul>
             <Button data-testid="vip-subscribe-confirm" onClick={() => buy("vip_monthly")} className="rose-btn text-white border-0 w-full h-11">Оформить VIP · ${meta?.vip?.amount || 49.99}</Button>
+            <Button data-testid="vip-buy-coins" onClick={() => buyCoins("vip")} variant="outline" className="w-full bg-rose-500/10 border-rose-500/40 text-rose-200 h-10">Купить VIP за 🪙 500</Button>
             <p className="text-[11px] text-slate-400 leading-snug">Автопродление ежемесячно до отмены.</p>
           </div>
         </DialogContent>
