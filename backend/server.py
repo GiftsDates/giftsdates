@@ -2090,8 +2090,10 @@ async def _mini(uid):
     return {"id": u["id"], "name": u.get("name"), "age": u.get("age"), "city": u.get("city"),
             "country": u.get("country"), "photo": ph[0] if ph else None}
 
+BUSY_STATUSES = ["DATE_CONFIRMED", "DATE_COMPLETED_PENDING_VERIFICATION", "PHOTO_VERIFICATION_PENDING"]
+
 async def _conflict(uid, start, end, exclude):
-    docs = await db.dates.find({"status": "DATE_CONFIRMED", "id": {"$ne": exclude},
+    docs = await db.dates.find({"status": {"$in": BUSY_STATUSES}, "id": {"$ne": exclude},
                                 "$or": [{"inviter_id": uid}, {"recipient_id": uid}]}, {"_id": 0, "location": 1}).to_list(300)
     for x in docs:
         loc = x.get("location") or {}
@@ -2419,7 +2421,7 @@ async def invite_slots(did: str, day: str, user=Depends(get_current_user)):
     day_end = base + timedelta(days=1)
     busy = []
     for uid in {d["inviter_id"], d["recipient_id"]}:
-        docs = await db.dates.find({"status": "DATE_CONFIRMED", "id": {"$ne": did},
+        docs = await db.dates.find({"status": {"$in": BUSY_STATUSES}, "id": {"$ne": did},
                                     "$or": [{"inviter_id": uid}, {"recipient_id": uid}]}, {"_id": 0, "location": 1}).to_list(300)
         for x in docs:
             loc = x.get("location") or {}

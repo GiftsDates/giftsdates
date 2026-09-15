@@ -13,6 +13,12 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Frontend: React 19, Tailwind, shadcn/ui, sonner toasts. All UI strings in `src/lib/i18n.js`.
 
 ## Delivered
+### 2026-06 (Invite features: slots, chat, idea photos)
+- **Slot Calendar**: `GET /api/invites/{did}/slots?day=YYYY-MM-DD` (inviter-only) returns 10 start slots 10:00–19:00 (3h duration) with availability; slots conflicting with either party's busy dates are disabled. Frontend shows slot chips (date-slot-<id>-HH:00) in the location-proposal step; clicking sets the time. Conflict check (`_conflict` + slots) now treats DATE_CONFIRMED, DATE_COMPLETED_PENDING_VERIFICATION and PHOTO_VERIFICATION_PENDING as busy (`BUSY_STATUSES`).
+- **Date Chat Thread**: per-date messaging via `GET/POST /api/invites/{did}/messages` (party-gated, enabled only for DATE_CHAT_STATUSES from DATE_CONFIRMED onward), stored in `db.date_messages`; posting notifies the other party in-app (no email). Frontend DateChat panel (toggle date-chat-toggle-<id>) with polling, own messages right-aligned.
+- **Idea Photos**: `CAT_IMG` maps each of the 25 categories to an Unsplash photo; `GET /api/date-ideas` returns `category_image` per item; invite modal renders it (invite-idea-img-<id>) without breaking lazy render / 3-item cap.
+- Verified: iteration_12.json — backend 27/27 pytest (7 new + 20 regression), frontend 3/3 features, no bugs.
+
 ### 2026-06 (Invite-on-a-Date polish)
 - **Invite UI fully localized into all 11 languages** (ru,en,es,fr,de,pt,zh,hi,bn,ur,ar): InviteDateModal, InviteDates (tabs, incoming/outgoing, status labels, role-specific next-step guidance, action buttons, report & verify forms, reasons), SpinPage, Admin Dates tab, and admin tab labels. New i18n keys: iv_*, budget_*, dur_*, flag_*, id_*, reason_*, ds_* (status labels), dni_/dnr_/dn_ (next-step by role), sp_*, ad_*, payouts/verifications/reports/support/prices. Date-idea catalog stays English by design.
 - **Admin confirmation dialogs** (shadcn AlertDialog, testid admin-date-confirm-dialog) before irreversible Payout recipient / Refund inviter / 50-25-25 actions; description shows held coin amount and outcome; Cancel/Confirm.

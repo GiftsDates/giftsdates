@@ -1,0 +1,35 @@
+{
+  "summary": "Iter12 verified the 3 new Invite-on-a-Date enhancements: (1) Idea Photos, (2) Slot Calendar, (3) Date Chat Thread. Backend pytest (test_giftsdates_iter12.py) = 7/7 PASS: GET /date-ideas returns category_image (Unsplash URL) on every item; GET /invites/{did}/slots?day=... returns exactly 10 slots 10:00..19:00 with {time,start,available} and busy[] windows, recipient gets 403; after DATE_CONFIRMED at 10:00 the fresh invite for the same day/pair correctly marks 10:00/11:00/12:00 as available=false and 13:00+ available=true; GET /invites/{did}/messages returns chat_enabled=false pre-confirm, POST rejected 400 CHAT_NOT_AVAILABLE; post-confirm both inviter and recipient can send and see each other's messages; recipient receives an in-app notification containing the sent text. Iter10 backend regression suite = 20/20 PASS (no regressions). Frontend Playwright (RU locale): (T1) opened invite modal via profile-card-date-button, saw 30 invite-idea-img-<id> Unsplash tiles render with valid http src, invite-selected-count reaches 3/3 when clicking 4+ ideas (cap enforced), invite-show-more still present; (T2) on a DATE_ACTIVITY_SELECTED card (created via API), picking a date in date-date-<id> rendered exactly 10 date-slot-<id>-HH:00 chips, clicking chip 11:00 updated date-time-<id> to 11:00 — screenshot confirms Russian label 'Выберите время (свободные слоты)' with all 10 chips visible; (T3) on a DATE_CONFIRMED card the date-chat-toggle-<id> button opens date-chat-<id> panel with input/send testids, typing + click sends → message appears in date-chat-messages-<id> and API /messages returns 200. category_image images loaded from images.unsplash.com without breaking lazy render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "InviteDates /dates DATE_ACTIVITY_SELECTED card", "issues": ["The date & time pickers are still browser-native <input type='date'/type='time'/> instead of shadcn Calendar/Popover (consistency nit carried from iter10/11). Slot chip UI is otherwise clean and localized."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter12.py",
+    "/app/test_reports/pytest/iter12.xml"
+  ],
+  "action_items": [
+    "(nit) Consider replacing <input type='date'/type='time'/> in InviteDates DateCard with shadcn Calendar/Popover for consistency across the app.",
+    "(nit) In DateChat, POST /invites/{did}/messages appends locally via setMsgs but the 10s poll can duplicate if server returns the same id in the next fetch — dedupe by id in load() would be safer."
+  ],
+  "critical_code_review_comments": [
+    "server.py invite_slots: computes busy from DATE_CONFIRMED only, so cancelled/completed dates correctly don't block. However, DATE_COMPLETED_PENDING_VERIFICATION / PHOTO_VERIFICATION_PENDING dates that are still physically occupying that time window will NOT mark the slot as busy — consider extending the query {status: {$in: [DATE_CONFIRMED, DATE_COMPLETED_PENDING_VERIFICATION, PHOTO_VERIFICATION_PENDING]}} for stricter conflict prevention.",
+    "server.py invite_send_message: 1000-char cap is fine, but there is no per-user rate limit — could allow spam; add a lightweight throttle (e.g. 1 msg/sec) via a Redis or in-memory counter.",
+    "InviteDates.jsx DateChat: polls every 10s regardless of visibility. Consider pausing when showChat=false or tab is hidden to reduce API load with many concurrent dates.",
+    "InviteDates.jsx: the slots useEffect refetches on every date change; no debounce but response is small so acceptable.",
+    "InviteDateModal.jsx: <img loading='lazy' onError=hide> is good; consider adding width/height attributes (or aspect-ratio) to avoid CLS while images load.",
+    "date_messages collection has no index; add {date_id:1, created_at:1} index for efficient sorted fetches at scale."
+  ],
+  "updated_files": ["/app/backend/tests/test_giftsdates_iter12.py"],
+  "success_rate": {"backend": "27/27 pytest (iter12 7/7 + iter10 regression 20/20)", "frontend": "3/3 UI features verified (Idea Photos, Slot Calendar chips, DateChat send/receive)"},
+  "test_credentials": "premv3@example.com / TestPass123! (inviter, 3830 coins remaining after cleanup); lockv3@example.com / TestPass123! (recipient); admin@giftsdates.com / TestPass123!.",
+  "seed_data_creation": "Test suite creates ephemeral invites/dates/messages between premv3 and lockv3; test_zz_cleanup cancels all non-terminal outgoing dates. Post-frontend manual cleanup cancelled 6 residual dates (3 confirmed + 2 location-proposed + 1 activity-selected). No test users created; date_messages entries remain in db.date_messages tied to cancelled dates (harmless).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) POST /api/invites requires {recipient_id, idea_ids, coins, safety_ack} and returns {id,status:'INVITATION_SENT'} — the response does NOT include options; refetch via /api/invites listing if you need option ids. Login response uses 'token' key (not 'access_token'). 2) Slot chip testids are date-slot-<did>-HH:00 (colon in HH:00). 3) Chat toggle only appears when d.status in CHAT_STATUSES set. 4) invite_slots only considers DATE_CONFIRMED as busy — flagged as review comment. 5) Frontend Russian is default for premv3 (language=ru in user record); adjust text assertions accordingly.",
+  "rca of the issue": null
+}
