@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Crown, Lock, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, fileUrl } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { VIP_PLACES, PRICE_KEYS } from "../lib/vipCatalog";
+import { PRICE_KEYS, svcLabel, placeLabel, priceLabel } from "../lib/vipCatalog";
 import { t } from "../lib/i18n";
 
 export default function VipSection({ userId, name }) {
@@ -25,12 +25,17 @@ export default function VipSection({ userId, name }) {
   if (data.locked) {
     return (
       <div className="mt-6 relative rounded-2xl overflow-hidden gold-hairline" data-testid="vip-locked">
-        <div className="p-8 blur-sm select-none pointer-events-none">
-          <div className="h-4 w-40 bg-white/10 rounded mb-3" /><div className="h-3 w-full bg-white/10 rounded mb-2" /><div className="h-3 w-2/3 bg-white/10 rounded" />
-        </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center px-6">
+        {data.teaser_photo ? (
+          <img src={fileUrl(data.teaser_photo)} alt="" className="w-full h-56 object-cover blur-xl scale-110 select-none pointer-events-none" />
+        ) : (
+          <div className="p-8 blur-sm select-none pointer-events-none">
+            <div className="h-4 w-40 bg-white/10 rounded mb-3" /><div className="h-3 w-full bg-white/10 rounded mb-2" /><div className="h-3 w-2/3 bg-white/10 rounded" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-center px-6">
           <Lock className="text-amber-300" size={26} />
           <div className="font-serif-luxe text-lg text-white mt-2">{t("vip_sensitive", lang)}</div>
+          {data.services_count > 0 && <div className="text-xs text-amber-200 mt-1">{data.services_count} 🔒</div>}
           <p className="text-xs text-slate-300 mt-1 max-w-xs">{t("vip_sensitive_note", lang)}</p>
           <Button data-testid="vip-unlock-cta" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 mt-3">{t("vip_unlock_btn", lang)}</Button>
         </div>
@@ -66,25 +71,25 @@ export default function VipSection({ userId, name }) {
 
       {v.services?.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid="vip-services">
-          {v.services.map((s) => <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-200">{s}</span>)}
+          {v.services.map((s) => <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-200">{svcLabel(s, lang)}</span>)}
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="vip-prices">
         {PRICE_KEYS.map((p) => priceFor(p.k) > 0 && (
           <div key={p.k} className="glass rounded-xl p-3 text-center">
-            <div className="text-[11px] text-slate-400">{p.l}</div>
+            <div className="text-[11px] text-slate-400">{priceLabel(p.k, lang)}</div>
             <div className="font-mono-num text-amber-300">🪙 {priceFor(p.k)}</div>
           </div>
         ))}
       </div>
 
       {v.places?.length > 0 && (
-        <div className="text-sm text-slate-300"><span className="text-slate-500">Место: </span>{v.places.map((pv) => VIP_PLACES.find((x) => x.v === pv)?.l).filter(Boolean).join(" · ")}</div>
+        <div className="text-sm text-slate-300"><span className="text-slate-500">{t("vip_place", lang)}: </span>{v.places.map((pv) => placeLabel(pv, lang)).filter(Boolean).join(" · ")}</div>
       )}
 
       {v.client_wants && (
-        <div className="text-sm text-slate-300"><span className="text-slate-500">Пожелания: </span>{v.client_wants}</div>
+        <div className="text-sm text-slate-300"><span className="text-slate-500">{t("vip_wants", lang)}: </span>{v.client_wants}</div>
       )}
 
       {!data.is_owner && v.availability?.length > 0 && (
@@ -105,7 +110,7 @@ export default function VipSection({ userId, name }) {
           <div className="grid grid-cols-2 gap-2">
             {PRICE_KEYS.map((p) => priceFor(p.k) > 0 && (
               <Button key={p.k} data-testid={`vip-book-${p.k}`} onClick={() => book(p.k)} disabled={busy} className="rose-btn text-white border-0 h-auto py-2 flex-col">
-                <span className="text-xs">{p.l}</span><span className="font-mono-num">🪙 {priceFor(p.k)}</span>
+                <span className="text-xs">{priceLabel(p.k, lang)}</span><span className="font-mono-num">🪙 {priceFor(p.k)}</span>
               </Button>
             ))}
           </div>

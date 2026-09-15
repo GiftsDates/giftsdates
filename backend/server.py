@@ -1699,7 +1699,8 @@ async def get_vip_profile(uid: str, user=Depends(get_current_user)):
         raise HTTPException(404, "No VIP profile")
     if uid == user["id"] or is_premium(user):
         return {"locked": False, "user_id": uid, "name": owner.get("name"), "city": owner.get("city"), "vip": owner["vip"], "is_owner": uid == user["id"]}
-    return {"locked": True}
+    _p = owner["vip"].get("photos") or []
+    return {"locked": True, "teaser_photo": _p[0] if _p else None, "services_count": len(owner["vip"].get("services") or [])}
 
 @api.post("/vip/book")
 async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
@@ -1797,6 +1798,21 @@ async def vip_del_photo(path: str, user=Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"vip": vip}})
     await db.files.update_one({"storage_path": path}, {"$set": {"is_deleted": True}})
     return {"photos": photos}
+
+class VipPhotoOrderReq(BaseModel):
+    photos: List[str]
+
+@api.post("/vip/photos/reorder")
+async def vip_reorder_photos(req: VipPhotoOrderReq, user=Depends(get_current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "vip": 1})
+    vip = u.get("vip") or {}
+    cur = set(vip.get("photos") or [])
+    new = [p for p in req.photos if p in cur]
+    if set(new) != cur:
+        raise HTTPException(400, "MISMATCH")
+    vip["photos"] = new
+    await db.users.update_one({"id": user["id"]}, {"$set": {"vip": vip}})
+    return {"photos": new}
 
 # ---------- Stripe checkout ----------
 class AutoRenewReq(BaseModel):

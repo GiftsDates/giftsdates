@@ -8,7 +8,7 @@ import { t } from "../lib/i18n";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { VIP_CATEGORIES, VIP_PLACES, PRICE_KEYS } from "../lib/vipCatalog";
+import { VIP_CATEGORIES, VIP_PLACES, PRICE_KEYS, svcLabel, catTitle, placeLabel, priceLabel } from "../lib/vipCatalog";
 
 export default function VipEditor() {
   const { user, refreshUser, lang } = useApp();
@@ -34,6 +34,11 @@ export default function VipEditor() {
   };
   const delPhoto = async (p) => {
     try { const { data } = await api.delete(`/vip/photo?path=${encodeURIComponent(p)}`); setPhotos(data.photos); } catch { toast.error("Ошибка"); }
+  };
+  const makeCover = async (p) => {
+    const reordered = [p, ...photos.filter((x) => x !== p)];
+    setPhotos(reordered);
+    try { await api.post("/vip/photos/reorder", { photos: reordered }); toast.success(t("vip_cover_updated", lang)); } catch { toast.error("Ошибка"); }
   };
 
   if (!isVip) {
@@ -73,9 +78,11 @@ export default function VipEditor() {
       <div data-testid="vip-photos">
         <div className="text-sm font-semibold text-amber-200 mb-2">{t("vip_photos", lang)}</div>
         <div className="flex flex-wrap gap-2">
-          {photos.map((p) => (
-            <div key={p} className="relative w-20 h-20 rounded-lg overflow-hidden gold-hairline">
+          {photos.map((p, i) => (
+            <div key={p} className="relative w-20 h-20 rounded-lg overflow-hidden gold-hairline group">
               <img src={fileUrl(p)} alt="" className="w-full h-full object-cover" />
+              {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-amber-500/80 text-[9px] text-black text-center">{t("vip_cover", lang)}</span>}
+              {i !== 0 && <button data-testid="vip-photo-cover" onClick={() => makeCover(p)} className="absolute bottom-0 left-0 right-0 bg-black/70 text-[9px] text-amber-200 text-center opacity-0 group-hover:opacity-100">{t("vip_make_cover", lang)}</button>}
               <button data-testid="vip-photo-del" onClick={() => delPhoto(p)} className="absolute top-0 right-0 bg-black/70 text-rose-300 p-0.5"><X size={12} /></button>
             </div>
           ))}
@@ -90,11 +97,11 @@ export default function VipEditor() {
 
       {VIP_CATEGORIES.map((cat) => (
         <div key={cat.key} data-testid={`vip-cat-${cat.key}`}>
-          <div className="text-sm font-semibold text-amber-200 mb-2">{cat.title}</div>
+          <div className="text-sm font-semibold text-amber-200 mb-2">{catTitle(cat.key, lang)}</div>
           <div className="flex flex-wrap gap-2">
             {cat.items.map((it) => (
               <button key={it} data-testid={`vip-svc-${it}`} onClick={() => toggle(services, setServices, it)}
-                className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${services.includes(it) ? "bg-rose-500/20 border-rose-500/50 text-rose-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{it}</button>
+                className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${services.includes(it) ? "bg-rose-500/20 border-rose-500/50 text-rose-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{svcLabel(it, lang)}</button>
             ))}
           </div>
         </div>
@@ -105,7 +112,7 @@ export default function VipEditor() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {PRICE_KEYS.map((p) => (
             <div key={p.k}>
-              <label className="text-xs text-slate-400">{p.l}</label>
+              <label className="text-xs text-slate-400">{priceLabel(p.k, lang)}</label>
               <Input data-testid={`vip-price-${p.k}`} type="number" min="0" step="50" value={prices[p.k] ?? ""} onChange={(e) => setPrices({ ...prices, [p.k]: e.target.value })} className="bg-white/5 border-white/10 mt-1 font-mono-num" />
             </div>
           ))}
@@ -117,7 +124,7 @@ export default function VipEditor() {
         <div className="flex gap-2 flex-wrap">
           {VIP_PLACES.map((p) => (
             <button key={p.v} data-testid={`vip-place-${p.v}`} onClick={() => toggle(places, setPlaces, p.v)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${places.includes(p.v) ? "bg-amber-500/20 border-amber-500/50 text-amber-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{p.l}</button>
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${places.includes(p.v) ? "bg-amber-500/20 border-amber-500/50 text-amber-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{placeLabel(p.v, lang)}</button>
           ))}
         </div>
       </div>
@@ -138,7 +145,7 @@ export default function VipEditor() {
               <button onClick={() => setSlots(slots.filter((_, j) => j !== i))} className="text-rose-300"><X size={12} /></button>
             </span>
           ))}
-          {slots.length === 0 && <span className="text-xs text-slate-500">Слотов пока нет</span>}
+          {slots.length === 0 && <span className="text-xs text-slate-500">{t("vip_no_slots", lang)}</span>}
         </div>
       </div>
 
