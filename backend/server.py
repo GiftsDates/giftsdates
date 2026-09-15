@@ -969,12 +969,12 @@ async def list_profiles(
     drinking: Optional[str] = None, income: Optional[str] = None, language: Optional[str] = None,
     hobby: Optional[str] = None, job: Optional[str] = None, min_weight: Optional[int] = None, max_weight: Optional[int] = None,
     bust_size: Optional[str] = None, penis_size: Optional[str] = None, max_date_price: Optional[int] = None,
-    premium_only: bool = False, with_photos: bool = False, verified_only: bool = False, online_now: bool = False,
+    premium_only: bool = False, vip_only: bool = False, with_photos: bool = False, verified_only: bool = False, online_now: bool = False,
     limit: int = 40, user=Depends(get_current_user)
 ):
     conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
     advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language, orientation,
-                                                                   hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, with_photos, verified_only, online_now))
+                                                                   hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, vip_only, with_photos, verified_only, online_now))
     if advanced_used and not is_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
     if city: conds.append({"city": {"$regex": city, "$options": "i"}})
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
@@ -998,13 +998,14 @@ async def list_profiles(
     if online_now: conds.append({"last_seen": {"$gt": (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()}})
     now_iso = datetime.now(timezone.utc).isoformat()
     if premium_only: conds.append({"premium_until": {"$gt": now_iso}})
+    if vip_only: conds.append({"vip_until": {"$gt": now_iso}})
     proj = {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0}
     boosted = await db.users.find({"$and": conds + [{"premium_until": {"$gt": now_iso}}]}, proj).limit(limit).to_list(limit)
     rest_limit = max(limit - len(boosted), 0)
     rest = await db.users.find({"$and": conds + [{"$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}, {"premium_until": {"$exists": False}}]}]},
                                proj).limit(rest_limit).to_list(rest_limit) if rest_limit else []
-    for p in boosted: p["is_premium"] = True
-    for p in rest: p["is_premium"] = False
+    for p in boosted: p["is_premium"] = True; p["is_vip"] = is_vip(p)
+    for p in rest: p["is_premium"] = False; p["is_vip"] = False
     return boosted + rest
 
 @api.get("/profiles/{pid}")

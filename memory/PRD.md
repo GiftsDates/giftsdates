@@ -112,4 +112,6 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 
 - 2026-09-15: VIP badge in Nav. VIP users (vip_until in future) now show a RED "VIP" pill with a red filled crown (data-testid nav-vip-badge) instead of the amber "Premium active". Checked before isPremium since VIP⊃Premium. Browser-verified on admin (VIP).
 
+- 2026-09-15: SEARCH FILTER — separate Premium and VIP filters. Browse advanced filters now have two toggles: "👑 Только Премиум" (premium_only) and "♛ Только VIP" (vip_only). Backend GET /profiles: new vip_only param (filters vip_until>now), added to advanced_used premium-gate; profiles now carry is_vip flag. i18n vip_only (11 langs). Curl-verified: vip_only→3 (all is_vip); premium_only→5 (incl. non-VIP premium). Browser-verified both toggles render.
+
 ## Backlog
