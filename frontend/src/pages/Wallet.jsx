@@ -67,10 +67,11 @@ export default function Wallet() {
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4">
-          <Card icon={Coins} title={t("balance", lang)} value={`🪙 ${user?.coins ?? 0}`} tone="amber" testid="wallet-balance-coins"/>
+          <Card icon={Coins} title={t("balance", lang)} value={`🪙 ${(user?.coins ?? 0) + (user?.withdrawable ?? 0)}`} sub={(user?.withdrawable > 0) ? t("spendable_note", lang) : undefined} tone="amber" testid="wallet-balance-coins"/>
           <Card icon={Lock} title={t("escrow", lang)} value={`🪙 ${user?.escrow ?? 0}`} tone="violet" testid="wallet-escrow-coins"/>
           <Card icon={WalletIcon} title={t("withdrawable", lang)} value={`🪙 ${user?.withdrawable ?? 0}`} sub={`≈ $${((user?.withdrawable||0)*(1-wallet.withdraw_commission)/wallet.coins_per_usd).toFixed(2)} ${t("you_receive", lang).toLowerCase()} (−${Math.round(wallet.withdraw_commission*100)}%) · ${wallet.coins_per_usd} 🪙 = $1`} tone="emerald" testid="wallet-withdrawable-coins"/>
         </div>
+        <p className="text-xs text-slate-400 -mt-4" data-testid="withdraw-only-note">{t("withdraw_only_note", lang)}</p>
 
         <PayoutAccountCard key={wallet.payout_account?.submitted_at || "new"} account={wallet.payout_account} onSaved={load} />
         <ReferralCard />

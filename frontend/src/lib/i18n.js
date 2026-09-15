@@ -452,6 +452,8 @@ const T = {
   feed_filter_clear: { ru: "Сбросить", en: "Clear" },
   feed_hint: { ru: "Объявление 🪙100 · видео 🪙150", en: "Announcement 🪙100 · video 🪙150" },
   feed_add: { ru: "Добавить", en: "Add" },
+  spendable_note: { ru: "включает выводные монеты (можно тратить)", en: "includes withdrawable coins (spendable)" },
+  withdraw_only_note: { ru: "Тратить можно и выводные монеты. Выводить можно только выводные, не основной баланс.", en: "Withdrawable coins are also spendable. Only withdrawable coins can be withdrawn, not the main balance." },
   feed_placeholder: { ru: "Ваше объявление (до 80 символов)", en: "Your announcement (up to 80 chars)" },
   feed_video_add: { ru: "Загрузить видео (до 1 мин)", en: "Upload video (up to 1 min)" },
   feed_record: { ru: "Записать видео", en: "Record video" },

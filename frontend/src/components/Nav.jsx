@@ -49,7 +49,7 @@ export default function Nav() {
               <NotificationBell />
               <div data-testid="nav-wallet-coins-badge" className="coin-chip hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono-num">
                 <span>🪙</span>
-                <span>{user.coins}</span>
+                <span>{(user.coins || 0) + (user.withdrawable || 0)}</span>
               </div>
               {isPremium ? (
                 <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs">

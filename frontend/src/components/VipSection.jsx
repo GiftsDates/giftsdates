@@ -43,7 +43,7 @@ export default function VipSection({ userId, name }) {
   const book = async (durKey) => {
     const coins = priceFor(durKey);
     if (!coins) { toast.error("Цена не указана"); return; }
-    if ((user?.coins || 0) < coins) { toast.error("Недостаточно монет", { action: { label: "Пополнить", onClick: () => nav("/wallet") } }); return; }
+    if ((( user?.coins || 0) + (user?.withdrawable || 0)) < coins) { toast.error("Недостаточно монет", { action: { label: "Пополнить", onClick: () => nav("/wallet") } }); return; }
     setBusy(true);
     try {
       await api.post("/vip/book", { target_id: userId, venue: "VIP свидание", city: data.city || "-", scheduled_at: `${slot.date}T${slot.from}:00`, coins });

@@ -128,7 +128,7 @@ export default function FeedBar() {
 
   const submit = async () => {
     if (!text.trim() && !videoFile) { toast.error(t("feed_empty", lang)); return; }
-    if ((user?.coins || 0) < cost) { toast.error(t("feed_insufficient", lang), { action: { label: t("topup", lang), onClick: () => nav("/wallet") } }); return; }
+    if (((user?.coins || 0) + (user?.withdrawable || 0)) < cost) { toast.error(t("feed_insufficient", lang), { action: { label: t("topup", lang), onClick: () => nav("/wallet") } }); return; }
     setBusy(true);
     try {
       const fd = new FormData();

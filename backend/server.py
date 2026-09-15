@@ -218,6 +218,19 @@ def is_vip(u: dict) -> bool:
     try: return datetime.fromisoformat(vu.replace("Z", "+00:00")) > datetime.now(timezone.utc)
     except Exception: return False
 
+async def spend_coins(uid: str, amount: int):
+    """Spend from main coins first, then from withdrawable. Withdrawable is spendable but not withdrawable from main."""
+    amount = int(amount)
+    if amount <= 0: return
+    u = await db.users.find_one({"id": uid}, {"_id": 0, "coins": 1, "withdrawable": 1})
+    coins = int(u.get("coins", 0) or 0)
+    wd = float(u.get("withdrawable", 0) or 0)
+    if coins + wd < amount:
+        raise HTTPException(400, "Insufficient coins")
+    from_coins = min(coins, amount)
+    from_wd = amount - from_coins
+    await db.users.update_one({"id": uid}, {"$inc": {"coins": -from_coins, "withdrawable": -from_wd}})
+
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "GiftsDates")
@@ -751,8 +764,8 @@ async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(N
     if not text and not has_video:
         raise HTTPException(400, "EMPTY_POST")
     cost = (FEED_TEXT_COINS if text else 0) + (FEED_VIDEO_COINS if has_video else 0)
-    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "coins": 1, "photos": 1, "name": 1, "age": 1, "city": 1, "country": 1, "gender": 1})
-    if (fresh.get("coins") or 0) < cost:
+    fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "coins": 1, "withdrawable": 1, "photos": 1, "name": 1, "age": 1, "city": 1, "country": 1, "gender": 1})
+    if ((fresh.get("coins") or 0) + (fresh.get("withdrawable") or 0)) < cost:
         raise HTTPException(400, "INSUFFICIENT_COINS")
     video_path = None
     if has_video:
@@ -769,7 +782,7 @@ async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(N
         await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": video_path, "user_id": user["id"],
                                    "content_type": ct, "size": result["size"], "is_deleted": False, "private": False,
                                    "created_at": datetime.now(timezone.utc).isoformat()})
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -cost}})
+    await spend_coins(user["id"], cost)
     now = datetime.now(timezone.utc).isoformat()
     photos = fresh.get("photos") or []
     doc = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_name": fresh.get("name"),
@@ -1167,14 +1180,14 @@ async def send_gift(req: GiftReq, user=Depends(get_current_user)):
     else:
         gift = await _find_gift(req.gift_id)
     if not gift: raise HTTPException(400, "Unknown gift")
-    if user["coins"] < gift["cost"]: raise HTTPException(400, "Insufficient coins")
+    if (user.get("coins", 0) + user.get("withdrawable", 0)) < gift["cost"]: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
     # full value credited to recipient; 30% commission is withheld at withdrawal time
     net = gift["cost"]
     commission = round(gift["cost"] * (await get_settings())["commission"], 2)
     now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -gift["cost"]}})
+    await spend_coins(user["id"], gift["cost"])
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
     tx = {"id": str(uuid.uuid4()), "type": "gift", "from_id": user["id"], "to_id": req.target_id,
           "gift_id": gift["id"], "gift_icon": gift["icon"], "cost": gift["cost"],
@@ -1237,9 +1250,9 @@ async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
     if not target: raise HTTPException(404, "Recipient not found")
     rate = max(target.get("video_rate") or 0, (await get_settings())["video_rate"])
     cost = req.minutes * rate
-    if user["coins"] < cost: raise HTTPException(400, "Insufficient coins")
+    if (user.get("coins", 0) + user.get("withdrawable", 0)) < cost: raise HTTPException(400, "Insufficient coins")
     now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -cost}})
+    await spend_coins(user["id"], cost)
     net = cost
     await db.users.update_one({"id": req.target_id}, {"$inc": {"withdrawable": net}})
     call_id = str(uuid.uuid4())
@@ -1251,7 +1264,7 @@ async def start_call(req: VideoCallReq, user=Depends(get_current_user)):
 async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
     min_coins = (await get_settings())["date_min_coins"]
     if req.coins < min_coins: raise HTTPException(400, f"Minimum {min_coins} coins")
-    if user["coins"] < req.coins: raise HTTPException(400, "Insufficient coins")
+    if (user.get("coins", 0) + user.get("withdrawable", 0)) < req.coins: raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target: raise HTTPException(404, "Recipient not found")
     now = datetime.now(timezone.utc).isoformat()
@@ -1271,7 +1284,7 @@ async def book_date(req: DateBookingReq, user=Depends(get_current_user)):
            "venue": req.venue, "city": req.city, "address": (req.address or "").strip(), "postal_code": (req.postal_code or "").strip(), "country": (req.country or "").strip(), "lat": req.lat, "lng": req.lng, "scheduled_at": req.scheduled_at,
            "coins": req.coins, "status": "escrow", "photo_url": None,
            "release_at": None, "created_at": now}
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -req.coins}})
+    await spend_coins(user["id"], req.coins)
     # hold in escrow of recipient
     await db.users.update_one({"id": req.target_id}, {"$inc": {"escrow": req.coins}})
     await db.date_bookings.insert_one(doc)
@@ -1433,10 +1446,10 @@ async def send_taxi(bid: str, user=Depends(get_current_user)):
     taxi = b.get("taxi")
     if not taxi or taxi.get("status") != "pending": raise HTTPException(400, "No pending taxi request")
     coins = int(taxi["coins"])
-    if user["coins"] < coins: raise HTTPException(400, "Insufficient coins")
+    if (user.get("coins", 0) + user.get("withdrawable", 0)) < coins: raise HTTPException(400, "Insufficient coins")
     now = datetime.now(timezone.utc).isoformat()
     commission = round(coins * (await get_settings())["commission"], 2)
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -coins}})
+    await spend_coins(user["id"], coins)
     await db.users.update_one({"id": b["to_id"]}, {"$inc": {"withdrawable": coins}})
     await db.transactions.insert_one({"id": str(uuid.uuid4()), "type": "gift", "from_id": user["id"], "to_id": b["to_id"],
                                       "gift_id": "taxi", "gift_icon": "🚕", "cost": coins, "commission": commission, "net": coins, "message": "Taxi", "created_at": now})
@@ -1681,7 +1694,7 @@ async def get_vip_profile(uid: str, user=Depends(get_current_user)):
 async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
     if req.coins <= 0:
         raise HTTPException(400, "Invalid amount")
-    if user["coins"] < req.coins:
+    if (user.get("coins", 0) + user.get("withdrawable", 0)) < req.coins:
         raise HTTPException(400, "Insufficient coins")
     target = await db.users.find_one({"id": req.target_id})
     if not target:
@@ -1691,7 +1704,7 @@ async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
     doc = {"id": bid, "from_id": user["id"], "to_id": req.target_id, "venue": req.venue or "VIP", "city": req.city or "-",
            "address": (req.address or "").strip(), "country": (req.country or "").strip(), "scheduled_at": req.scheduled_at,
            "coins": req.coins, "status": "escrow", "photo_url": None, "release_at": None, "vip": True, "created_at": now}
-    await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": -req.coins}})
+    await spend_coins(user["id"], req.coins)
     await db.users.update_one({"id": req.target_id}, {"$inc": {"escrow": req.coins}})
     await db.date_bookings.insert_one(doc)
     await notify(req.target_id, "date_request", "New VIP booking 📅", f"{user['name']} booked you · 🪙 {req.coins}. Manage in Dates.", {"booking_id": bid}, email=True)
