@@ -136,6 +136,9 @@ export default function Browse() {
             <Input data-testid="profile-max-age-input" type="number" min="18" max="99" value={filters.max_age} onChange={e => setFilters({ ...filters, max_age: parseInt(e.target.value||99) })} className="bg-white/5 border-white/10 mt-1" />
           </div>
           <Button data-testid="profile-search-submit-button" onClick={load} className="rose-btn text-white border-0"><SlidersHorizontal size={14} className="me-1"/> {t("filters", lang)}</Button>
+          <label className="flex items-center gap-2 text-xs text-red-200 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 cursor-pointer h-[38px]" data-testid="main-vip-only-wrap">
+            <Switch data-testid="main-filter-vip-only" checked={filters.vip_only} onCheckedChange={v => setFilters({ ...filters, vip_only: v })} /> ♛ {t("vip_only", lang)}
+          </label>
           <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className={`bg-white/5 border-white/10 hover:bg-white/10 ${!isPremium ? "text-amber-300 border-amber-500/30" : ""}`}><ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/>{!isPremium && <Crown size={14} className="me-1 text-amber-300"/>} {t("more_filters", lang)}</Button>
           {quota && !quota.premium && (
             <button data-testid="likes-quota-badge" onClick={() => nav("/wallet?premium=1")} className={`ms-auto px-3 py-2 rounded-full text-xs border font-mono-num ${quota.remaining === 0 ? "bg-rose-500/15 border-rose-500/40 text-rose-300" : "bg-white/5 border-white/10 text-slate-300"}`}>
@@ -199,7 +202,6 @@ export default function Browse() {
             )}
             <div className="flex flex-wrap gap-2 items-center">
               <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
-              {isVip && <Toggle testid="filter-vip-only" label={`♛ ${t("vip_only", lang)}`} checked={filters.vip_only} onChange={v => setFilters({ ...filters, vip_only: v })} />}
               <Toggle testid="filter-online-now" label={`🟢 ${t("online_now", lang)}`} checked={filters.online_now} onChange={v => setFilters({ ...filters, online_now: v })} />
               <Toggle testid="filter-with-photos" label={`📷 ${t("with_photos", lang)}`} checked={filters.with_photos} onChange={v => setFilters({ ...filters, with_photos: v })} />
               <Toggle testid="filter-verified-only" label={`✅ ${t("verified_only", lang)}`} checked={filters.verified_only} onChange={v => setFilters({ ...filters, verified_only: v })} />

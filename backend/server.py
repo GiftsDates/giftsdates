@@ -975,11 +975,12 @@ async def list_profiles(
 ):
     conds = [{"id": {"$ne": user["id"]}}, {"age": {"$gte": min_age, "$lte": max_age}}]
     advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language, orientation,
-                                                                   hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, vip_only, with_photos, verified_only, online_now,
+                                                                   hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, with_photos, verified_only, online_now,
                                                                    vip_categories, vip_min_price, vip_max_price, vip_date))
     if advanced_used and not is_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
-    vip_filter = bool(vip_only or vip_categories or (vip_min_price is not None) or (vip_max_price is not None) or vip_date)
-    if vip_filter and not is_vip(user): raise HTTPException(403, "VIP_REQUIRED")
+    vip_adv = bool(vip_categories or (vip_min_price is not None) or (vip_max_price is not None) or vip_date)
+    if vip_adv and not is_vip(user): raise HTTPException(403, "VIP_REQUIRED")
+    vip_filter = bool(vip_only or vip_adv)
     if city: conds.append({"city": {"$regex": city, "$options": "i"}})
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
     if gender and gender != "all": conds.append({"gender": gender})
@@ -1028,6 +1029,7 @@ async def profile_detail(pid: str, user=Depends(get_current_user)):
     p = await db.users.find_one({"id": pid}, {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0})
     if not p: raise HTTPException(404, "Not found")
     p["is_premium"] = is_premium(p)
+    p["is_vip"] = is_vip(p)
     p["liked_by_me"] = bool(await db.likes.find_one({"from_id": user["id"], "to_id": pid}))
     m = await db.matches.find_one({"users": {"$all": [user["id"], pid]}})
     p["conversation_id"] = m["id"] if m else None

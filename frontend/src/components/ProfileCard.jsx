@@ -1,6 +1,7 @@
 import React from "react";
 import { Heart, Gift, Video, CalendarHeart, MapPin, BadgeCheck, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./ui/button";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 import { fileUrl } from "../lib/api";
@@ -15,17 +16,27 @@ const FALLBACKS = [
 ];
 
 export default function ProfileCard({ p, onLike, onGift, onVideo, onDate, onMessage, onOpen }) {
-  const { lang } = useApp();
+  const { lang, user } = useApp();
+  const nav = useNavigate();
+  const viewerVip = user?.vip_until && new Date(user.vip_until) > new Date();
+  const lockVip = p.is_vip && !viewerVip;
   const [idx, setIdx] = React.useState(0);
   const photos = p.photos?.length ? p.photos.map(fileUrl) : [FALLBACKS[Math.abs(hash(p.id)) % FALLBACKS.length]];
   const img = photos[Math.min(idx, photos.length - 1)];
   const step = (d) => setIdx((idx + d + photos.length) % photos.length);
   return (
-    <div className={`group relative rounded-3xl overflow-hidden border card-lift bg-[#161320] ${p.is_premium ? "border-amber-400/50 shadow-[0_0_30px_-8px_rgba(251,191,36,0.45)]" : "border-white/10"}`} data-testid={`profile-card-${p.id}`}>
+    <div className={`group relative rounded-3xl overflow-hidden border card-lift bg-[#161320] ${p.is_vip ? "border-red-500/50 shadow-[0_0_30px_-8px_rgba(239,68,68,0.5)]" : p.is_premium ? "border-amber-400/50 shadow-[0_0_30px_-8px_rgba(251,191,36,0.45)]" : "border-white/10"}`} data-testid={`profile-card-${p.id}`}>
       <div className="aspect-[3/4] relative cursor-pointer" data-testid={`profile-card-open-${p.id}`} onClick={() => onOpen?.(p)}>
-        <img src={img} alt={p.name} onError={(e) => { e.currentTarget.src = FALLBACKS[0]; }} className="w-full h-full object-cover" />
+        <img src={img} alt={p.name} onError={(e) => { e.currentTarget.src = FALLBACKS[0]; }} className={`w-full h-full object-cover ${lockVip ? "blur-2xl scale-110" : ""}`} />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0D0B12] via-[#0D0B12]/40 to-transparent" />
-        {photos.length > 1 && (
+        {lockVip && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-black/50 text-center px-4" data-testid={`vip-lock-overlay-${p.id}`} onClick={(e) => { e.stopPropagation(); nav("/wallet?premium=1"); }}>
+            <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center"><Crown size={22} className="text-red-400 fill-red-500" /></div>
+            <div className="text-sm font-semibold text-white leading-snug">{t("subscribe_vip_to_open", lang)}</div>
+            <Button data-testid={`vip-lock-cta-${p.id}`} size="sm" className="bg-red-600 hover:bg-red-500 text-white border-0 mt-1"><Crown size={14} className="me-1" /> VIP</Button>
+          </div>
+        )}
+        {photos.length > 1 && !lockVip && (
           <>
             <button data-testid={`profile-card-prev-photo-${p.id}`} onClick={(e) => { e.stopPropagation(); step(-1); }} className="absolute left-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronLeft size={16} /></button>
             <button data-testid={`profile-card-next-photo-${p.id}`} onClick={(e) => { e.stopPropagation(); step(1); }} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><ChevronRight size={16} /></button>
