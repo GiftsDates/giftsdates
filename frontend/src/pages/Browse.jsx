@@ -14,12 +14,14 @@ import FeedBar from "../components/FeedBar";
 import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, GENDERS, ORIENTATIONS, optLabel } from "../components/ProfileDetailsForm";
+import { VIP_CATEGORIES, catTitle } from "../lib/vipCatalog";
 import { LANGUAGES } from "../lib/i18n";
 import { Switch } from "../components/ui/switch";
 
 const ALL = "all";
 const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, drinking: ALL, religion: ALL, income: ALL, language: ALL, bust_size: ALL, penis_size: ALL, orientation: ALL,
-  min_height: "", max_height: "", min_weight: "", max_weight: "", hobby: "", job: "", max_date_price: "", premium_only: false, vip_only: false, with_photos: false, verified_only: false, online_now: false };
+  min_height: "", max_height: "", min_weight: "", max_weight: "", hobby: "", job: "", max_date_price: "", premium_only: false, vip_only: false, with_photos: false, verified_only: false, online_now: false,
+  vip_categories: [], vip_min_price: "", vip_max_price: "", vip_date: "" };
 
 function FilterSelect({ testid, field, value, options, onChange, lang, label, labelFn }) {
   return (
@@ -70,6 +72,7 @@ export default function Browse() {
     setLoading(true);
     try {
       const params = { ...filters };
+      if (Array.isArray(params.vip_categories)) { if (params.vip_categories.length) params.vip_categories = params.vip_categories.join(","); else delete params.vip_categories; }
       Object.keys(params).forEach(k => (params[k] === ALL || params[k] === "" || params[k] == null || params[k] === false) && delete params[k]);
       const { data } = await api.get("/profiles", { params });
       setProfiles(data);
@@ -176,6 +179,24 @@ export default function Browse() {
               {filters.gender !== "male" && <FilterSelect testid="filter-bust-select" field="bust_size" label={t("bust_size", lang)} value={filters.bust_size} options={BUST} onChange={v => setFilters({ ...filters, bust_size: v })} lang={lang} />}
               {filters.gender !== "female" && <FilterSelect testid="filter-penis-select" field="penis_size" label={t("penis_size", lang)} value={filters.penis_size} options={SIZES} onChange={v => setFilters({ ...filters, penis_size: v })} lang={lang} />}
             </div>
+            {isVip && (
+              <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 space-y-3" data-testid="vip-filters-block">
+                <div className="text-xs font-semibold text-red-300 flex items-center gap-1"><Crown size={12} className="fill-red-500 text-red-500" /> {t("vip_only", lang)}</div>
+                <div className="flex flex-wrap gap-2">
+                  {VIP_CATEGORIES.map(c => (
+                    <button key={c.key} data-testid={`vip-filter-cat-${c.key}`} type="button"
+                      onClick={() => setFilters(f => ({ ...f, vip_categories: f.vip_categories.includes(c.key) ? f.vip_categories.filter(x => x !== c.key) : [...f.vip_categories, c.key] }))}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filters.vip_categories.includes(c.key) ? "bg-red-500/20 border-red-500/50 text-red-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{catTitle(c.key, lang)}</button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-3 items-end">
+                  <NumInput testid="vip-filter-min-price" label={`${t("vip_price_coins", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_min_price} onChange={v => setFilters({ ...filters, vip_min_price: v })} />
+                  <NumInput testid="vip-filter-max-price" label={`${t("vip_price_coins", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_max_price} onChange={v => setFilters({ ...filters, vip_max_price: v })} />
+                  <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("vip_availability", lang)}</label>
+                    <Input data-testid="vip-filter-date" type="date" value={filters.vip_date} onChange={e => setFilters({ ...filters, vip_date: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 items-center">
               <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
               {isVip && <Toggle testid="filter-vip-only" label={`♛ ${t("vip_only", lang)}`} checked={filters.vip_only} onChange={v => setFilters({ ...filters, vip_only: v })} />}
