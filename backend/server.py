@@ -715,7 +715,7 @@ async def add_photo(file: UploadFile = File(...), user=Depends(get_current_user)
 FEED_TEXT_COINS = 100
 FEED_VIDEO_COINS = 150
 FEED_MAX = 50
-FEED_VIDEO_MAX_BYTES = 40 * 1024 * 1024
+FEED_VIDEO_MAX_BYTES = 120 * 1024 * 1024
 
 @api.get("/feed")
 async def get_feed(user=Depends(get_current_user)):
@@ -723,7 +723,7 @@ async def get_feed(user=Depends(get_current_user)):
 
 @api.post("/feed")
 async def create_feed(text: str = Form(""), video: Optional[UploadFile] = File(None), user=Depends(get_current_user)):
-    text = (text or "").strip()[:100]
+    text = (text or "").strip()[:50]
     has_video = video is not None
     if not text and not has_video:
         raise HTTPException(400, "EMPTY_POST")
