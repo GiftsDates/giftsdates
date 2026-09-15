@@ -17,6 +17,7 @@ import { presence, PresenceDot } from "../lib/presence";
 const FALLBACKS = ["https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=200", "https://images.unsplash.com/photo-1601117830731-1a36c879f666?crop=entropy&cs=srgb&fm=jpg&q=85&w=200"];
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
+import InviteDateModal from "../components/InviteDateModal";
 
 const FALLBACK_WOMAN = "https://images.unsplash.com/photo-1581841064838-a470c740e8ee?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
 const FALLBACK_MAN = "https://images.unsplash.com/photo-1545996124-0501ebae84d0?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
@@ -96,7 +97,7 @@ export default function ProfileView() {
               {p.conversation_id && <Button data-testid="profile-view-chat-button" onClick={() => nav("/chats")} variant="outline" className="h-11 bg-white/5 border-white/15"><MessageCircle size={16} className="me-1" /> {t("open_chat", lang)}</Button>}
               <Button data-testid="profile-view-gift-button" onClick={() => setModal("gift")} variant="outline" className="h-11 bg-amber-500/10 border-amber-500/40 text-amber-300"><Gift size={16} className="me-1" /> {t("gift", lang)}</Button>
               <Button data-testid="profile-view-video-button" onClick={() => setModal("video")} variant="outline" className="h-11 bg-violet-500/10 border-violet-500/40 text-violet-300"><Video size={16} className="me-1" /> {t("video_call", lang)}{p.video_rate ? <span className="ms-2 font-mono-num" data-testid="profile-view-video-rate">🪙 {p.video_rate}/{t("minutes", lang)}</span> : null}</Button>
-              <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> {t("book_date", lang)}{p.date_price ? <span className="ms-2 font-mono-num text-amber-300" data-testid="profile-view-date-price">🪙 {p.date_price}</span> : null}</Button>
+              <Button data-testid="profile-view-date-button" onClick={() => setModal("date")} variant="outline" className="h-11 bg-white/5 border-white/15"><CalendarHeart size={16} className="me-1" /> Invite on a Date{p.date_price ? <span className="ms-2 font-mono-num text-amber-300" data-testid="profile-view-date-price">🪙 {p.date_price}</span> : null}</Button>
             </div>
 
             {meta?.gift_auto_match_coins && (
@@ -164,7 +165,7 @@ export default function ProfileView() {
       </div>
       <GiftModal open={modal === "gift"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <VideoCallModal open={modal === "video"} onOpenChange={(v) => !v && setModal(null)} target={p} />
-      <DateBookingModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
+      <InviteDateModal open={modal === "date"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <ReportModal open={modal === "report"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <GiftPremiumModal open={modal === "giftpremium"} onOpenChange={(v) => !v && setModal(null)} target={p} />
       <div className="max-w-5xl mx-auto px-4"><VipSection userId={p.id} name={p.name} /></div>

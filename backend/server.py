@@ -294,14 +294,15 @@ def _email_html(title: str, body: str) -> str:
             f'Sent by GiftsDates · Luxury Dating. We never ask for your password or card details by email.</div>'
             f'</td></tr></table></td></tr></table>')
 
-async def notify(user_id: str, ntype: str, title: str, body: str, data: dict | None = None, email: bool = False):
+async def notify(user_id: str, ntype: str, title: str, body: str, data: dict | None = None, email: bool = False, link: str | None = None, cta: str = "View on GiftsDates"):
     now = datetime.now(timezone.utc).isoformat()
     await db.notifications.insert_one({"id": str(uuid.uuid4()), "user_id": user_id, "type": ntype, "title": title,
                                        "body": body, "data": data or {}, "read": False, "created_at": now})
     if email:
         u = await db.users.find_one({"id": user_id}, {"email": 1})
         if u and u.get("email"):
-            sent = await send_email(to=u["email"], subject=f"{title} · GiftsDates", html=_email_html(title, body))
+            html = _email_cta_html(title, body, link, cta) if link else _email_html(title, body)
+            sent = await send_email(to=u["email"], subject=f"{title} · GiftsDates", html=html)
             await db.email_outbox.insert_one({"id": str(uuid.uuid4()), "to": u["email"], "subject": title, "body": body,
                                               "status": "sent" if sent else "failed", "created_at": now})
 
@@ -2048,6 +2049,488 @@ async def stripe_webhook(request: Request):
 @api.get("/")
 async def root():
     return {"service": "GiftsDates", "ok": True}
+
+# ==================== Invite-on-a-Date (v2 state machine) ====================
+PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "")
+WEBHOOK_CRON_SECRET = os.environ.get("WEBHOOK_CRON_SECRET", "")
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "support@giftsdates.com")
+ADMIN_EMAIL_LIST = [e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
+DATE_WINDOW_HOURS = 3
+INVITE_MIN_COINS = 150
+DATES_LINK = f"{PUBLIC_APP_URL}/dates"
+
+def _email_cta_html(title, body, link, cta="View on GiftsDates"):
+    base = _email_html(title, body)
+    if not link:
+        return base
+    btn = (f'<div style="text-align:center;margin:6px 0 2px"><a href="{link}" style="display:inline-block;'
+           f'background:#e11d48;color:#fff;text-decoration:none;padding:12px 24px;border-radius:999px;'
+           f'font-weight:700;font-family:Arial">{cta} &rarr;</a></div>')
+    return base.replace('<div style="font-size:11px;color:#8a8598', btn + '<div style="font-size:11px;color:#8a8598')
+
+def _now(): return datetime.now(timezone.utc)
+def _iso(dt=None): return (dt or _now()).isoformat()
+def _pdt(s):
+    try: return datetime.fromisoformat((s or "").replace("Z", "+00:00"))
+    except Exception: return None
+
+async def _admin_ids():
+    return [u["id"] async for u in db.users.find({"email": {"$in": ADMIN_EMAIL_LIST}}, {"id": 1})]
+
+async def _log_status(did, status, by):
+    await db.dates.update_one({"id": did}, {"$set": {"status": status, "updated_at": _iso()},
+                                            "$push": {"status_log": {"status": status, "at": _iso(), "by": by}}})
+
+async def _mini(uid):
+    u = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "name": 1, "photos": 1, "age": 1, "city": 1, "country": 1})
+    if not u: return None
+    ph = u.get("photos") or []
+    return {"id": u["id"], "name": u.get("name"), "age": u.get("age"), "city": u.get("city"),
+            "country": u.get("country"), "photo": ph[0] if ph else None}
+
+async def _conflict(uid, start, end, exclude):
+    docs = await db.dates.find({"status": "DATE_CONFIRMED", "id": {"$ne": exclude},
+                                "$or": [{"inviter_id": uid}, {"recipient_id": uid}]}, {"_id": 0, "location": 1}).to_list(300)
+    for x in docs:
+        loc = x.get("location") or {}
+        s, e = _pdt(loc.get("scheduled_start")), _pdt(loc.get("scheduled_end"))
+        if s and e and start < e and s < end:
+            return True
+    return False
+
+async def _complete(d, status):
+    hold = int(d.get("total_hold", 0) or 0)
+    if hold > 0 and not d.get("paid_out"):
+        await db.users.update_one({"id": d["recipient_id"]}, {"$inc": {"withdrawable": hold}})
+        await record_txn(d["recipient_id"], "DATE_COMPLETION", hold, d["id"], "Date completed — coins released")
+    await db.dates.update_one({"id": d["id"]}, {"$set": {"paid_out": True}})
+    await _log_status(d["id"], status, "system")
+
+async def _refund(d, mode, status):
+    hold = int(d.get("total_hold", 0) or 0)
+    inv, rec = d["inviter_id"], d["recipient_id"]
+    if hold > 0 and not d.get("refunded"):
+        if mode == "full_inviter":
+            await db.users.update_one({"id": inv}, {"$inc": {"coins": hold}})
+            await record_txn(inv, "DATE_REFUND", hold, d["id"], "Full refund (recipient cancelled)")
+        else:  # 50/25/25
+            r_inv, r_rec = hold // 2, hold // 4
+            fee = hold - r_inv - r_rec
+            await db.users.update_one({"id": inv}, {"$inc": {"coins": r_inv}})
+            await record_txn(inv, "DATE_REFUND", r_inv, d["id"], "50% refund")
+            await db.users.update_one({"id": rec}, {"$inc": {"withdrawable": r_rec}})
+            await record_txn(rec, "RECIPIENT_COMPENSATION", r_rec, d["id"], "25% inconvenience compensation")
+            await record_txn("PLATFORM", "PLATFORM_FEE", fee, d["id"], "25% platform fee")
+    await db.dates.update_one({"id": d["id"]}, {"$set": {"refunded": True}})
+
+_NEXT = {
+    "INVITATION_SENT": ("Invitation sent", "Waiting for {o} to choose a date option.", "Choose one of the proposed date options."),
+    "DATE_ACTIVITY_SELECTED": ("Date option chosen", "Propose a meeting location, date and time.", "Waiting for {o} to propose the location."),
+    "LOCATION_PROPOSED": ("Location proposed", "Waiting for {o} to confirm the location or request a taxi.", "Confirm the location, or request a taxi."),
+    "TAXI_REQUESTED": ("Taxi requested", "Confirm & pay the taxi, or offer a pickup instead.", "Waiting for {o}'s transportation decision."),
+    "PICKUP_ADDRESS_PENDING": ("Pickup offered", "Waiting for {o} to share a pickup address.", "Share your pickup address."),
+    "PICKUP_ADDRESS_SELECTED": ("Pickup address shared", "Confirm pickup, or pay the taxi instead.", "Waiting for {o} to confirm the pickup."),
+    "DATE_CONFIRMED": ("Date confirmed", "Your date is confirmed — see the details below.", "Your date is confirmed — see the details below."),
+    "DATE_COMPLETED_PENDING_VERIFICATION": ("Date finished", "Submit a photo (24h after start) or it auto-completes after 72h.", "Submit a photo (24h after start) or it auto-completes after 72h."),
+    "PHOTO_VERIFICATION_PENDING": ("Verification submitted", "Waiting for admin review.", "Waiting for admin review."),
+    "COMPLETED": ("Completed", "This date is completed.", "This date is completed."),
+    "COMPLETED_AUTO": ("Completed", "Auto-completed after 72h.", "Auto-completed after 72h."),
+    "CANCELLED": ("Cancelled", "This date was cancelled.", "This date was cancelled."),
+    "CANCELLED_TRANSPORTATION": ("Cancelled", "Cancelled over transportation.", "Cancelled over transportation."),
+    "REPORTED": ("Reported", "Under review by our team.", "Under review by our team."),
+    "UNDER_ADMIN_REVIEW": ("Under review", "Our team is reviewing this date.", "Our team is reviewing this date."),
+    "REFUNDED": ("Refunded", "This date was refunded.", "This date was refunded."),
+}
+
+def _serialize(d, viewer_id, other_mini):
+    inv = d["inviter_id"] == viewer_id
+    label, inv_step, rec_step = _NEXT.get(d["status"], (d["status"], "", ""))
+    step = (inv_step if inv else rec_step).replace("{o}", (other_mini or {}).get("name") or "the other person")
+    loc = d.get("location") or {}
+    start = _pdt(loc.get("scheduled_start"))
+    windows = {}
+    if start:
+        windows = {"lock_at": _iso(start - timedelta(minutes=30)), "report_open": _iso(start),
+                   "report_close": _iso(start + timedelta(hours=DATE_WINDOW_HOURS)), "verify_at": _iso(start + timedelta(hours=24)),
+                   "auto_complete_at": _iso(start + timedelta(hours=72))}
+    trans = dict(d.get("transportation") or {})
+    if not inv:  # hide pickup address from inviter? pickup is recipient's; recipient sees it, inviter sees only after selected. keep as-is
+        pass
+    return {"id": d["id"], "role": "inviter" if inv else "recipient", "status": d["status"], "status_label": label,
+            "next_step": step, "other": other_mini, "options": d.get("options"), "chosen_idea": d.get("chosen_idea"),
+            "coins": d.get("coins"), "total_hold": d.get("total_hold"), "gift": d.get("gift"),
+            "location": loc, "transportation": trans, "report": bool(d.get("report")),
+            "verification": (d.get("verification") or {}).get("status"), "windows": windows,
+            "server_now": _iso(), "created_at": d.get("created_at")}
+
+class InviteCreateReq(BaseModel):
+    recipient_id: str
+    idea_ids: list[str]
+    coins: int
+    gift_id: Optional[str] = None
+    safety_ack: bool = False
+class ChooseIdeaReq(BaseModel):
+    idea_id: str
+class InviteLocationReq(BaseModel):
+    venue: str
+    address: Optional[str] = ""
+    city: Optional[str] = ""
+    meeting_point: Optional[str] = ""
+    country: Optional[str] = ""
+    postal_code: Optional[str] = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    scheduled_start: str
+class InviteTaxiReq(BaseModel):
+    amount: int
+class PickupAddrReq(BaseModel):
+    pickup_address: str
+class InviteReportReq(BaseModel):
+    reasons: list[str] = []
+    details: str
+    evidence: Optional[str] = None
+
+@api.post("/invites")
+async def create_invite(req: InviteCreateReq, user=Depends(get_current_user)):
+    if req.recipient_id == user["id"]: raise HTTPException(400, "Cannot invite yourself")
+    if not req.safety_ack: raise HTTPException(400, "SAFETY_ACK_REQUIRED")
+    rec = await db.users.find_one({"id": req.recipient_id}, {"_id": 0, "id": 1, "name": 1, "date_price": 1})
+    if not rec: raise HTTPException(404, "Recipient not found")
+    ids = list(dict.fromkeys([i for i in req.idea_ids if i]))
+    if not 1 <= len(ids) <= 3: raise HTTPException(400, "Select 1 to 3 date ideas")
+    ideas = await db.date_ideas.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(10)
+    if len(ideas) != len(ids): raise HTTPException(400, "Invalid date idea")
+    floor = max(INVITE_MIN_COINS, int(rec.get("date_price") or 0))
+    if req.coins < floor: raise HTTPException(400, f"MIN_COINS:{floor}")
+    if ((user.get("coins") or 0) + (user.get("withdrawable") or 0)) < req.coins: raise HTTPException(400, "Insufficient coins")
+    idea_by = {i["id"]: i["name"] for i in ideas}
+    options = [{"idea_id": i, "name": idea_by[i], "order": n + 1} for n, i in enumerate(ids)]
+    await spend_coins(user["id"], req.coins)
+    await record_txn(user["id"], "DATE_PAYMENT", -req.coins, None, "Date invitation escrow")
+    gift = None
+    if req.gift_id:
+        g = next((x for x in (await get_settings())["gifts"] if x["id"] == req.gift_id), None)
+        if g and ((user.get("coins") or 0) + (user.get("withdrawable") or 0)) >= g["cost"]:
+            await spend_coins(user["id"], g["cost"])
+            await record_txn(user["id"], "DATE_PAYMENT", -g["cost"], None, f"Gift: {g['id']}")
+            net = round(g["cost"] * (1 - (await get_settings())["commission"]), 2)
+            await db.users.update_one({"id": req.recipient_id}, {"$inc": {"withdrawable": net}})
+            gift = {"id": g["id"], "icon": g.get("icon"), "cost": g["cost"]}
+    did = str(uuid.uuid4())
+    doc = {"id": did, "inviter_id": user["id"], "recipient_id": req.recipient_id, "options": options,
+           "chosen_idea": None, "coins": req.coins, "total_hold": req.coins, "gift": gift,
+           "location": None, "transportation": None, "status": "INVITATION_SENT",
+           "status_log": [{"status": "INVITATION_SENT", "at": _iso(), "by": user["id"]}], "report": None,
+           "verification": None, "paid_out": False, "refunded": False, "reminders": {},
+           "created_at": _iso(), "updated_at": _iso(), "expires_at": _iso(_now() + timedelta(days=7))}
+    await db.dates.insert_one(doc)
+    await notify(req.recipient_id, "date_request", "You received a new date invitation",
+                 f"{user['name']} invited you on a date with {len(options)} option(s). Choose one to continue.",
+                 {"date_id": did}, email=True, link=DATES_LINK, cta="View Invitation")
+    return {"id": did, "status": "INVITATION_SENT"}
+
+async def _get_party(did, uid, role=None):
+    d = await db.dates.find_one({"id": did}, {"_id": 0})
+    if not d: raise HTTPException(404, "Not found")
+    if uid not in (d["inviter_id"], d["recipient_id"]): raise HTTPException(403, "Forbidden")
+    if role == "inviter" and d["inviter_id"] != uid: raise HTTPException(403, "Only the inviter can do this")
+    if role == "recipient" and d["recipient_id"] != uid: raise HTTPException(403, "Only the recipient can do this")
+    return d
+
+@api.post("/invites/{did}/choose")
+async def invite_choose(did: str, req: ChooseIdeaReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "recipient")
+    if d["status"] != "INVITATION_SENT": raise HTTPException(400, "Cannot choose now")
+    opt = next((o for o in d["options"] if o["idea_id"] == req.idea_id), None)
+    if not opt: raise HTTPException(400, "Invalid option")
+    await db.dates.update_one({"id": did}, {"$set": {"chosen_idea": {"idea_id": opt["idea_id"], "name": opt["name"]}}})
+    await _log_status(did, "DATE_ACTIVITY_SELECTED", user["id"])
+    await notify(d["inviter_id"], "date_accepted", "Your date invitation was accepted",
+                 f"{user['name']} chose: {opt['name']}. Now propose a meeting location.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "DATE_ACTIVITY_SELECTED"}
+
+@api.post("/invites/{did}/location")
+async def invite_location(did: str, req: InviteLocationReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    if d["status"] not in ("DATE_ACTIVITY_SELECTED", "LOCATION_PROPOSED"): raise HTTPException(400, "Cannot set location now")
+    start = _pdt(req.scheduled_start)
+    if not start: raise HTTPException(400, "Invalid start time")
+    end = start + timedelta(hours=DATE_WINDOW_HOURS)
+    if await _conflict(user["id"], start, end, did) or await _conflict(d["recipient_id"], start, end, did):
+        raise HTTPException(400, "TIME_CONFLICT")
+    loc = {"venue": req.venue, "address": req.address or "", "city": req.city or "", "meeting_point": req.meeting_point or "",
+           "country": req.country or "", "postal_code": req.postal_code or "", "lat": req.lat, "lng": req.lng,
+           "scheduled_start": _iso(start), "scheduled_end": _iso(end)}
+    await db.dates.update_one({"id": did}, {"$set": {"location": loc}})
+    await _log_status(did, "LOCATION_PROPOSED", user["id"])
+    await notify(d["recipient_id"], "date_location", "A meeting location has been proposed",
+                 f"{user['name']} proposed {req.venue}. Confirm it or request a taxi.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "LOCATION_PROPOSED"}
+
+@api.post("/invites/{did}/location/confirm")
+async def invite_location_confirm(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "recipient")
+    if d["status"] != "LOCATION_PROPOSED": raise HTTPException(400, "Nothing to confirm")
+    await _log_status(did, "DATE_CONFIRMED", user["id"])
+    for uid in (d["inviter_id"], d["recipient_id"]):
+        await notify(uid, "date_accepted", "Your date is confirmed", "The meeting location was confirmed. See details in Dates.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "DATE_CONFIRMED"}
+
+@api.post("/invites/{did}/taxi/request")
+async def invite_taxi_request(did: str, req: InviteTaxiReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "recipient")
+    if d["status"] != "LOCATION_PROPOSED": raise HTTPException(400, "Cannot request taxi now")
+    if req.amount <= 0: raise HTTPException(400, "Invalid amount")
+    await db.dates.update_one({"id": did}, {"$set": {"transportation": {"type": "taxi", "taxi_amount": int(req.amount), "status": "requested", "requested_by": user["id"]}}})
+    await _log_status(did, "TAXI_REQUESTED", user["id"])
+    await notify(d["inviter_id"], "date_taxi", "Transportation request received",
+                 f"{user['name']} requested a taxi fee of 🪙{req.amount}. Confirm & pay, or offer a pickup.", {"date_id": did}, email=True, link=DATES_LINK, cta="Review Request")
+    return {"ok": True, "status": "TAXI_REQUESTED"}
+
+@api.post("/invites/{did}/taxi/confirm")
+async def invite_taxi_confirm(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    if d["status"] not in ("TAXI_REQUESTED", "PICKUP_ADDRESS_SELECTED"): raise HTTPException(400, "Cannot confirm taxi now")
+    amount = int((d.get("transportation") or {}).get("taxi_amount") or 0)
+    if amount > 0:
+        if ((user.get("coins") or 0) + (user.get("withdrawable") or 0)) < amount: raise HTTPException(400, "Insufficient coins")
+        await spend_coins(user["id"], amount)
+        await record_txn(user["id"], "DATE_PAYMENT", -amount, did, "Taxi fee escrow")
+        await db.dates.update_one({"id": did}, {"$inc": {"total_hold": amount}})
+    await db.dates.update_one({"id": did}, {"$set": {"transportation.type": "taxi", "transportation.status": "confirmed", "transportation.confirmed_by": user["id"]}})
+    await _log_status(did, "DATE_CONFIRMED", user["id"])
+    for uid in (d["inviter_id"], d["recipient_id"]):
+        await notify(uid, "date_taxi", "Transportation confirmed", "Taxi confirmed — your date is confirmed.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "DATE_CONFIRMED"}
+
+@api.post("/invites/{did}/pickup/offer")
+async def invite_pickup_offer(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    if d["status"] not in ("TAXI_REQUESTED", "PICKUP_ADDRESS_SELECTED"): raise HTTPException(400, "Cannot offer pickup now")
+    await db.dates.update_one({"id": did}, {"$set": {"transportation.type": "pickup", "transportation.status": "awaiting_address"}})
+    await _log_status(did, "PICKUP_ADDRESS_PENDING", user["id"])
+    await notify(d["recipient_id"], "date_taxi", "Pickup offered", f"{user['name']} offered to pick you up. Share your pickup address.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "PICKUP_ADDRESS_PENDING"}
+
+@api.post("/invites/{did}/pickup/address")
+async def invite_pickup_address(did: str, req: PickupAddrReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "recipient")
+    if d["status"] != "PICKUP_ADDRESS_PENDING": raise HTTPException(400, "Cannot submit pickup now")
+    if not req.pickup_address.strip(): raise HTTPException(400, "Address required")
+    await db.dates.update_one({"id": did}, {"$set": {"transportation.pickup_address": req.pickup_address.strip(), "transportation.status": "address_selected"}})
+    await _log_status(did, "PICKUP_ADDRESS_SELECTED", user["id"])
+    await notify(d["inviter_id"], "date_taxi", "Pickup address shared", f"{user['name']} shared a pickup address. Confirm pickup or pay taxi instead.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "PICKUP_ADDRESS_SELECTED"}
+
+@api.post("/invites/{did}/pickup/confirm")
+async def invite_pickup_confirm(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    if d["status"] != "PICKUP_ADDRESS_SELECTED": raise HTTPException(400, "Nothing to confirm")
+    await db.dates.update_one({"id": did}, {"$set": {"transportation.type": "pickup", "transportation.status": "confirmed", "transportation.confirmed_by": user["id"]}})
+    await _log_status(did, "DATE_CONFIRMED", user["id"])
+    for uid in (d["inviter_id"], d["recipient_id"]):
+        await notify(uid, "date_accepted", "Your date is confirmed", "Pickup confirmed — your date is confirmed.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Date")
+    return {"ok": True, "status": "DATE_CONFIRMED"}
+
+@api.post("/invites/{did}/transport/refuse")
+async def invite_transport_refuse(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    if d["status"] not in ("TAXI_REQUESTED", "PICKUP_ADDRESS_SELECTED", "PICKUP_ADDRESS_PENDING"): raise HTTPException(400, "Cannot refuse now")
+    await _refund(d, "split", "CANCELLED_TRANSPORTATION")
+    await _log_status(did, "CANCELLED_TRANSPORTATION", user["id"])
+    for uid in (d["inviter_id"], d["recipient_id"]):
+        await notify(uid, "date_declined", "Your date has been cancelled", "The date was cancelled over transportation. Refund applied (50/25/25).", {"date_id": did}, email=True, link=DATES_LINK, cta="View Details")
+    return {"ok": True, "status": "CANCELLED_TRANSPORTATION"}
+
+@api.post("/invites/{did}/cancel")
+async def invite_cancel(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    if d["status"] in ("COMPLETED", "COMPLETED_AUTO", "CANCELLED", "CANCELLED_TRANSPORTATION", "REFUNDED"): raise HTTPException(400, "Already closed")
+    start = _pdt((d.get("location") or {}).get("scheduled_start"))
+    if start and d["status"] in ("DATE_CONFIRMED",) and _now() >= start - timedelta(minutes=30):
+        raise HTTPException(400, "LOCKED")
+    if d["recipient_id"] == user["id"]:
+        await _refund(d, "full_inviter", "CANCELLED")
+    else:
+        await _refund(d, "split", "CANCELLED")
+    await _log_status(did, "CANCELLED", user["id"])
+    other = d["recipient_id"] if user["id"] == d["inviter_id"] else d["inviter_id"]
+    await notify(other, "date_declined", "Your date has been cancelled", "The other person cancelled the date. Any applicable refund was processed.", {"date_id": did}, email=True, link=DATES_LINK, cta="View Details")
+    return {"ok": True, "status": "CANCELLED"}
+
+@api.post("/invites/{did}/report")
+async def invite_report(did: str, req: InviteReportReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    start = _pdt((d.get("location") or {}).get("scheduled_start"))
+    if not start: raise HTTPException(400, "Report not available yet")
+    if not (start <= _now() <= start + timedelta(hours=DATE_WINDOW_HOURS)):
+        raise HTTPException(400, "REPORT_WINDOW_CLOSED")
+    if len((req.details or "").strip()) < 10: raise HTTPException(400, "Please describe what happened (min 10 chars)")
+    rep = {"reporter_id": user["id"], "reasons": req.reasons, "details": req.details.strip(), "evidence": req.evidence, "created_at": _iso()}
+    await db.dates.update_one({"id": did}, {"$set": {"report": rep}})
+    await _log_status(did, "REPORTED", user["id"])
+    for aid in await _admin_ids():
+        await notify(aid, "date_request", "Date report submitted", f"A date ({did}) was reported. Review the case in admin.", {"date_id": did}, email=True, link=f"{PUBLIC_APP_URL}/admin", cta="View Case")
+    return {"ok": True, "status": "REPORTED"}
+
+@api.post("/invites/{did}/verify")
+async def invite_verify(did: str, file: UploadFile = File(...), confirm: bool = Form(False), note: str = Form(""), user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    start = _pdt((d.get("location") or {}).get("scheduled_start"))
+    if not start or _now() < start + timedelta(hours=24): raise HTTPException(400, "VERIFY_NOT_YET")
+    if not confirm: raise HTTPException(400, "Confirmation required")
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024: raise HTTPException(400, "Max 15MB")
+    path = f"giftsdates/dateverify/{did}/{uuid.uuid4()}.jpg"
+    put_object(path, data, file.content_type or "image/jpeg")
+    ver = {"user_id": user["id"], "photo": path, "note": note, "status": "pending", "submitted_at": _iso()}
+    await db.dates.update_one({"id": did}, {"$set": {"verification": ver}})
+    await _log_status(did, "PHOTO_VERIFICATION_PENDING", user["id"])
+    inv = await _mini(d["inviter_id"]); rec = await _mini(d["recipient_id"])
+    detail = (f"Date confirmation submitted.<br>Date ID: {did}<br>Activity: {(d.get('chosen_idea') or {}).get('name')}<br>"
+              f"When: {(d.get('location') or {}).get('scheduled_start')}<br>Where: {(d.get('location') or {}).get('venue')}, {(d.get('location') or {}).get('address')}<br>"
+              f"Coins: {d.get('total_hold')}<br>Inviter: {inv}<br>Recipient: {rec}<br>Submitted: {_iso()}")
+    await send_email(to=SUPPORT_EMAIL, subject=f"Date confirmation submitted · {did}", html=_email_cta_html("Date confirmation submitted", detail, f"{PUBLIC_APP_URL}/admin", "Review Confirmation"))
+    for aid in await _admin_ids():
+        await notify(aid, "date_request", "Date confirmation submitted", f"Photo verification pending for date {did}.", {"date_id": did}, email=False)
+    return {"ok": True, "status": "PHOTO_VERIFICATION_PENDING"}
+
+@api.post("/invites/{did}/acknowledge")
+async def invite_ack(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    await db.dates.update_one({"id": did}, {"$push": {"acknowledgements": {"by": user["id"], "at": _iso(),
+                              "text": "I confirm I have no complaints regarding this date, its cancellation, refund, or the agreed arrangements."}}})
+    return {"ok": True}
+
+@api.get("/invites")
+async def list_invites(user=Depends(get_current_user)):
+    docs = await db.dates.find({"$or": [{"inviter_id": user["id"]}, {"recipient_id": user["id"]}]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    incoming, outgoing = [], []
+    for d in docs:
+        other_id = d["recipient_id"] if d["inviter_id"] == user["id"] else d["inviter_id"]
+        s = _serialize(d, user["id"], await _mini(other_id))
+        (outgoing if d["inviter_id"] == user["id"] else incoming).append(s)
+    return {"incoming": incoming, "outgoing": outgoing}
+
+@api.get("/invites/{did}")
+async def get_invite(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    other_id = d["recipient_id"] if d["inviter_id"] == user["id"] else d["inviter_id"]
+    return _serialize(d, user["id"], await _mini(other_id))
+
+# ---------- Monthly Spin & Win ----------
+@api.get("/spin/status")
+async def spin_status(user=Depends(get_current_user)):
+    month = _now().strftime("%Y-%m")
+    done = await db.spin_history.find_one({"user_id": user["id"], "month": month})
+    return {"eligible": not done, "month": month, "last": (done or {}).get("reward")}
+
+@api.post("/spin/claim")
+async def spin_claim(user=Depends(get_current_user)):
+    month = _now().strftime("%Y-%m")
+    if await db.spin_history.find_one({"user_id": user["id"], "month": month}):
+        raise HTTPException(400, "Already spun this month")
+    p = _pick_spin_prize()
+    reward = _spin_public(p)
+    if p.get("coins"):
+        await db.users.update_one({"id": user["id"]}, {"$inc": {"coins": int(p["coins"])}})
+        await record_txn(user["id"], "SPIN_WIN", int(p["coins"]), None, "Monthly Spin & Win")
+    elif p.get("type") == "premium":
+        await db.users.update_one({"id": user["id"]}, {"$set": {"premium_until": extend_until(user.get("premium_until"), int(p.get("premium_days", 30)))}})
+    await db.spin_history.insert_one({"id": str(uuid.uuid4()), "user_id": user["id"], "month": month, "spin_date": _iso(), "reward": reward, "status": "completed", "created_at": _iso()})
+    return {"prize": reward}
+
+# ---------- Admin: dates dashboard ----------
+async def _require_admin(user):
+    if (user.get("email") or "").lower() not in ADMIN_EMAIL_LIST: raise HTTPException(403, "Admin only")
+
+@api.get("/admin/dates")
+async def admin_dates(status: Optional[str] = None, user=Depends(get_current_user)):
+    await _require_admin(user)
+    q = {"status": status} if status else {}
+    docs = await db.dates.find(q, {"_id": 0}).sort("updated_at", -1).to_list(300)
+    out = []
+    for d in docs:
+        d["inviter"] = await _mini(d["inviter_id"]); d["recipient"] = await _mini(d["recipient_id"])
+        out.append(d)
+    return {"dates": out}
+
+@api.post("/admin/dates/{did}/verify")
+async def admin_verify(did: str, approve: bool = True, user=Depends(get_current_user)):
+    await _require_admin(user)
+    d = await db.dates.find_one({"id": did}, {"_id": 0})
+    if not d: raise HTTPException(404, "Not found")
+    if approve:
+        await db.dates.update_one({"id": did}, {"$set": {"verification.status": "approved", "verification.reviewed_by": user["id"], "verification.reviewed_at": _iso()}})
+        await _complete(d, "COMPLETED")
+    else:
+        await db.dates.update_one({"id": did}, {"$set": {"verification.status": "rejected", "verification.reviewed_by": user["id"]}})
+        await _log_status(did, "UNDER_ADMIN_REVIEW", user["id"])
+    await db.date_admin_log.insert_one({"id": str(uuid.uuid4()), "date_id": did, "admin_id": user["id"], "action": "verify_approve" if approve else "verify_reject", "at": _iso()})
+    return {"ok": True}
+
+@api.post("/admin/dates/{did}/resolve")
+async def admin_resolve(did: str, action: str, user=Depends(get_current_user)):
+    await _require_admin(user)
+    d = await db.dates.find_one({"id": did}, {"_id": 0})
+    if not d: raise HTTPException(404, "Not found")
+    if action == "payout_recipient": await _complete(d, "COMPLETED")
+    elif action == "refund_inviter": await _refund(d, "full_inviter", "REFUNDED")
+    elif action == "split": await _refund(d, "split", "REFUNDED")
+    else: raise HTTPException(400, "Unknown action")
+    await db.date_admin_log.insert_one({"id": str(uuid.uuid4()), "date_id": did, "admin_id": user["id"], "action": action, "at": _iso()})
+    return {"ok": True}
+
+# ---------- Cron endpoints ----------
+async def _run_lifecycle():
+    now = _now()
+    docs = await db.dates.find({"status": "DATE_CONFIRMED"}, {"_id": 0}).to_list(500)
+    for d in docs:
+        start = _pdt((d.get("location") or {}).get("scheduled_start"))
+        if not start: continue
+        r = d.get("reminders") or {}
+        async def snd(flag, title, body):
+            if r.get(flag): return
+            for uid in (d["inviter_id"], d["recipient_id"]):
+                await notify(uid, "date_reminder", title, body, {"date_id": d["id"]}, email=True, link=DATES_LINK, cta="View Date")
+            await db.dates.update_one({"id": d["id"]}, {"$set": {f"reminders.{flag}": True}})
+        if start - timedelta(hours=24) <= now < start - timedelta(hours=1): await snd("h24", "Your date is tomorrow", "Reminder: your date is tomorrow.")
+        elif start - timedelta(hours=1) <= now < start - timedelta(minutes=30): await snd("h1", "Your date starts in 1 hour", "Your date starts in 1 hour.")
+        elif start - timedelta(minutes=30) <= now < start: await snd("m30", "Your date starts in 30 minutes", "Cancellation and date coin actions are now locked.")
+        elif start <= now < start + timedelta(hours=3): await snd("started", "Your date has started", "Enjoy — be respectful and safe.")
+        elif now >= start + timedelta(hours=3): await snd("h3", "Your scheduled date window has ended", "Photo confirmation unlocks 24h after the start.")
+        if now > start + timedelta(hours=72) and not d.get("report") and not (d.get("verification") or {}).get("status") == "pending" and not d.get("paid_out"):
+            await _complete(d, "COMPLETED_AUTO")
+
+async def _run_spin_reminders():
+    now = _now(); month = now.strftime("%Y-%m")
+    users = await db.users.find({"spin_email_month": {"$ne": month}}, {"_id": 0, "id": 1}).to_list(500)
+    for u in users:
+        if await db.spin_history.find_one({"user_id": u["id"], "month": month}): continue
+        await notify(u["id"], "spin", "Your Spin & Win is ready", "Your monthly Spin & Win is available. Spin now to claim your reward!", {}, email=True, link=f"{PUBLIC_APP_URL}/spin", cta="Spin Now")
+        await db.users.update_one({"id": u["id"]}, {"$set": {"spin_email_month": month}})
+
+def _cron_auth(authorization):
+    import hmac
+    if not WEBHOOK_CRON_SECRET: raise HTTPException(503, "cron not configured")
+    tok = authorization.split(" ", 1)[1] if authorization and authorization.startswith("Bearer ") else ""
+    if not hmac.compare_digest(tok, WEBHOOK_CRON_SECRET): raise HTTPException(401, "unauthorized")
+
+@api.post("/cron/tick")
+async def cron_tick(authorization: Optional[str] = Header(None)):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    import asyncio
+    _cron_auth(authorization)
+    asyncio.create_task(_run_lifecycle())
+    return {"accepted": True}
+
+@api.post("/cron/spin")
+async def cron_spin(authorization: Optional[str] = Header(None)):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    import asyncio
+    _cron_auth(authorization)
+    asyncio.create_task(_run_spin_reminders())
+    return {"accepted": True}
 
 app.include_router(api)
 app.add_middleware(

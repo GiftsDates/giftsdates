@@ -1,0 +1,15 @@
+crons:
+  - name: date-lifecycle
+    description: "Sends date reminders and auto-completes dates 72h after start when no report exists"
+    cron: "*/15 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/tick"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
+  - name: monthly-spin
+    description: "Emails users their monthly Spin & Win reminder with a Spin Now link"
+    cron: "0 9 1 * *"
+    endpoint: "{{BASE_URL}}/api/cron/spin"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

@@ -10,6 +10,7 @@ import ProfileCard from "../components/ProfileCard";
 import GiftModal from "../components/GiftModal";
 import VideoCallModal from "../components/VideoCallModal";
 import DateBookingModal from "../components/DateBookingModal";
+import InviteDateModal from "../components/InviteDateModal";
 import FeedBar from "../components/FeedBar";
 import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -226,7 +227,7 @@ export default function Browse() {
 
       <GiftModal open={modal==="gift"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
       <VideoCallModal open={modal==="video"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
-      <DateBookingModal open={modal==="date"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
+      <InviteDateModal open={modal==="date"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
     </div>
   );
 }
