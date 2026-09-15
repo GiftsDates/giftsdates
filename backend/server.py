@@ -412,6 +412,7 @@ class DateBookingReq(BaseModel):
     country: Optional[str] = ""
     lat: Optional[float] = None
     lng: Optional[float] = None
+    place: Optional[str] = None  # VIP: own | your | other
 
 class DateConfirmReq(BaseModel):
     booking_id: str
@@ -1493,6 +1494,28 @@ async def decline_taxi(bid: str, user=Depends(get_current_user)):
     await notify(b["to_id"], "date_taxi", "Taxi request declined", f"{user['name']} declined your taxi request for the date at {b['venue']}.", {"booking_id": bid})
     return {"ok": True}
 
+# ---------- Share meeting location (host shares address when they host) ----------
+class MeetLocationReq(BaseModel):
+    address: str
+    city: Optional[str] = ""
+    postal_code: Optional[str] = ""
+    country: Optional[str] = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+@api.post("/dates/meet-location/{bid}")
+async def share_meet_location(bid: str, req: MeetLocationReq, user=Depends(get_current_user)):
+    b = await db.date_bookings.find_one({"id": bid})
+    if not b: raise HTTPException(404, "Not found")
+    if b["to_id"] != user["id"]: raise HTTPException(403, "Only the host can share the meeting location")
+    if b["status"] not in ("escrow", "accepted", "confirmed"): raise HTTPException(400, "Cannot share location")
+    if not (req.address or "").strip(): raise HTTPException(400, "Address required")
+    meet = {"address": req.address.strip(), "city": (req.city or "").strip(), "postal_code": (req.postal_code or "").strip(),
+            "country": (req.country or "").strip(), "lat": req.lat, "lng": req.lng, "shared_at": datetime.now(timezone.utc).isoformat()}
+    await db.date_bookings.update_one({"id": bid}, {"$set": {"meet": meet}})
+    await notify(b["from_id"], "date_request", "📍 Meeting location shared", f"{user['name']} shared the meeting address for your VIP date. See it in Dates.", {"booking_id": bid}, email=True)
+    return {"ok": True, "meet": meet}
+
 # ---------- Wallet / Withdraw ----------
 @api.get("/wallet")
 async def wallet(user=Depends(get_current_user)):
@@ -1714,7 +1737,8 @@ async def vip_book(req: DateBookingReq, user=Depends(get_current_user)):
     now = datetime.now(timezone.utc).isoformat()
     bid = str(uuid.uuid4())
     doc = {"id": bid, "from_id": user["id"], "to_id": req.target_id, "venue": req.venue or "VIP", "city": req.city or "-",
-           "address": (req.address or "").strip(), "country": (req.country or "").strip(), "scheduled_at": req.scheduled_at,
+           "address": (req.address or "").strip(), "postal_code": (req.postal_code or "").strip(), "country": (req.country or "").strip(),
+           "lat": req.lat, "lng": req.lng, "place": req.place, "scheduled_at": req.scheduled_at,
            "coins": req.coins, "status": "escrow", "photo_url": None, "release_at": None, "vip": True, "created_at": now}
     await spend_coins(user["id"], req.coins)
     await db.users.update_one({"id": req.target_id}, {"$inc": {"escrow": req.coins}})

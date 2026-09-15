@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { CalendarHeart, Camera, Clock, Check, X, Car, Info, Coins } from "lucide-react";
 import { MapsLink } from "../components/AddressPicker";
+import AddressPicker from "../components/AddressPicker";
 
 const STATUS_MAP = { escrow: "status_escrow", accepted: "status_accepted", confirmed: "status_confirmed", released: "status_released", cancelled: "status_cancelled", declined: "status_declined" };
 const STATUS_COLOR = { escrow: "bg-amber-500/15 text-amber-300 border-amber-500/30", accepted: "bg-sky-500/15 text-sky-300 border-sky-500/30", confirmed: "bg-violet-500/15 text-violet-300 border-violet-500/30", released: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", cancelled: "bg-red-500/15 text-red-300 border-red-500/30", declined: "bg-red-500/15 text-red-300 border-red-500/30" };
@@ -17,6 +18,8 @@ export default function Dates() {
   const [data, setData] = useState({ outgoing: [], incoming: [] });
   const [busyId, setBusyId] = useState(null);
   const [taxiFor, setTaxiFor] = useState(null); // { id, coins }
+  const [meetFor, setMeetFor] = useState(null);
+  const [meetLoc, setMeetLoc] = useState({});
   const inputRef = useRef();
   const uploadingFor = useRef(null);
 
@@ -75,6 +78,14 @@ export default function Dates() {
     finally { setBusyId(null); }
   };
 
+  const shareMeet = async (id) => {
+    if (!meetLoc.address) { toast.error(t("search_address", lang)); return; }
+    setBusyId(id);
+    try { await api.post(`/dates/meet-location/${id}`, { address: meetLoc.address, city: meetLoc.city || "", postal_code: meetLoc.postal_code || "", country: meetLoc.country || "", lat: meetLoc.lat ?? null, lng: meetLoc.lng ?? null }); await load(); toast.success(t("meet_location_shared_toast", lang)); setMeetFor(null); setMeetLoc({}); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusyId(null); }
+  };
+
   const startUpload = (bid) => { uploadingFor.current = bid; inputRef.current?.click(); };
   const handleFile = async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -97,6 +108,7 @@ export default function Dates() {
         <div className="flex items-center gap-2 mb-1"><CalendarHeart size={14} className="text-rose-400"/><span className="font-serif-luxe text-lg">{b.venue}</span></div>
         <div className="text-xs text-slate-400 flex items-center gap-2"><Clock size={11}/> {new Date(b.scheduled_at).toLocaleString()} · {b.city}</div>
         {(b.address || b.lat || b.postal_code) && <div className="text-xs text-slate-400 mt-0.5">{[b.address, b.postal_code, b.country].filter(Boolean).join(" · ")} <MapsLink loc={b} testid={`date-maps-link-${b.id}`} /></div>}
+        {b.meet?.address && <div className="text-xs text-emerald-300 mt-0.5" data-testid={`meet-location-${b.id}`}>📍 {t("meet_location", lang)}: {[b.meet.address, b.meet.postal_code, b.meet.country].filter(Boolean).join(" · ")} <MapsLink loc={{ ...b.meet, venue: b.venue }} testid={`meet-maps-link-${b.id}`} /></div>}
         <div className="mt-1 flex items-center gap-2 flex-wrap">
           <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_COLOR[b.status]}`}>{t(STATUS_MAP[b.status], lang)}</span>
           <span className="text-xs text-amber-300 font-mono-num">🪙 {b.coins}</span>
@@ -140,6 +152,22 @@ export default function Dates() {
           );
           return null;
         })()}
+        {isIncoming && b.vip && b.place === "own" && ["escrow", "accepted", "confirmed"].includes(b.status) && (
+          <div className="mt-2" data-testid={`meet-share-block-${b.id}`}>
+            {meetFor === b.id ? (
+              <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2">
+                <div className="text-[11px] text-emerald-200">{t("share_meet_location", lang)}</div>
+                <AddressPicker value={meetLoc} onChange={setMeetLoc} />
+                <div className="flex gap-2">
+                  <Button data-testid={`meet-share-submit-${b.id}`} size="sm" disabled={busyId===b.id} onClick={() => shareMeet(b.id)} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 h-8">{t("send", lang)}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setMeetFor(null); setMeetLoc({}); }} className="text-slate-400 h-8">{t("cancel", lang)}</Button>
+                </div>
+              </div>
+            ) : (
+              <button data-testid={`meet-share-btn-${b.id}`} onClick={() => { setMeetFor(b.id); setMeetLoc(b.meet || {}); }} className="text-xs text-emerald-300 hover:underline inline-flex items-center gap-1">📍 {b.meet ? t("update_meet_location", lang) : t("share_meet_location", lang)}</button>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex gap-2 flex-wrap">
         {isIncoming && b.status === "escrow" && (

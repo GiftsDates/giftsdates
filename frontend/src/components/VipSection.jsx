@@ -6,6 +6,7 @@ import { api, fileUrl } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
+import AddressPicker from "./AddressPicker";
 import { PRICE_KEYS, svcLabel, placeLabel, priceLabel } from "../lib/vipCatalog";
 import { t } from "../lib/i18n";
 
@@ -14,6 +15,8 @@ export default function VipSection({ userId, name }) {
   const nav = useNavigate();
   const [data, setData] = useState(undefined); // undefined=loading, null=none
   const [slot, setSlot] = useState(null);
+  const [place, setPlace] = useState(null);
+  const [loc, setLoc] = useState({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -45,16 +48,32 @@ export default function VipSection({ userId, name }) {
 
   const v = data.vip || {};
   const priceFor = (k) => v.prices?.[k] || 0;
+  const hasPlaces = (v.places?.length || 0) > 0;
 
   const book = async (durKey) => {
     const coins = priceFor(durKey);
     if (!coins) { toast.error("Цена не указана"); return; }
+    if (hasPlaces && !place) { toast.error(t("vip_select_place_first", lang)); return; }
+    if (place && place !== "own" && !loc.address) { toast.error(t("vip_addr_required", lang)); return; }
     if ((( user?.coins || 0) + (user?.withdrawable || 0)) < coins) { toast.error("Недостаточно монет", { action: { label: "Пополнить", onClick: () => nav("/wallet") } }); return; }
     setBusy(true);
     try {
-      await api.post("/vip/book", { target_id: userId, venue: "VIP свидание", city: data.city || "-", scheduled_at: `${slot.date}T${slot.from}:00`, coins });
-      toast.success("Бронь создана — монеты в эскроу");
-      setSlot(null);
+      const providerHosts = place === "own";
+      await api.post("/vip/book", {
+        target_id: userId,
+        venue: place ? placeLabel(place, lang) : "VIP",
+        place: place || null,
+        city: (!providerHosts && loc.city) || data.city || "-",
+        address: providerHosts ? "" : (loc.address || ""),
+        postal_code: providerHosts ? "" : (loc.postal_code || ""),
+        country: providerHosts ? "" : (loc.country || ""),
+        lat: providerHosts ? null : (loc.lat ?? null),
+        lng: providerHosts ? null : (loc.lng ?? null),
+        scheduled_at: `${slot.date}T${slot.from}:00`,
+        coins,
+      });
+      toast.success(t("vip_booked_toast", lang));
+      setSlot(null); setPlace(null); setLoc({});
       await refreshUser();
     } catch (e) { toast.error(e.response?.data?.detail || "Ошибка"); } finally { setBusy(false); }
   };
@@ -103,10 +122,31 @@ export default function VipSection({ userId, name }) {
         </div>
       )}
 
-      <Dialog open={!!slot} onOpenChange={(o) => !o && setSlot(null)}>
-        <DialogContent className="bg-[#161018] border-white/10 text-white max-w-sm" data-testid="vip-book-dialog">
-          <DialogHeader><DialogTitle className="font-serif-luxe text-xl">Бронь · {name}</DialogTitle></DialogHeader>
-          {slot && <p className="text-sm text-slate-400">{slot.date} · {slot.from}–{slot.to}. Выберите длительность:</p>}
+      <Dialog open={!!slot} onOpenChange={(o) => { if (!o) { setSlot(null); setPlace(null); setLoc({}); } }}>
+        <DialogContent className="bg-[#161018] border-white/10 text-white max-w-sm max-h-[85vh] overflow-y-auto" data-testid="vip-book-dialog">
+          <DialogHeader><DialogTitle className="font-serif-luxe text-xl">{name}</DialogTitle></DialogHeader>
+          {slot && <p className="text-sm text-slate-400"><Calendar size={13} className="inline me-1 -mt-0.5" />{slot.date} · {slot.from}–{slot.to}</p>}
+
+          {hasPlaces && (
+            <div data-testid="vip-book-place">
+              <div className="text-xs font-semibold text-amber-200 mb-1.5">{t("vip_choose_place", lang)}</div>
+              <div className="flex flex-wrap gap-2">
+                {v.places.map((pv) => (
+                  <button key={pv} data-testid={`vip-book-place-${pv}`} onClick={() => setPlace(pv)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${place === pv ? "bg-amber-500/20 border-amber-500/50 text-amber-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{placeLabel(pv, lang)}</button>
+                ))}
+              </div>
+              {place && place !== "own" && (
+                <div className="mt-2" data-testid="vip-book-address">
+                  <div className="text-[11px] text-slate-400 mb-1">{t("vip_addr_hint", lang)}</div>
+                  <AddressPicker value={loc} onChange={setLoc} />
+                </div>
+              )}
+              {place === "own" && <div className="mt-2 text-[11px] text-sky-300 flex items-start gap-1"><Calendar size={11} className="mt-0.5 shrink-0" /> {t("vip_provider_shares", lang)}</div>}
+            </div>
+          )}
+
+          <div className="text-xs font-semibold text-amber-200">{t("vip_book_btn", lang)}</div>
           <div className="grid grid-cols-2 gap-2">
             {PRICE_KEYS.map((p) => priceFor(p.k) > 0 && (
               <Button key={p.k} data-testid={`vip-book-${p.k}`} onClick={() => book(p.k)} disabled={busy} className="rose-btn text-white border-0 h-auto py-2 flex-col">
