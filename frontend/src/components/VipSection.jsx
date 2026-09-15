@@ -7,9 +7,10 @@ import { useApp } from "../context/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { VIP_PLACES, PRICE_KEYS } from "../lib/vipCatalog";
+import { t } from "../lib/i18n";
 
 export default function VipSection({ userId, name }) {
-  const { user, refreshUser } = useApp();
+  const { user, refreshUser, lang } = useApp();
   const nav = useNavigate();
   const [data, setData] = useState(undefined); // undefined=loading, null=none
   const [slot, setSlot] = useState(null);
@@ -29,9 +30,9 @@ export default function VipSection({ userId, name }) {
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-center px-6">
           <Lock className="text-amber-300" size={26} />
-          <div className="font-serif-luxe text-lg text-white mt-2">Sensitive content</div>
-          <p className="text-xs text-slate-300 mt-1 max-w-xs">Приватный VIP-раздел доступен по подписке Premium.</p>
-          <Button data-testid="vip-unlock-cta" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 mt-3">Открыть по подписке</Button>
+          <div className="font-serif-luxe text-lg text-white mt-2">{t("vip_sensitive", lang)}</div>
+          <p className="text-xs text-slate-300 mt-1 max-w-xs">{t("vip_sensitive_note", lang)}</p>
+          <Button data-testid="vip-unlock-cta" onClick={() => nav("/wallet?premium=1")} className="rose-btn text-white border-0 mt-3">{t("vip_unlock_btn", lang)}</Button>
         </div>
       </div>
     );
@@ -55,7 +56,13 @@ export default function VipSection({ userId, name }) {
 
   return (
     <div className="mt-6 glass rounded-2xl p-6 border border-rose-500/30 space-y-4" data-testid="vip-section">
-      <h3 className="font-serif-luxe text-xl gold-text flex items-center gap-2"><Crown size={20} className="text-amber-300" /> VIP · приватные услуги</h3>
+      <h3 className="font-serif-luxe text-xl gold-text flex items-center gap-2"><Crown size={20} className="text-amber-300" /> {t("vip_priv", lang)}</h3>
+
+      {v.photos?.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" data-testid="vip-view-photos">
+          {v.photos.map((p) => <img key={p} src={fileUrl(p)} alt="" className="w-full aspect-square object-cover rounded-lg gold-hairline" />)}
+        </div>
+      )}
 
       {v.services?.length > 0 && (
         <div className="flex flex-wrap gap-2" data-testid="vip-services">
@@ -82,7 +89,7 @@ export default function VipSection({ userId, name }) {
 
       {!data.is_owner && v.availability?.length > 0 && (
         <div>
-          <div className="text-sm font-semibold text-amber-200 mb-2 flex items-center gap-1.5"><Calendar size={15} /> Забронировать</div>
+          <div className="text-sm font-semibold text-amber-200 mb-2 flex items-center gap-1.5"><Calendar size={15} /> {t("vip_book_btn", lang)}</div>
           <div className="flex flex-wrap gap-2" data-testid="vip-slots">
             {v.availability.map((s, i) => (
               <button key={i} data-testid={`vip-book-slot-${i}`} onClick={() => setSlot(s)} className="text-xs bg-white/5 gold-hairline rounded-lg px-3 py-1.5 text-slate-200 hover:bg-white/10 transition-colors">{s.date} · {s.from}–{s.to}</button>

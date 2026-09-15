@@ -1762,6 +1762,42 @@ async def gift_premium(req: GiftPremiumReq, user=Depends(get_current_user)):
     await notify(req.target_id, "premium_gift", f"You received {label}! 👑", f"{user['name']} gifted you 30 days of {label}.", {}, email=True)
     return {"ok": True, "tier": tier}
 
+@api.post("/vip/photo")
+async def vip_add_photo(photo: UploadFile = File(...), user=Depends(get_current_user)):
+    if not is_vip(user):
+        raise HTTPException(403, "VIP_REQUIRED")
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "vip": 1})
+    vip = u.get("vip") or {}
+    photos = vip.get("photos") or []
+    if len(photos) >= 12:
+        raise HTTPException(400, "MAX_PHOTOS")
+    data = await photo.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(400, "TOO_LARGE")
+    ct = photo.content_type or "image/jpeg"
+    if not ct.startswith("image/"):
+        raise HTTPException(400, "NOT_IMAGE")
+    ext = (photo.filename.split(".")[-1] if photo.filename and "." in photo.filename else "jpg").lower()
+    path = f"{APP_NAME}/vipphotos/{user['id']}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, ct)
+    await db.files.insert_one({"id": str(uuid.uuid4()), "storage_path": result["path"], "user_id": user["id"],
+                               "content_type": ct, "size": result["size"], "is_deleted": False, "private": False,
+                               "created_at": datetime.now(timezone.utc).isoformat()})
+    photos.append(result["path"])
+    vip["photos"] = photos
+    await db.users.update_one({"id": user["id"]}, {"$set": {"vip": vip}})
+    return {"photos": photos}
+
+@api.delete("/vip/photo")
+async def vip_del_photo(path: str, user=Depends(get_current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "vip": 1})
+    vip = u.get("vip") or {}
+    photos = [p for p in (vip.get("photos") or []) if p != path]
+    vip["photos"] = photos
+    await db.users.update_one({"id": user["id"]}, {"$set": {"vip": vip}})
+    await db.files.update_one({"storage_path": path}, {"$set": {"is_deleted": True}})
+    return {"photos": photos}
+
 # ---------- Stripe checkout ----------
 class AutoRenewReq(BaseModel):
     enabled: bool
