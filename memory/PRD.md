@@ -114,4 +114,6 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 
 - 2026-09-15: SEARCH FILTER — separate Premium and VIP filters. Browse advanced filters now have two toggles: "👑 Только Премиум" (premium_only) and "♛ Только VIP" (vip_only). Backend GET /profiles: new vip_only param (filters vip_until>now), added to advanced_used premium-gate; profiles now carry is_vip flag. i18n vip_only (11 langs). Curl-verified: vip_only→3 (all is_vip); premium_only→5 (incl. non-VIP premium). Browser-verified both toggles render.
 
+- 2026-09-15: VIP filter restricted to VIP members. Frontend: "♛ Только VIP" toggle only rendered when isVip (vip_until>now). Backend GET /profiles: if vip_only and not is_vip(user) → 403 VIP_REQUIRED (checked after the PREMIUM_REQUIRED advanced gate). Browse load() shows a VIP-only toast + clears vip_only on VIP_REQUIRED. i18n vip_filter_locked (11 langs). Curl-verified: VIP→200; premium-not-VIP+vip_only→VIP_REQUIRED; premium-not-VIP+premium_only→200; non-premium→PREMIUM_REQUIRED.
+
 ## Backlog

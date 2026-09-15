@@ -976,6 +976,7 @@ async def list_profiles(
     advanced_used = any(v not in (None, "", "all", False) for v in (intent, min_height, max_height, kids, smoking, religion, drinking, income, language, orientation,
                                                                    hobby, job, min_weight, max_weight, bust_size, penis_size, max_date_price, premium_only, vip_only, with_photos, verified_only, online_now))
     if advanced_used and not is_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
+    if vip_only and not is_vip(user): raise HTTPException(403, "VIP_REQUIRED")
     if city: conds.append({"city": {"$regex": city, "$options": "i"}})
     if country: conds.append({"country": {"$regex": country, "$options": "i"}})
     if gender and gender != "all": conds.append({"gender": gender})

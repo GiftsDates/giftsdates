@@ -54,6 +54,7 @@ function Toggle({ testid, label, checked, onChange }) {
 export default function Browse() {
   const { lang, user } = useApp();
   const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
+  const isVip = user?.vip_until && new Date(user.vip_until) > new Date();
   const nav = useNavigate();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,8 @@ export default function Browse() {
       const { data } = await api.get("/profiles", { params });
       setProfiles(data);
     } catch (e) {
-      if (e.response?.data?.detail === "PREMIUM_REQUIRED") { toast.error(t("premium_filters_locked", lang), { action: { label: t("premium", lang), onClick: () => nav("/wallet?premium=1") } }); setFilters(f => ({ ...f, ...EXTRA_DEFAULT })); }
+      if (e.response?.data?.detail === "VIP_REQUIRED") { toast.error(t("vip_filter_locked", lang), { action: { label: "VIP", onClick: () => nav("/wallet?premium=1") } }); setFilters(f => ({ ...f, vip_only: false })); }
+      else if (e.response?.data?.detail === "PREMIUM_REQUIRED") { toast.error(t("premium_filters_locked", lang), { action: { label: t("premium", lang), onClick: () => nav("/wallet?premium=1") } }); setFilters(f => ({ ...f, ...EXTRA_DEFAULT })); }
       else toast.error(t("failed_load", lang));
     }
     finally { setLoading(false); }
@@ -176,7 +178,7 @@ export default function Browse() {
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
-              <Toggle testid="filter-vip-only" label={`♛ ${t("vip_only", lang)}`} checked={filters.vip_only} onChange={v => setFilters({ ...filters, vip_only: v })} />
+              {isVip && <Toggle testid="filter-vip-only" label={`♛ ${t("vip_only", lang)}`} checked={filters.vip_only} onChange={v => setFilters({ ...filters, vip_only: v })} />}
               <Toggle testid="filter-online-now" label={`🟢 ${t("online_now", lang)}`} checked={filters.online_now} onChange={v => setFilters({ ...filters, online_now: v })} />
               <Toggle testid="filter-with-photos" label={`📷 ${t("with_photos", lang)}`} checked={filters.with_photos} onChange={v => setFilters({ ...filters, with_photos: v })} />
               <Toggle testid="filter-verified-only" label={`✅ ${t("verified_only", lang)}`} checked={filters.verified_only} onChange={v => setFilters({ ...filters, verified_only: v })} />
