@@ -2552,7 +2552,8 @@ async def _run_lifecycle():
             for uid in (d["inviter_id"], d["recipient_id"]):
                 await notify(uid, "date_reminder", title, body, {"date_id": d["id"]}, email=True, link=DATES_LINK, cta="View Date")
             await db.dates.update_one({"id": d["id"]}, {"$set": {f"reminders.{flag}": True}})
-        if start - timedelta(hours=24) <= now < start - timedelta(hours=1): await snd("h24", "Your date is tomorrow", "Reminder: your date is tomorrow.")
+        if start - timedelta(hours=24) <= now < start - timedelta(hours=3): await snd("h24", "Your date is tomorrow", "Reminder: your date is coming up. Check the details and use the date chat to coordinate.")
+        elif start - timedelta(hours=3) <= now < start - timedelta(hours=1): await snd("pre3h", "Your date is in a few hours", "Heads up — your date starts in about 3 hours. Confirm the meeting spot in the date chat so no one forgets.")
         elif start - timedelta(hours=1) <= now < start - timedelta(minutes=30): await snd("h1", "Your date starts in 1 hour", "Your date starts in 1 hour.")
         elif start - timedelta(minutes=30) <= now < start: await snd("m30", "Your date starts in 30 minutes", "Cancellation and date coin actions are now locked.")
         elif start <= now < start + timedelta(hours=3): await snd("started", "Your date has started", "Enjoy — be respectful and safe.")

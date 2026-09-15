@@ -13,6 +13,9 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Frontend: React 19, Tailwind, shadcn/ui, sonner toasts. All UI strings in `src/lib/i18n.js`.
 
 ## Delivered
+### 2026-06 (Slot reminders)
+- **Slot Reminders**: the existing `date-lifecycle` cron (`/api/cron/tick`, every 15 min) now sends a dedicated "a few hours before" reminder (`pre3h`, ~3h before the chosen slot) to BOTH partners, filling the gap between the 24h and 1h reminders. Each reminder is idempotent (flag on `dates.reminders`), in-app + email, links to /dates. Verified end-to-end: a date 2h out fires exactly one `pre3h` notification to inviter and recipient.
+
 ### 2026-06 (Invite features: slots, chat, idea photos)
 - **Slot Calendar**: `GET /api/invites/{did}/slots?day=YYYY-MM-DD` (inviter-only) returns 10 start slots 10:00–19:00 (3h duration) with availability; slots conflicting with either party's busy dates are disabled. Frontend shows slot chips (date-slot-<id>-HH:00) in the location-proposal step; clicking sets the time. Conflict check (`_conflict` + slots) now treats DATE_CONFIRMED, DATE_COMPLETED_PENDING_VERIFICATION and PHOTO_VERIFICATION_PENDING as busy (`BUSY_STATUSES`).
 - **Date Chat Thread**: per-date messaging via `GET/POST /api/invites/{did}/messages` (party-gated, enabled only for DATE_CHAT_STATUSES from DATE_CONFIRMED onward), stored in `db.date_messages`; posting notifies the other party in-app (no email). Frontend DateChat panel (toggle date-chat-toggle-<id>) with polling, own messages right-aligned.
