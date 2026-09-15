@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
@@ -64,7 +64,8 @@ export default function InviteDateModal({ open, onOpenChange, target }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#161320] border-white/10 text-white max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="invite-date-modal">
-        <DialogHeader><DialogTitle className="font-serif-luxe text-2xl">Invite {target?.name} on a Date</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="font-serif-luxe text-2xl">Invite {target?.name} on a Date</DialogTitle>
+          <DialogDescription className="text-slate-400 text-sm">Choose up to 3 first-date ideas and send your invitation.</DialogDescription></DialogHeader>
 
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90" data-testid="invite-safety-notice">
           <ShieldAlert size={16} className="mt-0.5 shrink-0 text-amber-300" />

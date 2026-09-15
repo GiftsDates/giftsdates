@@ -2379,10 +2379,13 @@ async def invite_verify(did: str, file: UploadFile = File(...), confirm: bool = 
     start = _pdt((d.get("location") or {}).get("scheduled_start"))
     if not start or _now() < start + timedelta(hours=24): raise HTTPException(400, "VERIFY_NOT_YET")
     if not confirm: raise HTTPException(400, "Confirmation required")
+    ct = (file.content_type or "").lower()
+    ext = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp"}.get(ct)
+    if not ext: raise HTTPException(400, "Only JPEG/PNG/WEBP images allowed")
     data = await file.read()
     if len(data) > 15 * 1024 * 1024: raise HTTPException(400, "Max 15MB")
-    path = f"giftsdates/dateverify/{did}/{uuid.uuid4()}.jpg"
-    put_object(path, data, file.content_type or "image/jpeg")
+    path = f"giftsdates/dateverify/{did}/{uuid.uuid4()}.{ext}"
+    put_object(path, data, ct)
     ver = {"user_id": user["id"], "photo": path, "note": note, "status": "pending", "submitted_at": _iso()}
     await db.dates.update_one({"id": did}, {"$set": {"verification": ver}})
     await _log_status(did, "PHOTO_VERIFICATION_PENDING", user["id"])

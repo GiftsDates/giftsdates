@@ -1,0 +1,38 @@
+{
+  "summary": "Iter10 regression on Invite-on-a-Date v2 + date-ideas catalog + Monthly Spin + Admin dates + Cron auth. Backend: 20/20 pytest cases pass covering (1) /date-ideas returns >=261 items with categories, search/free/romantic+budget filters combine; (2) fresh registration user.coins == 0 (no welcome bonus); (3) invite validations — self-invite 400, safety_ack false -> SAFETY_ACK_REQUIRED, 0 and 4 ideas 400, coins below floor -> 400 with 'MIN_COINS:<floor>' where floor=max(150,recipient.date_price); (4) happy path INVITATION_SENT -> DATE_ACTIVITY_SELECTED -> LOCATION_PROPOSED -> DATE_CONFIRMED and windows{lock_at,report_open,report_close,verify_at,auto_complete_at} populated; (5) taxi request/confirm deducts inviter coins and total_hold grows by taxi amount; (6) pickup path offer->address->confirm->DATE_CONFIRMED; (7) transport refuse from TAXI_REQUESTED -> CANCELLED_TRANSPORTATION with 50/25/25 refund (inviter DATE_REFUND 50%, recipient RECIPIENT_COMPENSATION 25%); (8) recipient cancel -> full DATE_REFUND to inviter; inviter cancel -> 50/25/25; (9) coin_transactions have balance_before/after; (10) /report before scheduled_start -> REPORT_WINDOW_CLOSED; (11) /verify with future start -> VERIFY_NOT_YET; (12) /spin/status eligible=true for fresh user, /spin/claim succeeds and second same-month claim -> 400 'Already spun this month'; (13) admin /admin/dates returns 403 for non-admin, 200 for admin; (14) /cron/tick and /cron/spin -> 401 without/with wrong bearer, 200 with correct WEBHOOK_CRON_SECRET. Frontend (Playwright): premv3 login OK, /dates shows outgoing-dates section with 60 date-cards including data-testid=date-card-*, /spin renders spin-page and spin-go-btn, profile-view-date-button opens invite-date-modal on admin's profile, invite-selected-count updates from '[Selected 0/3]' to '[Selected 2/3]' when clicking two of 261 ideas rendered, ack checkbox enables invite-send-button (disabled attr null). Admin login -> /admin shows admin-tab-dates; clicking it renders admin-dates panel listing 30 dates with 'Payout recipient / Refund inviter / 50/25/25' action buttons (matches admin_resolve payout_recipient|refund_inviter|split).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [
+    {"screen": "InviteDateModal (DialogContent)", "issues": ["Missing DialogDescription / aria-describedby -> Radix a11y warning in console; add <DialogDescription> to describe the modal content for screen readers."]}
+  ]},
+  "test_report_links": [
+    "/app/backend/tests/test_giftsdates_iter10.py",
+    "/app/test_reports/pytest/iter10.xml"
+  ],
+  "action_items": [
+    "(nit) Add DialogDescription/aria-describedby to InviteDateModal DialogContent to remove Radix accessibility warning."
+  ],
+  "critical_code_review_comments": [
+    "server.py invite_taxi_confirm (2290): status guard allows TAXI_REQUESTED or PICKUP_ADDRESS_SELECTED, but two consecutive taxi_amount holds could be added if flow goes TAXI_REQUESTED -> pickup/offer -> pickup/address -> taxi/confirm on the same date. The taxi_amount is currently kept in transportation across pickup states; verify total_hold is not double-charged if a user toggles between paths. Minor idempotency risk; consider clearing pending taxi hold if pickup is confirmed.",
+    "server.py invite_transport_refuse (2335): only inviter can trigger, but state machine name suggests either side may refuse transportation; if design is intentional, name/copy could be clearer ('Inviter refuses transportation -> cancel'). Also refund is always 'split' regardless of who requested; acceptable per spec but confirm intent.",
+    "server.py invite_verify (2376): upload accepts any file.content_type and forces .jpg path; a maliciously named .png or video with 15MB will still be stored as .jpg. Add a strict content-type/extension whitelist.",
+    "server.py _refund (2109): 50/25/25 uses integer floor division (hold//2 + hold//4 + residual to platform). For odd values like 300 the split becomes 150/75/75 (OK) but for 305 -> 152/76/77 — verify residual-to-platform is intended (currently is).",
+    "server.py list_date_ideas (680): requires auth (user=Depends). If catalog should be browsable for logged-out marketing preview, consider making it public with a smaller sample. Current 261 items + 3 categories confirmed OK.",
+    "server.py admin_dates (2447): no pagination; returns up to 300 dates in one shot with embedded mini profiles. For a growing dataset this will scale linearly; add limit/skip/status pagination.",
+    "server.py admin_verify/admin_resolve (2458/2472): action is a raw query string with no enum validation until the else branch; use Literal / Enum for FastAPI schema.",
+    "server.py cron_tick / cron_spin: work is scheduled with asyncio.create_task but there is no dedupe/lock — if two cron ticks land within seconds the same reminders could be sent twice (reminder flags mitigate but spin reminders also update spin_email_month per user which is idempotent). Acceptable, but note for scale.",
+    "InviteDateModal.jsx: 261 idea buttons are all rendered in a single scrollable list (no virtualization). On low-end devices this can be sluggish; consider windowing (react-virtual) or lazy-render after search.",
+    "InviteDates.jsx date list: on inviter side the location form uses browser-native <Input type=\"date\"/type=\"time\"> — consider using the app's shadcn calendar for consistency (the same feedback applied in prior iterations).",
+    "Admin.jsx dates tab: action buttons 'Payout recipient / Refund inviter / 50/25/25' have no confirm dialog; irreversible coin movements deserve a confirm modal."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_giftsdates_iter10.py",
+    "/app/test_reports/iteration_10.json"
+  ],
+  "success_rate": {"backend": "20/20 (100%)", "frontend": "5/5 critical UI flows verified (invite-modal, /dates outgoing list, /spin, admin-tab-dates, admin-dates panel)"},
+  "test_credentials": "premv3@example.com / TestPass123! (inviter, coins topped up to 50000 for regression); admin@giftsdates.com / TestPass123! (admin+recipient); test suite auto-registers TEST_iter10_*@example.com fresh recipients with date_price=300.",
+  "seed_data_creation": "premv3 coins were reset to 50000 (withdrawable 0) to unblock repeated invite flows (previous iterations had drained coins to 0). ~10 TEST_iter10_*@example.com users were registered and each was set to date_price=300; multiple date documents (~10 new) inserted into db.dates in various terminal or in-progress statuses. spin_history has one new fresh-user row for the current month.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Settings 'date_min_coins' is 300 — so /auth/me PATCH date_price rejects <300 even though INVITE_MIN_COINS=150. Effective invite floor = max(150, recipient.date_price) which for fresh recipients is 300. 2) db.dates enforces TIME_CONFLICT per-user per 3h window; when writing multiple invites for the same inviter, space scheduled_start well apart (this suite uses days*5 counter). 3) admin-tab-dates action buttons call /admin/dates/{id}/resolve?action=payout_recipient|refund_inviter|split (query string) and /verify?approve=<bool>. 4) Cron secret is in backend/.env as WEBHOOK_CRON_SECRET; keep in sync if rotated. 5) Registration user.coins is 0 by design (no welcome bonus); only /spin/claim can grant coins post-registration. 6) All 261 idea buttons render in InviteDateModal — selectors data-testid=invite-idea-<idea_id>.",
+  "rca of the issue": null
+}
