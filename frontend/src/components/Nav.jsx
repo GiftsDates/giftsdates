@@ -12,6 +12,7 @@ export default function Nav() {
   const nav = useNavigate();
   const loc = useLocation();
   const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
+  const isVip = user?.vip_until && new Date(user.vip_until) > new Date();
 
   const NavLink = ({ to, icon: Icon, label, testid }) => (
     <Link to={to} data-testid={testid} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${loc.pathname === to ? "bg-rose-500/15 text-rose-300 border border-rose-500/30" : "text-slate-300 hover:bg-white/5 hover:text-white"}`}>
@@ -51,7 +52,11 @@ export default function Nav() {
                 <span>🪙</span>
                 <span>{(user.coins || 0) + (user.withdrawable || 0)}</span>
               </div>
-              {isPremium ? (
+              {isVip ? (
+                <span data-testid="nav-vip-badge" className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/50 text-red-400 text-xs font-semibold">
+                  <Crown size={12} className="text-red-500 fill-red-500" /> VIP
+                </span>
+              ) : isPremium ? (
                 <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs">
                   <Crown size={12} /> {t("premium_active", lang)}
                 </span>
