@@ -13,6 +13,9 @@ Build a dating platform "GiftsDates" with profile browsing by location, likes, 8
 - Frontend: React 19, Tailwind, shadcn/ui, sonner toasts. All UI strings in `src/lib/i18n.js`.
 
 ## Delivered
+### 2026-06 (Add to calendar)
+- **Add to Calendar**: every confirmed date card (with a scheduled slot, not cancelled) now shows "Google Calendar" (data-testid date-cal-google-<id>) and "Download .ics" (date-cal-ics-<id>) actions. Client-side only: Google link uses the render?action=TEMPLATE format; .ics is generated as a Blob download. Event includes idea name, partner, venue/address and the 3h window. Localized in all 11 languages (id_cal_google / id_cal_ics). Verified via UI screenshot.
+
 ### 2026-06 (Slot reminders)
 - **Slot Reminders**: the existing `date-lifecycle` cron (`/api/cron/tick`, every 15 min) now sends a dedicated "a few hours before" reminder (`pre3h`, ~3h before the chosen slot) to BOTH partners, filling the gap between the 24h and 1h reminders. Each reminder is idempotent (flag on `dates.reminders`), in-app + email, links to /dates. Verified end-to-end: a date 2h out fires exactly one `pre3h` notification to inviter and recipient.
 
