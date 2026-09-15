@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Heart, Wallet, MessageCircle, Search, Crown, LogOut, CalendarHeart } from "lucide-react";
+import { Heart, Wallet, MessageCircle, Search, Crown, LogOut, CalendarHeart, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import LanguageSwitcher from "./LanguageSwitcher";
 import NotificationBell from "./NotificationBell";
@@ -8,7 +8,7 @@ import { useApp } from "../context/AppContext";
 import { t } from "../lib/i18n";
 
 export default function Nav() {
-  const { user, lang, logout } = useApp();
+  const { user, lang, logout, spinEligible } = useApp();
   const nav = useNavigate();
   const loc = useLocation();
   const isPremium = user?.premium_until && new Date(user.premium_until) > new Date();
@@ -39,6 +39,7 @@ export default function Nav() {
             <NavLink to="/matches" icon={Heart} label={t("matches", lang)} testid="nav-link-matches" />
             <NavLink to="/chats" icon={MessageCircle} label={t("chats", lang)} testid="nav-link-chats" />
             <NavLink to="/dates" icon={CalendarHeart} label={t("dates", lang)} testid="nav-link-dates" />
+            {spinEligible && <NavLink to="/spin" icon={Sparkles} label={t("sp_nav", lang)} testid="nav-link-spin" />}
             <NavLink to="/wallet" icon={Wallet} label={t("wallet", lang)} testid="nav-link-wallet" />
           </nav>
         )}

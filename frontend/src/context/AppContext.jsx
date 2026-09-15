@@ -10,6 +10,12 @@ export function AppProvider({ children }) {
   const [lang, setLang] = useState(() => localStorage.getItem("gd_lang") || "en");
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [spinEligible, setSpinEligible] = useState(false);
+
+  const refreshSpin = useCallback(async () => {
+    if (!localStorage.getItem("gd_token")) { setSpinEligible(false); return; }
+    try { const { data } = await api.get("/spin/status"); setSpinEligible(!!data.eligible); } catch { setSpinEligible(false); }
+  }, []);
 
   const setLanguage = useCallback((code) => {
     setLang(code);
@@ -33,8 +39,9 @@ export function AppProvider({ children }) {
       const { data } = await api.get("/auth/me");
       setUser(data);
       if (data.language && data.language !== lang) setLang(data.language);
-    } catch { localStorage.removeItem("gd_token"); setUser(null); }
-  }, [lang]);
+      refreshSpin();
+    } catch { localStorage.removeItem("gd_token"); setUser(null); setSpinEligible(false); }
+  }, [lang, refreshSpin]);
 
   useEffect(() => {
     (async () => {
@@ -56,10 +63,10 @@ export function AppProvider({ children }) {
     setUser(data.user);
     return data.user;
   };
-  const logout = () => { localStorage.removeItem("gd_token"); setUser(null); };
+  const logout = () => { localStorage.removeItem("gd_token"); setUser(null); setSpinEligible(false); };
 
   return (
-    <AppCtx.Provider value={{ user, setUser, lang, setLanguage, meta, loading, login, register, logout, refreshUser }}>
+    <AppCtx.Provider value={{ user, setUser, lang, setLanguage, meta, loading, login, register, logout, refreshUser, spinEligible, refreshSpin }}>
       {children}
     </AppCtx.Provider>
   );

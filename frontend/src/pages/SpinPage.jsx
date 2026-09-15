@@ -16,7 +16,7 @@ const SEG = 45;
 const GRAD = `conic-gradient(from -22.5deg, ${COLORS.map((c, i) => `${c} ${i * SEG}deg ${(i + 1) * SEG}deg`).join(", ")})`;
 
 export default function SpinPage() {
-  const { lang, refreshUser } = useApp();
+  const { lang, refreshUser, refreshSpin } = useApp();
   const [status, setStatus] = useState(null);
   const [rot, setRot] = useState(0);
   const [spinning, setSpinning] = useState(false);
@@ -32,7 +32,7 @@ export default function SpinPage() {
       const p = data.prize;
       const target = 360 * 6 + (360 - (p.index || 0) * SEG);
       setRot(target);
-      setTimeout(async () => { setResult(p); setSpinning(false); await refreshUser(); }, 4300);
+      setTimeout(async () => { setResult(p); setSpinning(false); await refreshUser(); await refreshSpin(); }, 4300);
     } catch (e) {
       setSpinning(false);
       toast.error(e.response?.data?.detail || t("failed", lang));
@@ -45,8 +45,8 @@ export default function SpinPage() {
   return (
     <div className="aurora-bg min-h-[calc(100vh-4rem)]">
       <div className="max-w-lg mx-auto px-4 py-12 text-center" data-testid="spin-page">
-        <h1 className="font-serif-luxe text-4xl flex items-center justify-center gap-2"><Sparkles className="text-amber-300" /> Monthly Spin &amp; Win</h1>
-        <p className="text-sm text-slate-400 mt-2">Spin once a month for free coins or Premium.</p>
+        <h1 className="font-serif-luxe text-4xl flex items-center justify-center gap-2"><Sparkles className="text-amber-300" /> {t("sp_title", lang)}</h1>
+        <p className="text-sm text-slate-400 mt-2">{t("sp_subtitle", lang)}</p>
 
         <div className="relative mx-auto my-8" style={{ width: 320, height: 320 }} data-testid="spin-wheel">
           <div className="absolute left-1/2 -translate-x-1/2 -top-1 z-20" style={{ width: 0, height: 0, borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "22px solid #fbbf24" }} />
@@ -70,7 +70,7 @@ export default function SpinPage() {
           </div>
         ) : status && !status.eligible ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-slate-300" data-testid="spin-not-eligible">
-            You already spun this month. Come back next month!{status.last ? ` Last win: ${status.last.type === "premium" ? "Premium" : "🪙" + status.last.coins}` : ""}
+            {t("sp_already", lang)}{status.last ? ` ${t("sp_last_win", lang)}: ${status.last.type === "premium" ? t("spin_premium_prize", lang) : "🪙" + status.last.coins}` : ""}
           </div>
         ) : (
           <Button data-testid="spin-go-btn" onClick={spin} disabled={spinning || !status} className="rose-btn text-white border-0 h-12 px-8 text-base">

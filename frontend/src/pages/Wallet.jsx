@@ -7,13 +7,13 @@ import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Coins, Lock, Wallet as WalletIcon, Crown, ArrowUpRight, ArrowDownRight, ShieldCheck } from "lucide-react";
+import { Coins, Lock, Wallet as WalletIcon, Crown, ArrowUpRight, ArrowDownRight, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import PayoutAccountCard from "../components/PayoutAccountCard";
 import ReferralCard from "../components/ReferralCard";
 
 export default function Wallet() {
-  const { user, lang, meta, refreshUser } = useApp();
+  const { user, lang, meta, refreshUser, spinEligible } = useApp();
   const [sp] = useSearchParams();
   const nav = useNavigate();
   const [wallet, setWallet] = useState({ transactions: [], withdrawals: [], payout_account: null, withdraw_commission: 0.3, coins_per_usd: 10, min_withdraw_usd: 50 });
@@ -69,6 +69,17 @@ export default function Wallet() {
             <Button data-testid="wallet-withdraw-open-button" onClick={() => setWdOpen(true)} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10">{t("withdraw", lang)}</Button>
           </div>
         </div>
+
+        {spinEligible && (
+          <button data-testid="wallet-spin-cta" onClick={() => nav("/spin")} className="w-full flex items-center gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-rose-500/10 p-4 text-left hover:from-amber-500/25 transition-colors">
+            <span className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-400/50 flex items-center justify-center flex-shrink-0"><Sparkles size={20} className="text-amber-300" /></span>
+            <div className="flex-1">
+              <div className="font-serif-luxe text-lg text-amber-200">{t("sp_title", lang)}</div>
+              <div className="text-xs text-slate-300">{t("sp_wallet_cta", lang)}</div>
+            </div>
+            <ArrowUpRight size={18} className="text-amber-300" />
+          </button>
+        )}
 
         <div className="grid sm:grid-cols-3 gap-4">
           <Card icon={Coins} title={t("balance", lang)} value={`🪙 ${(user?.coins ?? 0) + (user?.withdrawable ?? 0)}`} sub={(user?.withdrawable > 0) ? t("spendable_note", lang) : undefined} tone="amber" testid="wallet-balance-coins"/>
