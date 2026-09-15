@@ -109,6 +109,7 @@ export default function InviteDateModal({ open, onOpenChange, target }) {
             return (
               <button key={i.id} data-testid={`invite-idea-${i.id}`} onClick={() => toggleSel(i)}
                 className={`text-left rounded-xl border p-3 transition-colors ${on ? "bg-rose-500/15 border-rose-500/50" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                {i.category_image && <img src={i.category_image} alt="" loading="lazy" onError={e => (e.currentTarget.style.display = "none")} className="w-full h-20 object-cover rounded-lg mb-2" data-testid={`invite-idea-img-${i.id}`} />}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold">{i.name}</span>
                   {on ? <Check size={16} className="text-rose-300" /> : <span className="text-[10px] text-slate-500">{tr("iv_add")}</span>}

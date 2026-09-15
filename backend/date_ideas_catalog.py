@@ -221,3 +221,34 @@ def build_catalog():
             "free": free, "active": True, "created_at": now,
         })
     return out
+
+
+
+# Representative photo per category (Unsplash). Shown on idea cards in the invite modal.
+CAT_IMG = {
+    "coffee_casual": "https://images.unsplash.com/photo-1469631423273-6995642a6a40?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "food": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "walk_explore": "https://images.unsplash.com/photo-1767259119685-b78a6ea25423?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "creative": "https://images.unsplash.com/photo-1590605095243-072811dbe64c?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "fun_games": "https://images.unsplash.com/photo-1558324190-c940eb141401?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "entertainment": "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "outdoor": "https://images.unsplash.com/photo-1731186622228-38f68d3f64ad?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "animal_nature": "https://images.unsplash.com/photo-1599492816933-2101fe60bc72?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "culture_learning": "https://images.unsplash.com/photo-1565799515768-2dcfd834625c?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "shopping": "https://images.unsplash.com/photo-1488841714725-bb4c32d1ac94?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "music": "https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "active": "https://images.unsplash.com/photo-1609987052013-0f4e84e9ff5d?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "romantic": "https://images.unsplash.com/photo-1513279922550-250c2129b13a?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "budget": "https://images.unsplash.com/photo-1505908846027-e6ad54bc8ddc?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "unique": "https://images.unsplash.com/photo-1544441452-326ff5a947fd?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "rainy": "https://images.unsplash.com/photo-1698767747188-22daa33ea9e5?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "winter": "https://images.unsplash.com/photo-1544176617-98a2c9f5ba9e?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "summer": "https://images.unsplash.com/photo-1684348406379-950ef79e81c9?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "city": "https://images.unsplash.com/photo-1635438556492-cff83abdd3c2?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "simple": "https://images.unsplash.com/photo-1640037984424-ac1a02cb742a?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "conversation": "https://images.unsplash.com/photo-1604881988758-f76ad2f7aac1?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "social": "https://images.unsplash.com/photo-1506869640319-fe1a24fd76dc?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "instagram": "https://images.unsplash.com/photo-1483648969698-5e7dcaa3444f?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "adventure": "https://images.unsplash.com/photo-1494822493217-c9840aba840c?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+    "surprise": "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?crop=entropy&cs=srgb&fm=jpg&q=80&w=500&ixlib=rb-4.1.0",
+}

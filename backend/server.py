@@ -9,7 +9,7 @@ from typing import List, Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
-from date_ideas_catalog import build_catalog
+from date_ideas_catalog import build_catalog, CAT_IMG
 import os, uuid, logging, bcrypt, jwt, stripe, requests, re, secrets, httpx
 
 ROOT_DIR = Path(__file__).parent
@@ -695,6 +695,8 @@ async def list_date_ideas(search: Optional[str] = None, category: Optional[str] 
                        ("food", food), ("conversation", conversation), ("entertainment", entertainment), ("free", free)]:
         if val: conds.append({field: True})
     items = await db.date_ideas.find({"$and": conds}, {"_id": 0}).sort("name", 1).to_list(limit)
+    for it in items:
+        it["category_image"] = CAT_IMG.get(it.get("category"))
     cat_docs = await db.date_ideas.find({"active": True}, {"_id": 0, "category": 1, "category_label": 1}).to_list(1000)
     seen, categories = set(), []
     for c in cat_docs:
@@ -2189,6 +2191,8 @@ class InviteReportReq(BaseModel):
     reasons: list[str] = []
     details: str
     evidence: Optional[str] = None
+class DateMsgReq(BaseModel):
+    text: str
 
 @api.post("/invites")
 async def create_invite(req: InviteCreateReq, user=Depends(get_current_user)):
@@ -2404,6 +2408,55 @@ async def invite_ack(did: str, user=Depends(get_current_user)):
     await db.dates.update_one({"id": did}, {"$push": {"acknowledgements": {"by": user["id"], "at": _iso(),
                               "text": "I confirm I have no complaints regarding this date, its cancellation, refund, or the agreed arrangements."}}})
     return {"ok": True}
+
+@api.get("/invites/{did}/slots")
+async def invite_slots(did: str, day: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"], "inviter")
+    try:
+        base = datetime.fromisoformat(day).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+    except Exception:
+        raise HTTPException(400, "Invalid day")
+    day_end = base + timedelta(days=1)
+    busy = []
+    for uid in {d["inviter_id"], d["recipient_id"]}:
+        docs = await db.dates.find({"status": "DATE_CONFIRMED", "id": {"$ne": did},
+                                    "$or": [{"inviter_id": uid}, {"recipient_id": uid}]}, {"_id": 0, "location": 1}).to_list(300)
+        for x in docs:
+            loc = x.get("location") or {}
+            s, e = _pdt(loc.get("scheduled_start")), _pdt(loc.get("scheduled_end"))
+            if s and e and s < day_end and e > base:
+                busy.append((s, e))
+    slots = []
+    for h in range(10, 20):  # starts 10:00..19:00, +3h ends by 22:00
+        st = base.replace(hour=h)
+        en = st + timedelta(hours=DATE_WINDOW_HOURS)
+        conflict = any(bs < en and st < be for bs, be in busy)
+        slots.append({"time": f"{h:02d}:00", "start": _iso(st), "available": not conflict})
+    return {"day": day, "busy": [{"start": _iso(s), "end": _iso(e)} for s, e in busy], "slots": slots, "duration_hours": DATE_WINDOW_HOURS}
+
+DATE_CHAT_STATUSES = {"DATE_CONFIRMED", "DATE_COMPLETED_PENDING_VERIFICATION", "PHOTO_VERIFICATION_PENDING",
+                      "COMPLETED", "COMPLETED_AUTO", "REPORTED", "UNDER_ADMIN_REVIEW"}
+
+@api.get("/invites/{did}/messages")
+async def invite_messages(did: str, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    msgs = await db.date_messages.find({"date_id": did}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    return {"messages": msgs, "chat_enabled": d["status"] in DATE_CHAT_STATUSES}
+
+@api.post("/invites/{did}/messages")
+async def invite_send_message(did: str, req: DateMsgReq, user=Depends(get_current_user)):
+    d = await _get_party(did, user["id"])
+    if d["status"] not in DATE_CHAT_STATUSES:
+        raise HTTPException(400, "CHAT_NOT_AVAILABLE")
+    text = (req.text or "").strip()[:1000]
+    if not text:
+        raise HTTPException(400, "Empty message")
+    msg = {"id": str(uuid.uuid4()), "date_id": did, "from_id": user["id"], "text": text, "created_at": _iso()}
+    await db.date_messages.insert_one(dict(msg))
+    other = d["recipient_id"] if d["inviter_id"] == user["id"] else d["inviter_id"]
+    await notify(other, "date_message", "New date message", f"{user.get('name')}: {text[:80]}",
+                 {"date_id": did}, email=False, link=DATES_LINK, cta="Open chat")
+    return {"ok": True, "message": msg}
 
 @api.get("/invites")
 async def list_invites(user=Depends(get_current_user)):

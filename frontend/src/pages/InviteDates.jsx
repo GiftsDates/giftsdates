@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { CalendarHeart, MapPin, Clock, Coins, ShieldAlert, Flag, Camera, Car, Check, X } from "lucide-react";
+import { CalendarHeart, MapPin, Clock, Coins, ShieldAlert, Flag, Camera, Car, Check, X, MessageCircle, Send } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { api, fileUrl } from "../lib/api";
@@ -12,6 +12,44 @@ import LegacyDates from "./Dates";
 
 const FALLBACK = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80";
 const TERMINAL = ["COMPLETED", "COMPLETED_AUTO", "CANCELLED", "CANCELLED_TRANSPORTATION", "REFUNDED"];
+const CHAT_STATUSES = ["DATE_CONFIRMED", "DATE_COMPLETED_PENDING_VERIFICATION", "PHOTO_VERIFICATION_PENDING", "COMPLETED", "COMPLETED_AUTO", "REPORTED", "UNDER_ADMIN_REVIEW"];
+
+function DateChat({ did, meId, lang }) {
+  const tr = (k) => t(k, lang);
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const endRef = React.useRef(null);
+  const load = useCallback(() => { api.get(`/invites/${did}/messages`).then(r => setMsgs(r.data.messages || [])).catch(() => {}); }, [did]);
+  useEffect(() => { load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, [load]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs.length]);
+  const send = async () => {
+    const t2 = text.trim(); if (!t2) return;
+    setBusy(true);
+    try { const r = await api.post(`/invites/${did}/messages`, { text: t2 }); setMsgs(m => [...m, r.data.message]); setText(""); }
+    catch (e) { toast.error(e.response?.data?.detail || t("failed", lang)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3" data-testid={`date-chat-${did}`}>
+      <div className="text-xs font-semibold text-sky-200 mb-2 flex items-center gap-1"><MessageCircle size={13} />{tr("id_chat")}</div>
+      <div className="max-h-48 overflow-y-auto space-y-1.5 mb-2" data-testid={`date-chat-messages-${did}`}>
+        {msgs.length === 0 && <div className="text-[11px] text-slate-500 py-2">{tr("id_chat_empty")}</div>}
+        {msgs.map(m => {
+          const mine = m.from_id === meId;
+          return <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+            <span className={`text-xs px-2.5 py-1.5 rounded-2xl max-w-[80%] break-words ${mine ? "bg-rose-500/25 text-rose-50" : "bg-white/10 text-slate-200"}`}>{m.text}</span>
+          </div>;
+        })}
+        <div ref={endRef} />
+      </div>
+      <div className="flex gap-2">
+        <Input data-testid={`date-chat-input-${did}`} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder={tr("id_chat_ph")} className="bg-white/5 border-white/10 h-9" />
+        <Button data-testid={`date-chat-send-${did}`} disabled={busy || !text.trim()} onClick={send} className="rose-btn text-white border-0 h-9"><Send size={14} /></Button>
+      </div>
+    </div>
+  );
+}
 
 function Countdown({ to, label }) {
   const [now, setNow] = useState(Date.now());
@@ -29,7 +67,7 @@ const REASONS = [
 ];
 
 function DateCard({ d, reload }) {
-  const { lang } = useApp();
+  const { lang, user } = useApp();
   const tr = (k, vars) => { let s = t(k, lang); if (vars) Object.entries(vars).forEach(([n, v]) => (s = s.replace(`{${n}}`, v))); return s; };
   const nav = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -46,6 +84,14 @@ function DateCard({ d, reload }) {
   const nowMs = Date.now();
   const reportOpen = w.report_open && nowMs >= new Date(w.report_open).getTime() && nowMs <= new Date(w.report_close).getTime();
   const canVerify = w.verify_at && nowMs >= new Date(w.verify_at).getTime();
+  const chatEnabled = CHAT_STATUSES.includes(d.status);
+  const [slots, setSlots] = useState([]);
+  const [showChat, setShowChat] = useState(false);
+  useEffect(() => {
+    if (isInv && d.status === "DATE_ACTIVITY_SELECTED" && date) {
+      api.get(`/invites/${d.id}/slots`, { params: { day: date } }).then(r => setSlots(r.data.slots || [])).catch(() => setSlots([]));
+    } else setSlots([]);
+  }, [date, d.status, d.id, isInv]);
 
   const statusLabel = () => { const l = t(`ds_${d.status}`, lang); return l === `ds_${d.status}` ? d.status_label : l; };
   const stepText = () => {
@@ -110,6 +156,19 @@ function DateCard({ d, reload }) {
             <AddressPicker value={loc} onChange={setLoc} />
             <div className="flex gap-2"><Input data-testid={`date-date-${d.id}`} type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-white/5 border-white/10 h-9" />
               <Input data-testid={`date-time-${d.id}`} type="time" value={time} onChange={e => setTime(e.target.value)} className="bg-white/5 border-white/10 h-9" /></div>
+            {date ? (
+              <div data-testid={`date-slots-${d.id}`}>
+                <div className="text-[11px] text-slate-400 mb-1">{tr("id_pick_slot")}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {slots.map(s => (
+                    <button key={s.time} type="button" data-testid={`date-slot-${d.id}-${s.time}`} disabled={!s.available} onClick={() => setTime(s.time)}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${time === s.time ? "bg-rose-500/25 border-rose-500/60 text-rose-100" : s.available ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10" : "bg-white/5 border-white/5 text-slate-600 line-through cursor-not-allowed"}`}>
+                      {s.time}{!s.available ? ` · ${tr("id_slot_busy")}` : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : <div className="text-[11px] text-slate-500">{tr("id_slot_none")}</div>}
             <Button data-testid={`date-location-submit-${d.id}`} disabled={busy || !venue || !date} onClick={() => act(() => post("/location", { venue, address: loc.address, city: loc.city, country: loc.country, postal_code: loc.postal_code, lat: loc.lat, lng: loc.lng, scheduled_start: new Date(`${date}T${time}:00`).toISOString() }))} className="rose-btn text-white border-0 h-9">{tr("id_propose_location")}</Button>
           </div>
         )}
@@ -147,6 +206,7 @@ function DateCard({ d, reload }) {
         {reportOpen && <Button data-testid={`date-report-${d.id}`} onClick={() => setShowReport(v => !v)} variant="outline" className="h-9 bg-rose-500/10 border-rose-500/40 text-rose-300"><Flag size={14} className="me-1" />{tr("id_report_this")}</Button>}
         {canVerify && ["DATE_CONFIRMED", "DATE_COMPLETED_PENDING_VERIFICATION"].includes(d.status) &&
           <Button data-testid={`date-verify-${d.id}`} onClick={() => setShowVerify(v => !v)} variant="outline" className="h-9 bg-emerald-500/10 border-emerald-500/40 text-emerald-300"><Camera size={14} className="me-1" />{tr("id_send_photo_conf")}</Button>}
+        {chatEnabled && <Button data-testid={`date-chat-toggle-${d.id}`} onClick={() => setShowChat(v => !v)} variant="outline" className="h-9 bg-sky-500/10 border-sky-500/40 text-sky-300"><MessageCircle size={14} className="me-1" />{tr("id_chat")}</Button>}
       </div>
 
       {showReport && (
@@ -168,6 +228,7 @@ function DateCard({ d, reload }) {
           <Button data-testid={`verify-submit-${d.id}`} disabled={busy} onClick={submitVerify} className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 h-9">{tr("id_verify_send")}</Button>
         </div>
       )}
+      {showChat && chatEnabled && <DateChat did={d.id} meId={user?.id} lang={lang} />}
     </div>
   );
 }
